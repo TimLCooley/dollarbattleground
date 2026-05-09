@@ -1,26 +1,91 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+@theme {
+  --color-crimson: #b0121a;
+  --color-navy: #0e2a52;
+  --color-bone: #f4efe6;
+  --color-ink: #0b0b0c;
+
+  --font-display: var(--font-display);
+  --font-mono: var(--font-mono);
+  --font-body: var(--font-body);
+  --font-sans: var(--font-body);
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+html,
+body {
+  background: var(--color-ink);
+  color: var(--color-bone);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+@keyframes stamp-down {
+  0% {
+    opacity: 0;
+    transform: scale(1.55) rotate(-2.2deg);
+    filter: blur(7px);
+  }
+  55% {
+    opacity: 1;
+    transform: scale(0.965) rotate(-1.2deg);
+    filter: blur(0);
+  }
+  78% {
+    transform: scale(1.018) rotate(-0.6deg);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) rotate(-1deg);
+    filter: blur(0);
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+.stamp {
+  display: inline-block;
+  transform-origin: center 70%;
+  animation: stamp-down 0.6s cubic-bezier(0.22, 1.5, 0.45, 1) both;
+  text-shadow:
+    -1px 0 0 rgba(176, 18, 26, 0.6),
+    2px 0 0 rgba(14, 42, 82, 0.45),
+    0 1px 0 rgba(11, 11, 12, 0.85),
+    3px 2px 7px rgba(176, 18, 26, 0.18);
+}
+
+.enlist-btn {
+  box-shadow:
+    4px 4px 0 0 var(--color-crimson),
+    8px 8px 0 0 var(--color-navy);
+}
+.enlist-btn:active {
+  box-shadow:
+    1px 1px 0 0 var(--color-crimson),
+    3px 3px 0 0 var(--color-navy);
+}
+.enlist-btn:focus-visible {
+  outline: 2px solid var(--color-bone);
+  outline-offset: 4px;
+}
+
+.tally-rule {
+  background: linear-gradient(
+    to bottom,
+    transparent 0%,
+    rgba(244, 239, 230, 0.5) 15%,
+    rgba(244, 239, 230, 0.5) 85%,
+    transparent 100%
+  );
+}
+
+.grain {
+  background-image:
+    radial-gradient(rgba(244, 239, 230, 0.045) 1px, transparent 1px),
+    radial-gradient(rgba(11, 11, 12, 0.4) 1px, transparent 1px);
+  background-size: 3px 3px, 7px 7px;
+  background-position: 0 0, 1px 1px;
+  mix-blend-mode: overlay;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .stamp {
+    animation: none;
+  }
 }
