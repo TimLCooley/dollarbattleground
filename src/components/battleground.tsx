@@ -101,8 +101,8 @@ export function Battleground({
   }
 
   return (
-    <div className="flex min-h-screen bg-white text-neutral-900">
-      <main className="relative flex flex-1 items-center justify-center p-8">
+    <div className="flex h-screen overflow-hidden bg-white text-neutral-900">
+      <main className="relative flex flex-1 items-center justify-center overflow-auto p-8">
         <div
           className="grid"
           style={{ gridTemplateColumns: `repeat(${GRID}, 2.75rem)` }}

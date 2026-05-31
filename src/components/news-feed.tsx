@@ -15,12 +15,12 @@ function fmtTime(iso: string): string {
 
 export function NewsFeed({ items }: { items: FeedItem[] }) {
   return (
-    <aside className="flex w-[360px] shrink-0 flex-col border-l border-neutral-200">
+    <aside className="flex h-full w-[360px] shrink-0 flex-col border-l border-neutral-200">
       <header className="sticky top-0 z-10 border-b border-neutral-200 bg-white/80 px-4 py-3 backdrop-blur">
         <h2 className="text-lg font-bold">Updates</h2>
       </header>
 
-      <div className="flex-1 overflow-y-auto">
+      <div className="min-h-0 flex-1 overflow-y-auto">
         {items.length === 0 ? (
           <p className="px-4 py-6 text-sm text-neutral-400">
             No updates yet. Claim a square to get things started.

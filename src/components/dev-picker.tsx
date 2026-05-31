@@ -84,6 +84,16 @@ function buildSelector(start: Element): string {
   return parts.join(" > ");
 }
 
+function formatSummary(p: Picked): string {
+  return (
+    `<${p.tag}${p.aria ? ` aria-label="${p.aria}"` : ""}>` +
+    (p.component ? `\ncomponent: <${p.component}>` : "") +
+    (p.source ? `\nsource: ${p.source}` : "") +
+    `\nselector: ${p.selector}` +
+    (p.text ? `\ntext: "${p.text}"` : "")
+  );
+}
+
 export function DevPicker() {
   const [active, setActive] = useState(false);
   const [hoverRect, setHoverRect] = useState<DOMRect | null>(null);
@@ -113,7 +123,7 @@ export function DevPicker() {
       e.stopPropagation();
       const rect = el.getBoundingClientRect();
       const { component, source } = getReactInfo(el);
-      setPicked({
+      const info: Picked = {
         tag: el.tagName.toLowerCase(),
         aria: el.getAttribute("aria-label"),
         text: (el.textContent || "").trim().replace(/\s+/g, " ").slice(0, 100),
@@ -126,9 +136,13 @@ export function DevPicker() {
           width: rect.width,
           height: rect.height,
         },
-      });
-      setCopied(false);
+      };
+      setPicked(info);
       setActive(false);
+      navigator.clipboard
+        .writeText(formatSummary(info))
+        .then(() => setCopied(true))
+        .catch(() => setCopied(false));
     }
 
     function onKey(e: KeyboardEvent) {
@@ -145,13 +159,7 @@ export function DevPicker() {
     };
   }, [active, isOwnUI]);
 
-  const summary = picked
-    ? `<${picked.tag}${picked.aria ? ` aria-label="${picked.aria}"` : ""}>` +
-      (picked.component ? `\ncomponent: <${picked.component}>` : "") +
-      (picked.source ? `\nsource: ${picked.source}` : "") +
-      `\nselector: ${picked.selector}` +
-      (picked.text ? `\ntext: "${picked.text}"` : "")
-    : "";
+  const summary = picked ? formatSummary(picked) : "";
 
   async function copy() {
     if (!summary) return;
@@ -193,7 +201,7 @@ export function DevPicker() {
         {picked && (
           <div className="w-72 rounded-lg border border-neutral-300 bg-white p-3 shadow-lg">
             <div className="mb-1 font-semibold text-neutral-900">
-              Selected element
+              {copied ? "Copied ✓ — paste to Claude" : "Selected element"}
             </div>
             <pre className="mb-2 whitespace-pre-wrap break-words text-[11px] leading-snug text-neutral-700">
               {summary}
@@ -204,7 +212,7 @@ export function DevPicker() {
                 onClick={copy}
                 className="rounded bg-neutral-900 px-2 py-1 text-white"
               >
-                {copied ? "Copied ✓" : "Copy for Claude"}
+                {copied ? "Copied ✓" : "Copy again"}
               </button>
               <button
                 type="button"
