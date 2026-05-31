@@ -3,25 +3,12 @@
 import { useEffect, useMemo, useState } from "react";
 import { createClient } from "@/utils/supabase/client";
 import { NewsFeed, type FeedItem } from "@/components/news-feed";
+import { BreachToasts } from "@/components/breach-toasts";
+import { GRID, useBoard } from "@/hooks/use-board";
+import type { Faction, CellRow } from "@/hooks/use-board";
 
-export type Faction = { key: string; name: string; color: string };
-export type Cell = { x: number; y: number; faction_key: string | null };
-
-const GRID = 10;
-
-function key(x: number, y: number): string {
-  return `${x},${y}`;
-}
-
-async function fetchBalance(
-  supabase: ReturnType<typeof createClient>,
-): Promise<number | null> {
-  const { data } = await supabase
-    .from("wallets")
-    .select("balance_credits")
-    .maybeSingle();
-  return data?.balance_credits ?? null;
-}
+export type { Faction } from "@/hooks/use-board";
+export type Cell = CellRow;
 
 export function Battleground({
   factions,
@@ -30,47 +17,21 @@ export function Battleground({
   initialBalance,
 }: {
   factions: Faction[];
-  initialCells: Cell[];
+  initialCells: CellRow[];
   initialFeed: FeedItem[];
   initialBalance: number | null;
 }) {
   const supabase = useMemo(() => createClient(), []);
-
-  const colorOf = useMemo(() => {
-    const m = new Map(factions.map((f) => [f.key, f.color]));
-    return (k: string | null) => (k ? (m.get(k) ?? null) : null);
-  }, [factions]);
-
-  const [cells, setCells] = useState<Map<string, string | null>>(() => {
-    const m = new Map<string, string | null>();
-    for (let y = 0; y < GRID; y++) {
-      for (let x = 0; x < GRID; x++) m.set(key(x, y), null);
-    }
-    for (const c of initialCells) m.set(key(c.x, c.y), c.faction_key);
-    return m;
+  const board = useBoard(supabase, {
+    factions,
+    cells: initialCells,
+    balance: initialBalance,
   });
+
   const [feed, setFeed] = useState<FeedItem[]>(initialFeed);
-  const [balance, setBalance] = useState<number | null>(initialBalance);
-  const [myFaction, setMyFaction] = useState<string>(
-    factions[0]?.key ?? "democrat",
-  );
-  const [error, setError] = useState<string | null>(null);
-
   useEffect(() => {
-    fetchBalance(supabase).then((b) => {
-      if (b !== null) setBalance(b);
-    });
-
     const channel = supabase
-      .channel("battleground")
-      .on(
-        "postgres_changes",
-        { event: "UPDATE", schema: "public", table: "cells" },
-        (payload) => {
-          const c = payload.new as Cell;
-          setCells((prev) => new Map(prev).set(key(c.x, c.y), c.faction_key));
-        },
-      )
+      .channel(`feed-${Math.random().toString(36).slice(2)}`)
       .on(
         "postgres_changes",
         { event: "INSERT", schema: "public", table: "feed" },
@@ -79,26 +40,10 @@ export function Battleground({
         },
       )
       .subscribe();
-
     return () => {
       supabase.removeChannel(channel);
     };
   }, [supabase]);
-
-  async function claimSquare(x: number, y: number) {
-    setError(null);
-    const { error: rpcError } = await supabase.rpc("claim_cell", {
-      p_x: x,
-      p_y: y,
-      p_faction_key: myFaction,
-    });
-    if (rpcError) {
-      setError(rpcError.message);
-      return;
-    }
-    const b = await fetchBalance(supabase);
-    if (b !== null) setBalance(b);
-  }
 
   return (
     <div className="flex h-screen overflow-hidden bg-white text-neutral-900">
@@ -110,13 +55,13 @@ export function Battleground({
           {Array.from({ length: GRID * GRID }).map((_, i) => {
             const x = i % GRID;
             const y = Math.floor(i / GRID);
-            const color = colorOf(cells.get(key(x, y)) ?? null);
+            const color = board.colorAt(x, y);
             return (
               <button
                 key={i}
                 type="button"
                 aria-label={`Grid ${x}-${y}`}
-                onClick={() => claimSquare(x, y)}
+                onClick={() => board.claim(x, y)}
                 style={color ? { backgroundColor: color } : undefined}
                 className="h-11 w-11 cursor-pointer border border-neutral-300 transition-colors hover:border-neutral-500"
               />
@@ -125,15 +70,23 @@ export function Battleground({
         </div>
 
         <Hud
-          factions={factions}
-          selected={myFaction}
-          onSelect={setMyFaction}
-          balance={balance}
-          error={error}
+          factions={board.factions}
+          selected={board.myFaction}
+          onSelect={board.setMyFaction}
+          balance={board.balance}
+          error={board.error}
         />
       </main>
 
       <NewsFeed items={feed} />
+
+      <BreachToasts
+        breaches={board.breaches}
+        factionName={board.factionName}
+        colorOf={board.colorOf}
+        onRetaliate={board.retaliate}
+        onDismiss={board.dismissBreach}
+      />
     </div>
   );
 }
