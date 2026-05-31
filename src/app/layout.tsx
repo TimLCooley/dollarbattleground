@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Anton, IBM_Plex_Mono, Roboto_Slab } from "next/font/google";
 import "./globals.css";
+import { DevPicker } from "@/components/dev-picker";
 
 const anton = Anton({
   variable: "--font-display",
@@ -42,7 +43,10 @@ export default function RootLayout({
       lang="en"
       className={`${anton.variable} ${plexMono.variable} ${robotoSlab.variable} h-full antialiased`}
     >
-      <body className="min-h-full bg-white font-body text-neutral-900">{children}</body>
+      <body className="min-h-full bg-white font-body text-neutral-900">
+        {children}
+        {process.env.NODE_ENV !== "production" && <DevPicker />}
+      </body>
     </html>
   );
 }
