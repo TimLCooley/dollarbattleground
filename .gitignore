@@ -41,3 +41,6 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 .env*.local
+
+# claude code local settings (machine-local, may contain secrets)
+.claude/settings.local.json
