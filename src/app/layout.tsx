@@ -42,7 +42,7 @@ export default function RootLayout({
       lang="en"
       className={`${anton.variable} ${plexMono.variable} ${robotoSlab.variable} h-full antialiased`}
     >
-      <body className="min-h-full bg-ink font-body text-bone">{children}</body>
+      <body className="min-h-full bg-white font-body text-neutral-900">{children}</body>
     </html>
   );
 }

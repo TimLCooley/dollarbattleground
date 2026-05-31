@@ -25,7 +25,13 @@ export async function updateSession(request: NextRequest) {
     },
   );
 
-  await supabase.auth.getClaims();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    await supabase.auth.signInAnonymously();
+  }
 
   return supabaseResponse;
 }
