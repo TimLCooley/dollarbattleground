@@ -38,11 +38,10 @@ function getReactInfo(el: Element): {
   let guard = 0;
 
   while (fiber && guard++ < 1000) {
-    const t = (fiber.type ?? fiber.elementType) as
-      | { displayName?: string; name?: string }
-      | undefined;
+    const t: unknown = fiber.type ?? fiber.elementType;
     if (!component && typeof t === "function") {
-      const name = t.displayName || t.name;
+      const fn = t as { displayName?: string; name?: string };
+      const name = fn.displayName || fn.name;
       if (name) component = name;
     }
     if (!source && fiber._debugSource?.fileName) {
