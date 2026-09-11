@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createClient } from "@/utils/supabase/client";
+import { Announcer } from "./announcer";
 
 const N = 15;
 const TOTAL = N * N;
@@ -150,13 +151,22 @@ function xPattern(i: number): number[] {
 
 interface BoardViewProps {
   board: Battleground;
-  lockedSide?: Team; // /red and /blue lock you to a faction
+  lockedSide?: Team; // /red and /blue (and a chosen player) lock you to a faction
   title?: string; // command banner label
+  placementMode?: boolean; // onboarding "plant your flag" — next tap is a free claim
+  onPlace?: (i: number) => void;
 }
 
-export function BoardView({ board, lockedSide, title }: BoardViewProps) {
+export function BoardView({
+  board,
+  lockedSide,
+  title,
+  placementMode,
+  onPlace,
+}: BoardViewProps) {
   const { cells, counts, popping, claim } = board;
-  const [side, setSide] = useState<Team>(lockedSide ?? "blue");
+  const [internalSide, setInternalSide] = useState<Team>("blue");
+  const side: Team = lockedSide ?? internalSide;
   const [tool, setTool] = useState<Tool>("flip");
   const [spent, setSpent] = useState(0);
   const [hint, setHint] = useState(
@@ -173,6 +183,11 @@ export function BoardView({ board, lockedSide, title }: BoardViewProps) {
   const onTap = useCallback(
     (i: number) => {
       if (won) return;
+      if (placementMode) {
+        claim([i], side); // free first tile
+        onPlace?.(i);
+        return;
+      }
       if (bonusArmed.current) {
         claim([i], side);
         bonusArmed.current = false;
@@ -190,12 +205,12 @@ export function BoardView({ board, lockedSide, title }: BoardViewProps) {
         setHint("X placed! Now tap any tile — your bonus flip.");
       }
     },
-    [won, tool, side, claim],
+    [won, tool, side, claim, placementMode, onPlace],
   );
 
   function pickSide(t: Team) {
     if (lockedSide) return;
-    setSide(t);
+    setInternalSide(t);
     setHint(`You are now on the ${t === "blue" ? "Blue" : "Red"} team.`);
   }
 
@@ -399,6 +414,7 @@ export function Command({
   const board = useBattleground();
   return (
     <>
+      <Announcer counts={board.counts} playerSide={lockedSide} />
       <BoardView board={board} lockedSide={lockedSide} title={title} />
       <ViewNav active={active} />
     </>
@@ -410,6 +426,7 @@ export function BothCommand() {
   const board = useBattleground();
   return (
     <>
+      <Announcer counts={board.counts} />
       <div className="split">
         <BoardView board={board} lockedSide="blue" title="BLUE COMMAND" />
         <BoardView board={board} lockedSide="red" title="RED COMMAND" />

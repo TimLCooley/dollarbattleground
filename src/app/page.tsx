@@ -1,5 +1,5 @@
-import { Command } from "@/components/board";
+import { HomeExperience } from "@/components/home-experience";
 
 export default function Home() {
-  return <Command active="/" />;
+  return <HomeExperience />;
 }

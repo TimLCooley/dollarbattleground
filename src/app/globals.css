@@ -406,3 +406,220 @@ body {
   outline: 3px solid var(--gold);
   outline-offset: 2px;
 }
+
+/* ---------------- announcer (game-master hype ticker) ---------------- */
+.announcer {
+  width: 100%;
+  max-width: 460px;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  background: var(--ground-2);
+  border: 3px solid #0c3c21;
+  box-shadow: var(--shadow-pix);
+  padding: 8px 12px;
+  min-height: 40px;
+  font-size: 15px;
+  color: var(--parch);
+  overflow: hidden;
+}
+.announcer.threat {
+  background: #3a1414;
+  border-color: #7c2020;
+  color: #ffd7d2;
+}
+.ann-dot {
+  width: 9px;
+  height: 9px;
+  flex: 0 0 auto;
+  background: var(--gold);
+  box-shadow: var(--shadow-pix);
+  animation: annpulse 1.2s steps(2) infinite;
+}
+.announcer.threat .ann-dot {
+  background: var(--red);
+}
+.ann-text {
+  display: block;
+  animation: annfade 0.35s ease-out;
+}
+@keyframes annpulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.3;
+  }
+}
+@keyframes annfade {
+  from {
+    opacity: 0;
+    transform: translateX(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* ---------------- onboarding (WAVE funnel) ---------------- */
+.ob-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: grid;
+  place-items: center;
+  padding: 18px;
+  background: rgba(9, 40, 22, 0.82);
+  animation: obfade 0.25s ease-out;
+  overflow-y: auto;
+}
+@keyframes obfade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+.ob-card {
+  width: 100%;
+  max-width: 380px;
+  background: var(--ground-2);
+  border: 4px solid #0c3c21;
+  box-shadow: 0 0 0 3px var(--ground), 0 14px 0 -2px rgba(0, 0, 0, 0.3);
+  padding: 22px 20px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  align-items: center;
+}
+.ob-card.red {
+  border-color: #6f1d1d;
+}
+.ob-card.blue {
+  border-color: #1d3a72;
+}
+.ob-kicker {
+  font-family: var(--font-pixel), monospace;
+  font-size: 11px;
+  letter-spacing: 1px;
+  color: var(--gold);
+}
+.ob-title {
+  font-family: var(--font-pixel), monospace;
+  font-size: clamp(16px, 5vw, 20px);
+  line-height: 1.5;
+  margin: 0;
+  color: var(--cream);
+  text-shadow: 2px 2px 0 rgba(0, 0, 0, 0.35);
+  text-wrap: balance;
+}
+.ob-body {
+  font-size: 16px;
+  line-height: 1.5;
+  margin: 0;
+  color: var(--parch);
+  max-width: 30ch;
+}
+.ob-input {
+  width: 100%;
+  font-family: var(--font-hand), sans-serif;
+  font-size: 18px;
+  padding: 10px 12px;
+  color: var(--ink);
+  background: var(--wheat);
+  border: 3px solid var(--wheat-2);
+  box-shadow: var(--shadow-pix);
+  outline: none;
+}
+.ob-input:focus-visible {
+  outline: 3px solid var(--gold);
+  outline-offset: 1px;
+}
+.ob-btn {
+  width: 100%;
+  font-family: var(--font-pixel), monospace;
+  font-size: 13px;
+  padding: 12px;
+  color: var(--ink);
+  background: var(--gold);
+  border: 3px solid var(--gold-d);
+  box-shadow: var(--shadow-pix);
+  cursor: pointer;
+}
+.ob-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.ob-skip {
+  background: none;
+  border: 0;
+  color: var(--parch);
+  opacity: 0.7;
+  font-family: var(--font-hand), sans-serif;
+  font-size: 15px;
+  cursor: pointer;
+  text-decoration: underline;
+}
+.ob-sides {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  width: 100%;
+}
+.ob-side {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-pixel), monospace;
+  font-size: 14px;
+  color: var(--cream);
+  padding: 16px 8px;
+  cursor: pointer;
+  background: var(--ground);
+  border: 3px solid #0c3c21;
+  box-shadow: var(--shadow-pix);
+}
+.ob-side .ob-swatch {
+  width: 34px;
+  height: 34px;
+  box-shadow: var(--shadow-pix);
+}
+.ob-side.blue .ob-swatch {
+  background: var(--blue);
+}
+.ob-side.red .ob-swatch {
+  background: var(--red);
+}
+.ob-side.blue:hover {
+  background: #1c2740;
+}
+.ob-side.red:hover {
+  background: #3a2020;
+}
+
+.place-banner {
+  width: 100%;
+  max-width: 460px;
+  text-align: center;
+  font-size: 16px;
+  color: var(--ink);
+  background: var(--gold);
+  border: 3px solid var(--gold-d);
+  box-shadow: var(--shadow-pix);
+  padding: 10px 12px;
+  animation: annfade 0.3s ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ann-dot,
+  .ann-text,
+  .ob-overlay,
+  .place-banner {
+    animation: none;
+  }
+}
