@@ -13,7 +13,7 @@ export async function signInAsGuest(): Promise<void> {
   }
 
   revalidatePath("/", "layout");
-  redirect("/play");
+  redirect("/");
 }
 
 export async function signOut(): Promise<void> {
