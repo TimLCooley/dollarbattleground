@@ -343,11 +343,17 @@ export function BoardView({
         <div className={"roundline rl-" + side}>
           <Link href="/report" className="rl-ranklink" title="Field report">
             {insignia && insignia.kind !== "none" && (
-              <Insignia ins={insignia} size={20} />
+              <Insignia ins={insignia} size={18} />
             )}
             {title && <span className="rl-rank">{title}</span>}
           </Link>
+          <span className="rl-sep" aria-hidden="true">
+            |
+          </span>
           <span className="rl-side">{side.toUpperCase()}</span>
+          <span className="rl-sep" aria-hidden="true">
+            |
+          </span>
           <span className="rl-live">
             YOUR IMPACT &middot; <b>{record?.captures ?? 0}</b>
           </span>

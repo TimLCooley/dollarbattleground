@@ -186,15 +186,13 @@ body {
 }
 .roundline {
   display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
+  flex-wrap: nowrap;
+  align-items: center;
   justify-content: center;
-  gap: 3px 10px;
-  font-size: 15px;
+  gap: 7px;
+  font-size: 14px;
   color: var(--parch);
-}
-.roundline .rl-ranklink {
-  align-self: center;
+  white-space: nowrap;
 }
 .roundline .insignia {
   flex: 0 0 auto;
@@ -217,13 +215,13 @@ body {
 }
 .rl-rank {
   font-family: var(--font-pixel), monospace;
-  font-size: 12px;
+  font-size: 11px;
   letter-spacing: 0.5px;
   color: var(--cream);
 }
 .rl-side {
   font-family: var(--font-pixel), monospace;
-  font-size: 17px;
+  font-size: 16px;
   letter-spacing: 0.5px;
   color: var(--cream);
 }
@@ -234,9 +232,9 @@ body {
   color: #ffb0ac;
 }
 .rl-sep {
-  width: 2px;
-  height: 16px;
-  background: rgba(255, 255, 255, 0.2);
+  flex: 0 0 auto;
+  color: rgba(255, 255, 255, 0.28);
+  font-size: 15px;
 }
 .rl-live {
   display: inline-flex;
