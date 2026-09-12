@@ -16,7 +16,12 @@ interface Player {
   spent: number; // total $ spent — the main rank driver
   isOfficer: boolean; // gated by buying a $5 action
   placedFirst: boolean; // planted first tile -> promoted to Private
+  captures: number; // total tiles taken (war record)
   rankKey: string; // last acknowledged rank
+}
+
+function tilesFor(amount: number): number {
+  return amount >= 10 ? 9 : amount >= 5 ? 5 : 1;
 }
 
 function orderOfKey(key: string): number {
@@ -48,6 +53,7 @@ export function HomeExperience() {
             spent,
             isOfficer: p.isOfficer ?? false,
             placedFirst: p.placedFirst ?? true,
+            captures: p.captures ?? 0,
             rankKey: p.rankKey ?? "recruit",
           };
           const nr = rankFor(next);
@@ -79,6 +85,7 @@ export function HomeExperience() {
       spent: 0,
       isOfficer: false,
       placedFirst: false,
+      captures: 0,
       rankKey: "recruit",
     };
     setPlayer(p);
@@ -89,7 +96,11 @@ export function HomeExperience() {
   function handlePlace() {
     setPlacing(false);
     if (player && !player.placedFirst) {
-      const promoted: Player = { ...player, placedFirst: true };
+      const promoted: Player = {
+        ...player,
+        placedFirst: true,
+        captures: player.captures + 1,
+      };
       const nr = rankFor(promoted);
       promoted.rankKey = nr.key;
       setPlayer(promoted);
@@ -107,6 +118,7 @@ export function HomeExperience() {
     const next: Player = {
       ...player,
       spent: player.spent + amount,
+      captures: player.captures + tilesFor(amount),
       isOfficer: player.isOfficer || amount >= 5,
     };
     const nr = rankFor(next);
@@ -133,21 +145,30 @@ export function HomeExperience() {
   }
 
   const rank = player ? rankFor(player) : null;
+  const title =
+    player && rank
+      ? `${player.side.toUpperCase()} · ${rank.name.toUpperCase()}`
+      : undefined;
 
   return (
     <>
-      <Announcer counts={board.counts} playerSide={player?.side} threat={flash} />
+      <Announcer counts={board.counts} threat={flash} />
 
       <BoardView
         board={board}
         lockedSide={player?.side}
-        title={rank?.name.toUpperCase()}
+        title={title}
         insignia={rank?.insignia}
         placementMode={placing}
         onPlace={handlePlace}
         isOfficer={player?.isOfficer}
         onPurchase={handlePurchase}
         totalSpent={player?.spent}
+        record={
+          player
+            ? { captures: player.captures, points: player.spent + player.logins }
+            : undefined
+        }
       />
 
       {placing && (

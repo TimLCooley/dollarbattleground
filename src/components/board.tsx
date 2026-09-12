@@ -165,16 +165,45 @@ function strikePattern(i: number): number[] {
   return out;
 }
 
+function Crosshair() {
+  return (
+    <svg className="t-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+      <circle cx="12" cy="12" r="7" />
+      <line x1="12" y1="1" x2="12" y2="5" />
+      <line x1="12" y1="19" x2="12" y2="23" />
+      <line x1="1" y1="12" x2="5" y2="12" />
+      <line x1="19" y1="12" x2="23" y2="12" />
+      <circle cx="12" cy="12" r="1.7" fill="currentColor" stroke="none" />
+    </svg>
+  );
+}
+function Burst() {
+  return (
+    <svg className="t-icon" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" strokeWidth="1" strokeLinejoin="round" aria-hidden="true">
+      <path d="M3 8 L7 13 L12 4 L17 13 L21 8 L19 19 L5 19 Z" />
+    </svg>
+  );
+}
+function Lock() {
+  return (
+    <svg className="t-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
+      <rect x="5" y="11" width="14" height="9" rx="1.5" fill="currentColor" stroke="none" />
+      <path d="M8 11 V8 a4 4 0 0 1 8 0 v3" />
+    </svg>
+  );
+}
+
 interface BoardViewProps {
   board: Battleground;
   lockedSide?: Team; // /red and /blue (and a chosen player) lock you to a faction
-  title?: string; // command banner label (rank on Home)
+  title?: string; // rank/command label shown in the header
   placementMode?: boolean; // onboarding "plant your flag" — next tap is a free claim
   onPlace?: (i: number) => void;
   isOfficer?: boolean; // unlocks the $10 officer action
   onPurchase?: (amount: number) => void; // fired on any paid action ($1/$5/$10)
-  insignia?: InsigniaSpec; // rank insignia for the command bar
+  insignia?: InsigniaSpec; // rank insignia
   totalSpent?: number; // cumulative $ for the statbar (overrides local session)
+  record?: { captures: number; points: number }; // Home war-record strip
 }
 
 export function BoardView({
@@ -187,17 +216,14 @@ export function BoardView({
   onPurchase,
   insignia,
   totalSpent,
+  record,
 }: BoardViewProps) {
   const { cells, counts, popping, claim } = board;
   const [internalSide, setInternalSide] = useState<Team>("blue");
   const side: Team = lockedSide ?? internalSide;
   const [tool, setTool] = useState<Tool>("flip");
   const [spent, setSpent] = useState(0);
-  const [hint, setHint] = useState(
-    lockedSide
-      ? "Place your troops — tap a tile to deploy."
-      : "Place your troops — tap a tile to claim it.",
-  );
+  const [hint, setHint] = useState("Tap a position to take it.");
   const bonusArmed = useRef(false);
 
   const won = counts.n === 0;
@@ -260,25 +286,23 @@ export function BoardView({
 
   return (
     <div className={"cartridge" + (lockedSide ? ` ${lockedSide}-cmd` : "")}>
-      {lockedSide && (
-        <div className={`command-bar ${lockedSide}`}>
-          {insignia && insignia.kind !== "none" && (
-            <Insignia ins={insignia} size={22} />
-          )}
-          <span>◆ {title ?? `${lockedSide.toUpperCase()} COMMAND`} ◆</span>
-        </div>
-      )}
-
       <header className="bg-header">
         <div className="wordmark">
           <span className="coin">$</span>battleground
         </div>
-        <div className="roundline">
-          <span className="nav">&lsaquo; Prev</span>
-          <span>
-            Season 1 &middot; <b>Live</b>
+        <div className={"roundline rl-" + side}>
+          {insignia && insignia.kind !== "none" && (
+            <Insignia ins={insignia} size={20} />
+          )}
+          <span className="rl-rank">
+            {title ??
+              (lockedSide ? `${lockedSide.toUpperCase()} COMMAND` : "SPECTATOR")}
           </span>
-          <span className="nav">Next &rsaquo;</span>
+          <span className="rl-sep" aria-hidden="true" />
+          <span className="rl-live">
+            Season 1 &middot; <b>LIVE</b>
+            <span className="live-dot" aria-hidden="true" />
+          </span>
         </div>
       </header>
 
@@ -362,15 +386,18 @@ export function BoardView({
           <i className="r" style={{ width: `${(counts.r / TOTAL) * 100}%` }} />
         </div>
         <div className="meter-labels">
-          <span className="bl">Blue {pct(counts.b)}%</span>
-          <span style={{ opacity: 0.7 }}>
-            {counts.n ? `— ${counts.n} open —` : "— full —"}
+          <span className="bl">
+            <b>{counts.b}</b> BLUE
           </span>
-          <span className="rl">Red {pct(counts.r)}%</span>
+          <span className="ol">{counts.n} OPEN</span>
+          <span className="rl">
+            <b>{counts.r}</b> RED
+          </span>
         </div>
       </div>
 
-      <div className="hint">{hint}</div>
+      <div className="attack-head">★ CHOOSE YOUR ATTACK ★</div>
+      <div className="attack-sub">{hint}</div>
 
       <div className="tools" role="group" aria-label="Actions">
         <div
@@ -386,8 +413,10 @@ export function BoardView({
             }
           }}
         >
-          <span className="price">$1</span>
-          <span className="desc">Flip one tile</span>
+          <span className="t-price">$1</span>
+          <Crosshair />
+          <span className="t-title">TAKE POSITION</span>
+          <span className="t-sub">Flip 1 tile</span>
         </div>
         <div
           className="tool x"
@@ -402,8 +431,10 @@ export function BoardView({
             }
           }}
         >
-          <span className="price">$5</span>
-          <span className="desc">X-flip + bonus tile</span>
+          <span className="t-price">$5</span>
+          <Burst />
+          <span className="t-title">X-STRIKE</span>
+          <span className="t-sub">5-tile strike + bonus</span>
         </div>
         {isOfficer ? (
           <div
@@ -419,24 +450,48 @@ export function BoardView({
               }
             }}
           >
-            <span className="price">$10</span>
-            <span className="desc">Airstrike</span>
+            <span className="t-price">$10</span>
+            <Burst />
+            <span className="t-title">AIRSTRIKE</span>
+            <span className="t-sub">3×3 strike</span>
           </div>
         ) : (
           <div className="tool locked" aria-disabled="true">
-            <span className="desc">Officers Only</span>
+            <Lock />
+            <span className="t-title">OFFICER COMMAND</span>
+            <span className="t-sub">Commission required</span>
           </div>
         )}
       </div>
 
-      <div className="statbar">
-        <span>
-          Your side: <b>{side.toUpperCase()}</b>
-        </span>
-        <span>
-          Spent: <b>${totalSpent ?? spent}</b>
-        </span>
-      </div>
+      {record ? (
+        <Link href="/settings" className={"war-record " + side}>
+          {insignia && insignia.kind !== "none" && (
+            <span className="wr-ins">
+              <Insignia ins={insignia} size={30} />
+            </span>
+          )}
+          <span className="wr-main">
+            <b>{title}</b>
+            <span>YOUR WAR RECORD</span>
+          </span>
+          <span className="wr-stats">
+            {record.captures} captures &middot; {record.points} pts
+          </span>
+          <span className="wr-arrow" aria-hidden="true">
+            ›
+          </span>
+        </Link>
+      ) : (
+        <div className="statbar">
+          <span>
+            Your side: <b>{side.toUpperCase()}</b>
+          </span>
+          <span>
+            Spent: <b>${totalSpent ?? spent}</b>
+          </span>
+        </div>
+      )}
     </div>
   );
 }
