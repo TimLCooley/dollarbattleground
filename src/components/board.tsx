@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createClient } from "@/utils/supabase/client";
-import { Announcer } from "./announcer";
+import { FieldRadio } from "./announcer";
 import { Insignia, rankFor, type InsigniaSpec } from "@/lib/ranks";
 
 const N = 15;
@@ -202,6 +202,36 @@ function Lock() {
     </svg>
   );
 }
+function CrossedSwords() {
+  return (
+    <svg className="t-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M4 4 L15 15" />
+      <path d="M20 4 L9 15" />
+      <path d="M3 7 L6 4" />
+      <path d="M21 7 L18 4" />
+      <path d="M6.5 15.5 L4 18 M17.5 15.5 L20 18" />
+    </svg>
+  );
+}
+function People() {
+  return (
+    <svg className="stat-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <circle cx="9" cy="8" r="3" />
+      <path d="M3.5 20 v-1 a5.5 5.5 0 0 1 11 0 v1" />
+      <circle cx="17.5" cy="8.5" r="2.4" />
+      <path d="M15.5 14.5 a4.5 4.5 0 0 1 5.5 4.5 v1" />
+    </svg>
+  );
+}
+function Share() {
+  return (
+    <svg className="share-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M12 15 V4" />
+      <path d="M7 9 l5 -5 l5 5" />
+      <path d="M5 13 v6 a1 1 0 0 0 1 1 h12 a1 1 0 0 0 1 -1 v-6" />
+    </svg>
+  );
+}
 
 interface BoardViewProps {
   board: Battleground;
@@ -213,7 +243,8 @@ interface BoardViewProps {
   onPurchase?: (amount: number) => void; // fired on any paid action ($1/$5/$10)
   insignia?: InsigniaSpec; // rank insignia
   totalSpent?: number; // cumulative $ for the statbar (overrides local session)
-  record?: { captures: number; points: number }; // Home war-record strip
+  record?: { captures: number }; // your-impact stat (positions taken)
+  flash?: string | null; // transient briefing (threats/promotions)
 }
 
 export function BoardView({
@@ -227,6 +258,7 @@ export function BoardView({
   insignia,
   totalSpent,
   record,
+  flash,
 }: BoardViewProps) {
   const { cells, counts, popping, claim } = board;
   const [internalSide, setInternalSide] = useState<Team>("blue");
@@ -410,6 +442,8 @@ export function BoardView({
         </div>
       </div>
 
+      <FieldRadio counts={counts} side={side} rank={title} flash={flash} />
+
       <div className="attack-head">★ CHOOSE YOUR ATTACK ★</div>
       <div className="attack-sub">{hint}</div>
 
@@ -451,7 +485,7 @@ export function BoardView({
             </span>
           )}
           <span className="t-price">$5</span>
-          <Burst />
+          <CrossedSwords />
           <span className="t-title">X-STRIKE</span>
           <span className="t-sub">5-tile strike + bonus</span>
         </div>
@@ -486,36 +520,45 @@ export function BoardView({
         )}
       </div>
 
-      {record ? (
-        <Link href="/settings" className={"war-record " + side}>
-          {insignia && insignia.kind !== "none" && (
-            <span className="wr-ins">
-              <Insignia ins={insignia} size={30} />
+      <div className="statgrid">
+        <Link href="/settings" className={"stat sg-side rl-" + side}>
+          <span className="sg-swatch" />
+          <span className="sg-text">
+            <span className="sg-label">
+              YOUR SIDE: <b>{side.toUpperCase()}</b>
             </span>
-          )}
-          <span className="wr-main">
-            <b>
-              {side.toUpperCase()} &middot; {title}
-            </b>
-            <span>YOUR WAR RECORD</span>
-          </span>
-          <span className="wr-stats">
-            {record.captures} captures &middot; {record.points} pts
-          </span>
-          <span className="wr-arrow" aria-hidden="true">
-            ›
+            <span className="sg-val">{title ?? "SOLDIER"}</span>
           </span>
         </Link>
-      ) : (
-        <div className="statbar">
-          <span>
-            Your side: <b>{side.toUpperCase()}</b>
-          </span>
-          <span>
-            Spent: <b>${totalSpent ?? spent}</b>
+        <div className="stat">
+          <Crosshair />
+          <span className="sg-text">
+            <span className="sg-label">YOUR IMPACT</span>
+            <span className="sg-val">{record?.captures ?? 0} taken</span>
           </span>
         </div>
-      )}
+        <div className="stat sg-global">
+          <People />
+          <span className="sg-text">
+            <span className="sg-label">GLOBAL</span>
+            <span className="sg-val">{TOTAL} total</span>
+          </span>
+          <button
+            type="button"
+            className="share-btn"
+            aria-label="Share the battleground"
+            onClick={() => {
+              try {
+                navigator.clipboard?.writeText(window.location.origin);
+              } catch {
+                /* ignore */
+              }
+            }}
+          >
+            <Share />
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
@@ -597,10 +640,13 @@ export function ViewNav({ active }: { active: string }) {
 }
 
 // Shared core: read the enlisted player's rank so every view shows it the same.
-export function usePlayerRank(): { insignia: InsigniaSpec; name: string } | null {
-  const [rank, setRank] = useState<{ insignia: InsigniaSpec; name: string } | null>(
-    null,
-  );
+interface PlayerRank {
+  insignia: InsigniaSpec;
+  name: string;
+  captures: number;
+}
+export function usePlayerRank(): PlayerRank | null {
+  const [rank, setRank] = useState<PlayerRank | null>(null);
   useEffect(() => {
     try {
       const raw = localStorage.getItem("bg_player_v1");
@@ -613,7 +659,11 @@ export function usePlayerRank(): { insignia: InsigniaSpec; name: string } | null
         spent: p.spent ?? 0,
         isOfficer: p.isOfficer ?? false,
       });
-      setRank({ insignia: r.insignia, name: r.name.toUpperCase() });
+      setRank({
+        insignia: r.insignia,
+        name: r.name.toUpperCase(),
+        captures: p.captures ?? 0,
+      });
     } catch {
       /* first visit / storage blocked */
     }
@@ -633,12 +683,12 @@ export function Command({
   const pr = usePlayerRank();
   return (
     <>
-      <Announcer counts={board.counts} />
       <BoardView
         board={board}
         lockedSide={lockedSide}
         title={pr?.name}
         insignia={pr?.insignia}
+        record={pr ? { captures: pr.captures } : undefined}
       />
       <ViewNav active={active} />
     </>
@@ -649,21 +699,23 @@ export function Command({
 export function BothCommand() {
   const board = useBattleground();
   const pr = usePlayerRank();
+  const record = pr ? { captures: pr.captures } : undefined;
   return (
     <>
-      <Announcer counts={board.counts} />
       <div className="split">
         <BoardView
           board={board}
           lockedSide="blue"
           title={pr?.name}
           insignia={pr?.insignia}
+          record={record}
         />
         <BoardView
           board={board}
           lockedSide="red"
           title={pr?.name}
           insignia={pr?.insignia}
+          record={record}
         />
       </div>
       <ViewNav active="/both" />

@@ -3,7 +3,6 @@
 import { useEffect, useRef, useState } from "react";
 import { BoardView, useBattleground, ViewNav, type Team } from "./board";
 import { Onboarding } from "./onboarding";
-import { Announcer } from "./announcer";
 import { PromotionModal } from "./promotion";
 import { rankFor, RANKS, type Rank } from "@/lib/ranks";
 
@@ -149,8 +148,6 @@ export function HomeExperience() {
 
   return (
     <>
-      <Announcer counts={board.counts} threat={flash} />
-
       <BoardView
         board={board}
         lockedSide={player?.side}
@@ -161,11 +158,8 @@ export function HomeExperience() {
         isOfficer={player?.isOfficer}
         onPurchase={handlePurchase}
         totalSpent={player?.spent}
-        record={
-          player
-            ? { captures: player.captures, points: player.spent + player.logins }
-            : undefined
-        }
+        record={player ? { captures: player.captures } : undefined}
+        flash={flash}
       />
 
       {placing && (
