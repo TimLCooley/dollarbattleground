@@ -12,9 +12,9 @@ const KEY = "bg_player_v1";
 interface Player {
   side: Team;
   email: string;
-  logins: number; // enlisted ranks climb with this
-  buys: number; // officer ranks climb with this ($5/$10 actions)
-  isOfficer: boolean;
+  logins: number; // small career-progress nudge
+  spent: number; // total $ spent — the main rank driver
+  isOfficer: boolean; // gated by buying a $5 action
   placedFirst: boolean; // planted first tile -> promoted to Private
   rankKey: string; // last acknowledged rank
 }
@@ -38,15 +38,15 @@ export function HomeExperience() {
     try {
       const raw = localStorage.getItem(KEY);
       if (raw) {
-        const p = JSON.parse(raw) as Partial<Player>;
+        const p = JSON.parse(raw) as Partial<Player> & { buys?: number };
         if (p?.side) {
-          const buys = p.buys ?? 0;
+          const spent = p.spent ?? (p.buys ? p.buys * 5 : 0); // migrate old buys
           const next: Player = {
             side: p.side,
             email: p.email ?? "",
             logins: (p.logins ?? 1) + 1,
-            buys,
-            isOfficer: p.isOfficer ?? buys > 0,
+            spent,
+            isOfficer: p.isOfficer ?? false,
             placedFirst: p.placedFirst ?? true,
             rankKey: p.rankKey ?? "recruit",
           };
@@ -76,7 +76,7 @@ export function HomeExperience() {
       side,
       email,
       logins: 1,
-      buys: 0,
+      spent: 0,
       isOfficer: false,
       placedFirst: false,
       rankKey: "recruit",
@@ -99,11 +99,16 @@ export function HomeExperience() {
     }
   }
 
-  // Buying a $5/$10 action commissions you and climbs the officer ladder.
-  function handlePurchase() {
+  // Every paid action ($1/$5/$10) adds to career progress and can promote you.
+  // A $5+ action also commissions you as an Officer.
+  function handlePurchase(amount: number) {
     if (!player) return;
     const prev = rankFor(player);
-    const next: Player = { ...player, buys: player.buys + 1, isOfficer: true };
+    const next: Player = {
+      ...player,
+      spent: player.spent + amount,
+      isOfficer: player.isOfficer || amount >= 5,
+    };
     const nr = rankFor(next);
     next.rankKey = nr.key;
     setPlayer(next);
@@ -142,6 +147,7 @@ export function HomeExperience() {
         onPlace={handlePlace}
         isOfficer={player?.isOfficer}
         onPurchase={handlePurchase}
+        totalSpent={player?.spent}
       />
 
       {placing && (

@@ -172,8 +172,9 @@ interface BoardViewProps {
   placementMode?: boolean; // onboarding "plant your flag" — next tap is a free claim
   onPlace?: (i: number) => void;
   isOfficer?: boolean; // unlocks the $10 officer action
-  onPurchase?: (amount: number) => void; // fired on a paid $5/$10 action
+  onPurchase?: (amount: number) => void; // fired on any paid action ($1/$5/$10)
   insignia?: InsigniaSpec; // rank insignia for the command bar
+  totalSpent?: number; // cumulative $ for the statbar (overrides local session)
 }
 
 export function BoardView({
@@ -185,6 +186,7 @@ export function BoardView({
   isOfficer,
   onPurchase,
   insignia,
+  totalSpent,
 }: BoardViewProps) {
   const { cells, counts, popping, claim } = board;
   const [internalSide, setInternalSide] = useState<Team>("blue");
@@ -220,6 +222,7 @@ export function BoardView({
         claim([i], side);
         setSpent((v) => v + 1);
         setHint("Flipped one tile.");
+        onPurchase?.(1);
       } else if (tool === "x") {
         claim(xPattern(i), side);
         setSpent((v) => v + 5);
@@ -431,7 +434,7 @@ export function BoardView({
           Your side: <b>{side.toUpperCase()}</b>
         </span>
         <span>
-          Spent: <b>${spent}</b>
+          Spent: <b>${totalSpent ?? spent}</b>
         </span>
       </div>
     </div>

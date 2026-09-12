@@ -7,19 +7,13 @@ import { ViewNav } from "./board";
 interface StoredPlayer {
   side?: "red" | "blue";
   logins?: number;
-  buys?: number;
+  spent?: number;
   isOfficer?: boolean;
   placedFirst?: boolean;
 }
 
 function RankRow({ rank, current }: { rank: Rank; current?: string }) {
-  const plural = (n: number, unit: string) => `${n} ${unit}${n === 1 ? "" : "s"}`;
-  const req =
-    rank.tier === "recruit"
-      ? "enlist"
-      : rank.tier === "officer"
-        ? plural(rank.req, "buy")
-        : plural(rank.req, "login");
+  const req = rank.tier === "recruit" ? "enlist" : `${rank.req} pts`;
   return (
     <li className={current === rank.key ? "is-current" : ""}>
       <span className="fm-ins">
@@ -47,12 +41,15 @@ export function Settings() {
     }
   }, []);
 
+  const spent = player?.spent ?? 0;
+  const logins = player?.logins ?? 1;
+  const points = spent + logins;
   const current = player
     ? rankFor({
         placedFirst: player.placedFirst ?? true,
-        logins: player.logins ?? 1,
+        logins,
         isOfficer: player.isOfficer ?? false,
-        buys: player.buys ?? 0,
+        spent,
       })
     : null;
 
@@ -81,8 +78,8 @@ export function Settings() {
               <div>
                 <div className="fm-rank">{current.name}</div>
                 <div className="fm-sub">
-                  {player.side?.toUpperCase()} team · {player.logins ?? 1} logins
-                  · {player.buys ?? 0} buys
+                  {player.side?.toUpperCase()} team · ${spent} spent · {logins}{" "}
+                  login{logins === 1 ? "" : "s"} · <b>{points} pts</b>
                 </div>
               </div>
             </div>
@@ -91,8 +88,12 @@ export function Settings() {
           )}
         </section>
 
+        <p className="fm-note fm-legend">
+          Career points = $ spent + logins. Every action ranks you up.
+        </p>
+
         <section className="fm-section">
-          <h2 className="fm-h">ENLISTED · climb by logins</h2>
+          <h2 className="fm-h">ENLISTED · by career pts</h2>
           <ul className="fm-list">
             {enlisted.map((r) => (
               <RankRow key={r.key} rank={r} current={current?.key} />
@@ -101,7 +102,7 @@ export function Settings() {
         </section>
 
         <section className="fm-section">
-          <h2 className="fm-h">OFFICERS · climb by $ spent</h2>
+          <h2 className="fm-h">OFFICERS · by career pts · $5 to enter</h2>
           <ul className="fm-list">
             {officers.map((r) => (
               <RankRow key={r.key} rank={r} current={current?.key} />

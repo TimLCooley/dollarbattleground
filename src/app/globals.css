@@ -342,6 +342,11 @@ body {
   color: var(--parch);
   margin: 0;
 }
+.fm-legend {
+  font-size: 14px;
+  opacity: 0.75;
+  font-style: italic;
+}
 .fm-list {
   list-style: none;
   margin: 0;

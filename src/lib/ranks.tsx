@@ -32,16 +32,17 @@ export const RECRUIT: Rank = {
   insignia: { kind: "none" },
 };
 
+// Enlisted climb by CAREER PROGRESS (= total $ spent + logins). req is that score.
 // order values leave room; enlisted 1-8, officers 9-18.
 const ENLISTED: Rank[] = [
-  { key: "pvt", name: "Private", abbr: "PVT", req: 1, chev: [1, 0] },
-  { key: "pfc", name: "Private First Class", abbr: "PFC", req: 3, chev: [1, 1] },
-  { key: "cpl", name: "Corporal", abbr: "CPL", req: 6, chev: [2, 0] },
-  { key: "sgt", name: "Sergeant", abbr: "SGT", req: 10, chev: [3, 0] },
-  { key: "ssg", name: "Staff Sergeant", abbr: "SSG", req: 16, chev: [3, 1] },
-  { key: "sfc", name: "Sergeant First Class", abbr: "SFC", req: 24, chev: [3, 2] },
-  { key: "msg", name: "Master Sergeant", abbr: "MSG", req: 34, chev: [3, 3] },
-  { key: "sgm", name: "Sergeant Major", abbr: "SGM", req: 46, chev: [3, 3] },
+  { key: "pvt", name: "Private", abbr: "PVT", req: 0, chev: [1, 0] },
+  { key: "pfc", name: "Private First Class", abbr: "PFC", req: 4, chev: [1, 1] },
+  { key: "cpl", name: "Corporal", abbr: "CPL", req: 8, chev: [2, 0] },
+  { key: "sgt", name: "Sergeant", abbr: "SGT", req: 14, chev: [3, 0] },
+  { key: "ssg", name: "Staff Sergeant", abbr: "SSG", req: 24, chev: [3, 1] },
+  { key: "sfc", name: "Sergeant First Class", abbr: "SFC", req: 36, chev: [3, 2] },
+  { key: "msg", name: "Master Sergeant", abbr: "MSG", req: 52, chev: [3, 3] },
+  { key: "sgm", name: "Sergeant Major", abbr: "SGM", req: 72, chev: [3, 3] },
 ].map((r, i) => ({
   key: r.key,
   name: r.name,
@@ -52,17 +53,18 @@ const ENLISTED: Rank[] = [
   insignia: { kind: "chevron" as const, chevrons: r.chev[0], rockers: r.chev[1] },
 }));
 
+// Officers are gated by buying a $5, then climb by the same career-progress score.
 const OFFICER: Rank[] = [
-  { key: "2lt", name: "Second Lieutenant", abbr: "2LT", req: 1, ins: { kind: "bar", bars: 1, color: "gold" } },
-  { key: "1lt", name: "First Lieutenant", abbr: "1LT", req: 3, ins: { kind: "bar", bars: 1, color: "silver" } },
-  { key: "cpt", name: "Captain", abbr: "CPT", req: 6, ins: { kind: "bar", bars: 2, color: "silver" } },
-  { key: "maj", name: "Major", abbr: "MAJ", req: 10, ins: { kind: "leaf", color: "gold" } },
-  { key: "ltc", name: "Lieutenant Colonel", abbr: "LTC", req: 15, ins: { kind: "leaf", color: "silver" } },
-  { key: "col", name: "Colonel", abbr: "COL", req: 22, ins: { kind: "eagle" } },
-  { key: "bg", name: "Brigadier General", abbr: "BG", req: 30, ins: { kind: "star", stars: 1 } },
-  { key: "mg", name: "Major General", abbr: "MG", req: 42, ins: { kind: "star", stars: 2 } },
-  { key: "ltg", name: "Lieutenant General", abbr: "LTG", req: 55, ins: { kind: "star", stars: 3 } },
-  { key: "gen", name: "General", abbr: "GEN", req: 70, ins: { kind: "star", stars: 4 } },
+  { key: "2lt", name: "Second Lieutenant", abbr: "2LT", req: 0, ins: { kind: "bar", bars: 1, color: "gold" } },
+  { key: "1lt", name: "First Lieutenant", abbr: "1LT", req: 18, ins: { kind: "bar", bars: 1, color: "silver" } },
+  { key: "cpt", name: "Captain", abbr: "CPT", req: 36, ins: { kind: "bar", bars: 2, color: "silver" } },
+  { key: "maj", name: "Major", abbr: "MAJ", req: 60, ins: { kind: "leaf", color: "gold" } },
+  { key: "ltc", name: "Lieutenant Colonel", abbr: "LTC", req: 95, ins: { kind: "leaf", color: "silver" } },
+  { key: "col", name: "Colonel", abbr: "COL", req: 140, ins: { kind: "eagle" } },
+  { key: "bg", name: "Brigadier General", abbr: "BG", req: 200, ins: { kind: "star", stars: 1 } },
+  { key: "mg", name: "Major General", abbr: "MG", req: 280, ins: { kind: "star", stars: 2 } },
+  { key: "ltg", name: "Lieutenant General", abbr: "LTG", req: 380, ins: { kind: "star", stars: 3 } },
+  { key: "gen", name: "General", abbr: "GEN", req: 520, ins: { kind: "star", stars: 4 } },
 ].map((r, i) => ({
   key: r.key,
   name: r.name,
@@ -81,15 +83,21 @@ function highest(list: Rank[], value: number): Rank {
   return out;
 }
 
+// Career progress rewards spending most, with a small nudge per login (and/or).
+export function progressOf(p: { spent: number; logins: number }): number {
+  return (p.spent ?? 0) + (p.logins ?? 0);
+}
+
 export function rankFor(p: {
   placedFirst: boolean;
   logins: number;
   isOfficer: boolean;
-  buys: number;
+  spent: number;
 }): Rank {
-  if (p.isOfficer) return highest(OFFICER, p.buys);
+  const progress = progressOf(p);
+  if (p.isOfficer) return highest(OFFICER, progress);
   if (!p.placedFirst) return RECRUIT;
-  return highest(ENLISTED, p.logins);
+  return highest(ENLISTED, progress);
 }
 
 // ------------------------------ insignia icons ------------------------------
