@@ -904,6 +904,11 @@ body {
   border-color: #b9a878;
   text-align: center;
 }
+.tool.dimmed {
+  opacity: 0.38;
+  filter: grayscale(0.7);
+  pointer-events: none;
+}
 
 /* your war record strip */
 .war-record {

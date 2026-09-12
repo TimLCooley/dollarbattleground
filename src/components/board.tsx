@@ -272,6 +272,7 @@ export function BoardView({
   }
 
   function pickTool(t: Tool) {
+    if (placementMode) return; // locked to the free placement
     if (t === "strike" && !isOfficer) return; // officers only
     setTool(t);
     bonusArmed.current = false;
@@ -402,7 +403,7 @@ export function BoardView({
           className="tool"
           role="button"
           tabIndex={0}
-          aria-pressed={tool === "flip"}
+          aria-pressed={placementMode || tool === "flip"}
           onClick={() => pickTool("flip")}
           onKeyDown={(e) => {
             if (e.key === "Enter" || e.key === " ") {
@@ -411,15 +412,15 @@ export function BoardView({
             }
           }}
         >
-          <span className="t-price">$1</span>
+          <span className="t-price">{placementMode ? "FREE" : "$1"}</span>
           <Crosshair />
           <span className="t-title">TAKE POSITION</span>
           <span className="t-sub">Flip 1 tile</span>
         </div>
         <div
-          className="tool x"
+          className={"tool x" + (placementMode ? " dimmed" : "")}
           role="button"
-          tabIndex={0}
+          tabIndex={placementMode ? -1 : 0}
           aria-pressed={tool === "x"}
           onClick={() => pickTool("x")}
           onKeyDown={(e) => {
@@ -436,9 +437,9 @@ export function BoardView({
         </div>
         {isOfficer ? (
           <div
-            className="tool officer"
+            className={"tool officer" + (placementMode ? " dimmed" : "")}
             role="button"
-            tabIndex={0}
+            tabIndex={placementMode ? -1 : 0}
             aria-pressed={tool === "strike"}
             onClick={() => pickTool("strike")}
             onKeyDown={(e) => {
@@ -454,7 +455,10 @@ export function BoardView({
             <span className="t-sub">3×3 strike</span>
           </div>
         ) : (
-          <div className="tool locked" aria-disabled="true">
+          <div
+            className={"tool locked" + (placementMode ? " dimmed" : "")}
+            aria-disabled="true"
+          >
             <Lock />
             <span className="t-title">OFFICER COMMAND</span>
             <span className="t-sub">Commission required</span>
