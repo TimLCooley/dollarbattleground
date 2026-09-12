@@ -134,18 +134,22 @@ body {
   outline: 3px solid var(--gold);
   outline-offset: 1px;
 }
-.view-restart {
+.view-restart,
+.view-icon {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   color: var(--cream);
+  text-decoration: none;
   cursor: pointer;
   padding: 5px 9px;
   background: var(--ground-2);
   border: 3px solid #0c3c21;
   box-shadow: var(--shadow-pix);
 }
-.view-restart:focus-visible {
+.view-restart:focus-visible,
+.view-icon:focus-visible,
+.view-icon[aria-current="page"] {
   outline: 3px solid var(--gold);
   outline-offset: 1px;
 }
@@ -297,6 +301,109 @@ body {
   color: var(--parch);
   opacity: 0.65;
   padding: 20px 0;
+}
+
+/* ---------------- field manual (/settings) ---------------- */
+.fm-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.fm-h {
+  font-family: var(--font-pixel), monospace;
+  font-size: 12px;
+  letter-spacing: 1px;
+  color: var(--gold);
+  margin: 0;
+  padding-bottom: 6px;
+  border-bottom: 3px solid #0c3c21;
+}
+.fm-record {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: var(--ground);
+  border: 3px solid #0c3c21;
+  box-shadow: var(--shadow-pix);
+  padding: 10px 12px;
+}
+.fm-rank {
+  font-family: var(--font-pixel), monospace;
+  font-size: 13px;
+  color: var(--cream);
+}
+.fm-sub {
+  font-size: 14px;
+  color: var(--parch);
+  opacity: 0.85;
+}
+.fm-note {
+  font-size: 16px;
+  color: var(--parch);
+  margin: 0;
+}
+.fm-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.fm-list li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 5px 10px;
+  background: var(--ground);
+  border: 3px solid #0c3c21;
+  box-shadow: var(--shadow-pix);
+}
+.fm-list li.is-current {
+  outline: 3px solid var(--gold);
+  outline-offset: -1px;
+}
+.fm-ins {
+  width: 40px;
+  flex: 0 0 auto;
+  display: flex;
+  justify-content: center;
+}
+.fm-blank {
+  color: var(--parch);
+  opacity: 0.5;
+}
+.fm-name {
+  flex: 1;
+  font-size: 16px;
+  color: var(--cream);
+}
+.fm-req {
+  font-family: var(--font-pixel), monospace;
+  font-size: 10px;
+  color: var(--parch);
+  opacity: 0.75;
+  text-align: right;
+  white-space: nowrap;
+}
+.fm-orders {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.fm-orders li {
+  font-size: 15px;
+  color: var(--parch);
+  line-height: 1.4;
+}
+.fm-orders b {
+  font-family: var(--font-pixel), monospace;
+  font-size: 12px;
+  color: var(--gold);
+  margin-right: 6px;
 }
 .cell.tuft::after {
   content: "";
