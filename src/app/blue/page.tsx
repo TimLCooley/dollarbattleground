@@ -6,5 +6,5 @@ export const metadata: Metadata = {
 };
 
 export default function BluePage() {
-  return <Command lockedSide="blue" title="BLUE COMMAND" active="/blue" />;
+  return <Command lockedSide="blue" active="/blue" />;
 }

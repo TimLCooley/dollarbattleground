@@ -6,5 +6,5 @@ export const metadata: Metadata = {
 };
 
 export default function RedPage() {
-  return <Command lockedSide="red" title="RED COMMAND" active="/red" />;
+  return <Command lockedSide="red" active="/red" />;
 }

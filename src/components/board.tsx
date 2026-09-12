@@ -291,13 +291,11 @@ export function BoardView({
           <span className="coin">$</span>battleground
         </div>
         <div className={"roundline rl-" + side}>
+          <span className="rl-rank">{side.toUpperCase()}</span>
           {insignia && insignia.kind !== "none" && (
             <Insignia ins={insignia} size={20} />
           )}
-          <span className="rl-rank">
-            {title ??
-              (lockedSide ? `${lockedSide.toUpperCase()} COMMAND` : "SPECTATOR")}
-          </span>
+          <span className="rl-rank">{title ?? "COMMAND"}</span>
           <span className="rl-sep" aria-hidden="true" />
           <span className="rl-live">
             Season 1 &middot; <b>LIVE</b>
@@ -472,7 +470,9 @@ export function BoardView({
             </span>
           )}
           <span className="wr-main">
-            <b>{title}</b>
+            <b>
+              {side.toUpperCase()} &middot; {title}
+            </b>
             <span>YOUR WAR RECORD</span>
           </span>
           <span className="wr-stats">
@@ -599,8 +599,8 @@ export function BothCommand() {
     <>
       <Announcer counts={board.counts} />
       <div className="split">
-        <BoardView board={board} lockedSide="blue" title="BLUE COMMAND" />
-        <BoardView board={board} lockedSide="red" title="RED COMMAND" />
+        <BoardView board={board} lockedSide="blue" />
+        <BoardView board={board} lockedSide="red" />
       </div>
       <ViewNav active="/both" />
     </>

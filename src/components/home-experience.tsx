@@ -145,10 +145,7 @@ export function HomeExperience() {
   }
 
   const rank = player ? rankFor(player) : null;
-  const title =
-    player && rank
-      ? `${player.side.toUpperCase()} · ${rank.name.toUpperCase()}`
-      : undefined;
+  const title = rank ? rank.name.toUpperCase() : undefined;
 
   return (
     <>
