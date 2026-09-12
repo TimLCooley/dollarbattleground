@@ -15,8 +15,10 @@
   --wheat-2: #cdae6a;
   --red: #d23b3b;         /* Red team */
   --red-d: #a82c2c;
+  --red-l: #e88b8b;       /* hover preview */
   --blue: #356fd0;        /* Blue team */
   --blue-d: #264f9c;
+  --blue-l: #7d9fe6;      /* hover preview */
   --cream: #f6efdb;       /* label ink */
   --parch: #efe4c4;
   --ink: #14331d;         /* dark ink on cream */
@@ -74,12 +76,19 @@ body {
 .command-bar {
   margin: -14px -14px 0;
   padding: 7px 6px;
-  text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
   font-family: var(--font-pixel), monospace;
   font-size: 12px;
   letter-spacing: 1px;
   color: var(--cream);
   border-bottom: 3px solid rgba(0, 0, 0, 0.3);
+}
+.command-bar .insignia {
+  flex: 0 0 auto;
+  filter: drop-shadow(1px 1px 0 rgba(0, 0, 0, 0.35));
 }
 .command-bar.red {
   background: var(--red-d);
@@ -269,6 +278,25 @@ body {
 }
 .cell.blue {
   background: var(--blue);
+}
+/* hover preview: tint toward the player's side so they see what they'll claim */
+@media (hover: hover) {
+  .board[data-side="red"] .cell:hover {
+    background: var(--red-l);
+  }
+  .board[data-side="blue"] .cell:hover {
+    background: var(--blue-l);
+  }
+}
+.insignia {
+  display: block;
+}
+.promo-blank {
+  font-family: var(--font-hand), sans-serif;
+  font-size: 15px;
+  color: var(--parch);
+  opacity: 0.65;
+  padding: 20px 0;
 }
 .cell.tuft::after {
   content: "";

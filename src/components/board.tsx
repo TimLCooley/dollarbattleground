@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createClient } from "@/utils/supabase/client";
 import { Announcer } from "./announcer";
+import { Insignia, type InsigniaSpec } from "@/lib/ranks";
 
 const N = 15;
 const TOTAL = N * N;
@@ -171,7 +172,8 @@ interface BoardViewProps {
   placementMode?: boolean; // onboarding "plant your flag" — next tap is a free claim
   onPlace?: (i: number) => void;
   isOfficer?: boolean; // unlocks the $10 officer action
-  onCommission?: () => void; // fired when a $5 action is bought (enlisted -> officer)
+  onPurchase?: (amount: number) => void; // fired on a paid $5/$10 action
+  insignia?: InsigniaSpec; // rank insignia for the command bar
 }
 
 export function BoardView({
@@ -181,7 +183,8 @@ export function BoardView({
   placementMode,
   onPlace,
   isOfficer,
-  onCommission,
+  onPurchase,
+  insignia,
 }: BoardViewProps) {
   const { cells, counts, popping, claim } = board;
   const [internalSide, setInternalSide] = useState<Team>("blue");
@@ -190,8 +193,8 @@ export function BoardView({
   const [spent, setSpent] = useState(0);
   const [hint, setHint] = useState(
     lockedSide
-      ? "Hold the line — tap a tile to deploy."
-      : "Tap a tile to flip it to your color.",
+      ? "Place your troops — tap a tile to deploy."
+      : "Place your troops — tap a tile to claim it.",
   );
   const bonusArmed = useRef(false);
 
@@ -222,14 +225,15 @@ export function BoardView({
         setSpent((v) => v + 5);
         bonusArmed.current = true;
         setHint("X placed! Now tap any tile — your bonus flip.");
-        onCommission?.(); // buying a $5 action commissions you as an Officer
+        onPurchase?.(5); // buying a $5 action commissions you as an Officer
       } else if (tool === "strike" && isOfficer) {
         claim(strikePattern(i), side);
         setSpent((v) => v + 10);
         setHint("Airstrike! 3×3 block seized.");
+        onPurchase?.(10);
       }
     },
-    [won, tool, side, claim, placementMode, onPlace, isOfficer, onCommission],
+    [won, tool, side, claim, placementMode, onPlace, isOfficer, onPurchase],
   );
 
   function pickSide(t: Team) {
@@ -255,7 +259,10 @@ export function BoardView({
     <div className={"cartridge" + (lockedSide ? ` ${lockedSide}-cmd` : "")}>
       {lockedSide && (
         <div className={`command-bar ${lockedSide}`}>
-          ◆ {title ?? `${lockedSide.toUpperCase()} COMMAND`} ◆
+          {insignia && insignia.kind !== "none" && (
+            <Insignia ins={insignia} size={22} />
+          )}
+          <span>◆ {title ?? `${lockedSide.toUpperCase()} COMMAND`} ◆</span>
         </div>
       )}
 
@@ -310,7 +317,11 @@ export function BoardView({
       )}
 
       <div className="board-wrap">
-        <div className="board" aria-label="15 by 15 battleground">
+        <div
+          className="board"
+          data-side={side}
+          aria-label="15 by 15 battleground"
+        >
           {cells.map((c, i) => {
             const cls =
               "cell" +

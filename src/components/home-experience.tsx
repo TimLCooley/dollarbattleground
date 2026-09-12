@@ -1,27 +1,26 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { BoardView, useBattleground, ViewNav, type Team } from "./board";
 import { Onboarding } from "./onboarding";
 import { Announcer } from "./announcer";
 import { PromotionModal } from "./promotion";
+import { rankFor, RANKS, type Rank } from "@/lib/ranks";
 
 const KEY = "bg_player_v1";
 
 interface Player {
   side: Team;
   email: string;
-  logins: number;
+  logins: number; // enlisted ranks climb with this
+  buys: number; // officer ranks climb with this ($5/$10 actions)
   isOfficer: boolean;
-  placedFirst: boolean; // planted their first tile -> promoted to Private
+  placedFirst: boolean; // planted first tile -> promoted to Private
+  rankKey: string; // last acknowledged rank
 }
 
-// Recruit is the transient "just enlisted" rank; planting your first tile
-// promotes you to Private. Officers are commissioned by buying a $5 action.
-// (US Army ladder — higher enlisted ranks by login count are TBD.)
-function rankLabel(p: Player): string {
-  if (p.isOfficer) return "LIEUTENANT";
-  return p.placedFirst ? "PRIVATE" : "RECRUIT";
+function orderOfKey(key: string): number {
+  return RANKS.find((r) => r.key === key)?.order ?? 0;
 }
 
 export function HomeExperience() {
@@ -30,22 +29,30 @@ export function HomeExperience() {
   const [ready, setReady] = useState(false);
   const [placing, setPlacing] = useState(false);
   const [flash, setFlash] = useState<string | null>(null);
-  const [promotion, setPromotion] = useState<string | null>(null);
+  const [promotionRank, setPromotionRank] = useState<Rank | null>(null);
+  const firstThreat = useRef(false);
 
-  // Returning recruits skip the funnel; count this login and advance rank.
+  // Returning players: count the login, advance enlisted rank, and celebrate
+  // any promotion earned since last visit.
   useEffect(() => {
     try {
       const raw = localStorage.getItem(KEY);
       if (raw) {
         const p = JSON.parse(raw) as Partial<Player>;
         if (p?.side) {
+          const buys = p.buys ?? 0;
           const next: Player = {
             side: p.side,
             email: p.email ?? "",
             logins: (p.logins ?? 1) + 1,
-            isOfficer: !!p.isOfficer,
-            placedFirst: p.placedFirst ?? true, // returning => already deployed
+            buys,
+            isOfficer: p.isOfficer ?? buys > 0,
+            placedFirst: p.placedFirst ?? true,
+            rankKey: p.rankKey ?? "recruit",
           };
+          const nr = rankFor(next);
+          if (nr.order > orderOfKey(next.rankKey)) setPromotionRank(nr);
+          next.rankKey = nr.key;
           setPlayer(next);
           localStorage.setItem(KEY, JSON.stringify(next));
         }
@@ -69,8 +76,10 @@ export function HomeExperience() {
       side,
       email,
       logins: 1,
+      buys: 0,
       isOfficer: false,
       placedFirst: false,
+      rankKey: "recruit",
     };
     setPlayer(p);
     persist(p);
@@ -79,29 +88,38 @@ export function HomeExperience() {
 
   function handlePlace() {
     setPlacing(false);
-    // Planting your first tile promotes Recruit -> Private (celebrated in a modal).
     if (player && !player.placedFirst) {
       const promoted: Player = { ...player, placedFirst: true };
+      const nr = rankFor(promoted);
+      promoted.rankKey = nr.key;
       setPlayer(promoted);
       persist(promoted);
-      setPromotion("PRIVATE");
+      firstThreat.current = true;
+      setPromotionRank(nr);
     }
   }
 
-  function dismissPromotion() {
-    setPromotion(null);
-    const enemy = player?.side === "red" ? "Blue" : "Red";
-    flashMsg(
-      `⚠ ${enemy} is already moving on your position — hold the line, Private.`,
-    );
-  }
-
-  function handleCommission() {
-    if (!player || player.isOfficer) return;
-    const next: Player = { ...player, isOfficer: true };
+  // Buying a $5/$10 action commissions you and climbs the officer ladder.
+  function handlePurchase() {
+    if (!player) return;
+    const prev = rankFor(player);
+    const next: Player = { ...player, buys: player.buys + 1, isOfficer: true };
+    const nr = rankFor(next);
+    next.rankKey = nr.key;
     setPlayer(next);
     persist(next);
-    flashMsg("◆ COMMISSIONED ◆ You're an Officer now — the $10 Airstrike is yours.");
+    if (nr.order > prev.order) setPromotionRank(nr);
+  }
+
+  function dismissPromotion() {
+    setPromotionRank(null);
+    if (firstThreat.current) {
+      firstThreat.current = false;
+      const enemy = player?.side === "red" ? "Blue" : "Red";
+      flashMsg(
+        `⚠ ${enemy} is already moving on your position — hold the line, Private.`,
+      );
+    }
   }
 
   function flashMsg(msg: string) {
@@ -109,7 +127,7 @@ export function HomeExperience() {
     window.setTimeout(() => setFlash((cur) => (cur === msg ? null : cur)), 9000);
   }
 
-  const title = player ? rankLabel(player) : undefined;
+  const rank = player ? rankFor(player) : null;
 
   return (
     <>
@@ -118,11 +136,12 @@ export function HomeExperience() {
       <BoardView
         board={board}
         lockedSide={player?.side}
-        title={title}
+        title={rank?.name.toUpperCase()}
+        insignia={rank?.insignia}
         placementMode={placing}
         onPlace={handlePlace}
         isOfficer={player?.isOfficer}
-        onCommission={handleCommission}
+        onPurchase={handlePurchase}
       />
 
       {placing && (
@@ -135,9 +154,9 @@ export function HomeExperience() {
 
       {ready && !player && <Onboarding onComplete={handleComplete} />}
 
-      {promotion && player && (
+      {promotionRank && player && (
         <PromotionModal
-          rank={promotion}
+          rank={promotionRank}
           side={player.side}
           onClose={dismissPromotion}
         />
