@@ -213,25 +213,6 @@ function CrossedSwords() {
     </svg>
   );
 }
-function People() {
-  return (
-    <svg className="stat-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <circle cx="9" cy="8" r="3" />
-      <path d="M3.5 20 v-1 a5.5 5.5 0 0 1 11 0 v1" />
-      <circle cx="17.5" cy="8.5" r="2.4" />
-      <path d="M15.5 14.5 a4.5 4.5 0 0 1 5.5 4.5 v1" />
-    </svg>
-  );
-}
-function Share() {
-  return (
-    <svg className="share-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d="M12 15 V4" />
-      <path d="M7 9 l5 -5 l5 5" />
-      <path d="M5 13 v6 a1 1 0 0 0 1 1 h12 a1 1 0 0 0 1 -1 v-6" />
-    </svg>
-  );
-}
 
 interface BoardViewProps {
   board: Battleground;
@@ -360,8 +341,7 @@ export function BoardView({
           <span className="rl-side">{side.toUpperCase()}</span>
           <span className="rl-sep" aria-hidden="true" />
           <span className="rl-live">
-            Season 1 &middot; <b>LIVE</b>
-            <span className="live-dot" aria-hidden="true" />
+            YOUR IMPACT &middot; <b>{record?.captures ?? 0}</b>
           </span>
         </div>
       </header>
@@ -520,45 +500,6 @@ export function BoardView({
         )}
       </div>
 
-      <div className="statgrid">
-        <Link href="/settings" className={"stat sg-side rl-" + side}>
-          <span className="sg-swatch" />
-          <span className="sg-text">
-            <span className="sg-label">
-              YOUR SIDE: <b>{side.toUpperCase()}</b>
-            </span>
-            <span className="sg-val">{title ?? "SOLDIER"}</span>
-          </span>
-        </Link>
-        <div className="stat">
-          <Crosshair />
-          <span className="sg-text">
-            <span className="sg-label">YOUR IMPACT</span>
-            <span className="sg-val">{record?.captures ?? 0} taken</span>
-          </span>
-        </div>
-        <div className="stat sg-global">
-          <People />
-          <span className="sg-text">
-            <span className="sg-label">GLOBAL</span>
-            <span className="sg-val">{TOTAL} total</span>
-          </span>
-          <button
-            type="button"
-            className="share-btn"
-            aria-label="Share the battleground"
-            onClick={() => {
-              try {
-                navigator.clipboard?.writeText(window.location.origin);
-              } catch {
-                /* ignore */
-              }
-            }}
-          >
-            <Share />
-          </button>
-        </div>
-      </div>
     </div>
   );
 }
