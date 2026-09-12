@@ -51,13 +51,6 @@ export function Announcer({
           {fmt(counts.r)}
         </span>
       </span>
-      <span className="sb-div" aria-hidden="true" />
-      <span className="sb-seg">
-        <span className="sb-val" key={"n" + mode}>
-          {fmt(counts.n)}
-        </span>{" "}
-        OPEN
-      </span>
       <span className="sb-arrows" aria-hidden="true">
         ›››
       </span>

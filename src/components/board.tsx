@@ -19,6 +19,18 @@ function seedTufts(): boolean[] {
   return Array.from({ length: TOTAL }, () => rnd() < 0.16);
 }
 
+// A fresh board starts split 50/50 — no neutral tiles. Blue holds the left,
+// Red the right. (Placeholder until the live DB board loads.)
+function seed5050(): CellVal[] {
+  const cells: CellVal[] = new Array(TOTAL);
+  for (let y = 0; y < N; y++) {
+    for (let x = 0; x < N; x++) {
+      cells[y * N + x] = x < 7 || (x === 7 && y < 8) ? "blue" : "red";
+    }
+  }
+  return cells;
+}
+
 export interface Battleground {
   cells: CellVal[];
   counts: { b: number; r: number; n: number };
@@ -31,9 +43,7 @@ export interface Battleground {
 // Every view that calls this reads the same board, so all screens stay in sync.
 export function useBattleground(): Battleground {
   const supabase = useMemo(() => createClient(), []);
-  const [cells, setCells] = useState<CellVal[]>(() =>
-    new Array(TOTAL).fill(null),
-  );
+  const [cells, setCells] = useState<CellVal[]>(seed5050);
   const [popping, setPopping] = useState<Set<number>>(new Set());
 
   const pop = useCallback((indices: number[]) => {
@@ -227,7 +237,12 @@ export function BoardView({
   const bonusArmed = useRef(false);
   const [hoverIndex, setHoverIndex] = useState<number | null>(null);
 
-  const won = counts.n === 0;
+  // No neutral tiles: the board is always fully red/blue. A side at 100% has
+  // nothing left to take, so that side is locked out — but the OTHER side can
+  // always play (flip enemy tiles back). So you're only locked when YOU hold all.
+  const locked =
+    (side === "blue" && counts.b === TOTAL) ||
+    (side === "red" && counts.r === TOTAL);
   const pct = (v: number) => Math.round((v / TOTAL) * 100);
   const tufts = useMemo(seedTufts, []);
 
@@ -245,7 +260,7 @@ export function BoardView({
 
   const onTap = useCallback(
     (i: number) => {
-      if (won) return;
+      if (locked) return;
       if (placementMode) {
         claim([i], side); // free first tile
         onPlace?.(i);
@@ -275,7 +290,7 @@ export function BoardView({
         onPurchase?.(10);
       }
     },
-    [won, tool, side, claim, placementMode, onPlace, isOfficer, onPurchase],
+    [locked, tool, side, claim, placementMode, onPlace, isOfficer, onPurchase],
   );
 
   function pickSide(t: Team) {
@@ -380,15 +395,15 @@ export function BoardView({
               />
             );
           })}
-          {won && (
+          {locked && (
             <div className="win">
               <span>
-                {counts.b > counts.r ? "BLUE" : "RED"} TAKES
+                {side.toUpperCase()} HOLDS
                 <br />
                 THE BOARD
                 <br />
                 <br />
-                {pct(Math.max(counts.b, counts.r))}% control
+                100% — total control
               </span>
             </div>
           )}
@@ -430,9 +445,11 @@ export function BoardView({
             }
           }}
         >
-          <span className="tool-badge" title="Commissions you as an Officer">
-            <Insignia ins={{ kind: "bar", bars: 2, color: "gold" }} size={18} />
-          </span>
+          {!isOfficer && (
+            <span className="tool-badge" title="Commissions you as an Officer">
+              <Insignia ins={{ kind: "bar", bars: 2, color: "gold" }} size={18} />
+            </span>
+          )}
           <span className="t-price">$5</span>
           <Burst />
           <span className="t-title">X-STRIKE</span>
