@@ -347,9 +347,7 @@ export function BoardView({
             )}
             {title && <span className="rl-rank">{title}</span>}
           </Link>
-          <span className="rl-sep" aria-hidden="true" />
           <span className="rl-side">{side.toUpperCase()}</span>
-          <span className="rl-sep" aria-hidden="true" />
           <span className="rl-live">
             YOUR IMPACT &middot; <b>{record?.captures ?? 0}</b>
           </span>
@@ -435,7 +433,6 @@ export function BoardView({
       <FieldRadio counts={counts} side={side} rank={title} flash={flash} />
 
       <div className="attack-head">★ CHOOSE YOUR ATTACK ★</div>
-      <div className="attack-sub">{hint}</div>
 
       <div className="tools" role="group" aria-label="Actions">
         <div

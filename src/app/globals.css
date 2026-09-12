@@ -186,10 +186,15 @@ body {
 }
 .roundline {
   display: flex;
-  align-items: center;
-  gap: 8px;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: center;
+  gap: 3px 10px;
   font-size: 15px;
   color: var(--parch);
+}
+.roundline .rl-ranklink {
+  align-self: center;
 }
 .roundline .insignia {
   flex: 0 0 auto;
