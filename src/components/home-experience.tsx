@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { BoardView, useBattleground, ViewNav, type Team } from "./board";
 import { Onboarding } from "./onboarding";
 import { Announcer } from "./announcer";
+import { PromotionModal } from "./promotion";
 
 const KEY = "bg_player_v1";
 
@@ -29,6 +30,7 @@ export function HomeExperience() {
   const [ready, setReady] = useState(false);
   const [placing, setPlacing] = useState(false);
   const [flash, setFlash] = useState<string | null>(null);
+  const [promotion, setPromotion] = useState<string | null>(null);
 
   // Returning recruits skip the funnel; count this login and advance rank.
   useEffect(() => {
@@ -77,15 +79,20 @@ export function HomeExperience() {
 
   function handlePlace() {
     setPlacing(false);
-    // Planting your first tile promotes Recruit -> Private.
+    // Planting your first tile promotes Recruit -> Private (celebrated in a modal).
     if (player && !player.placedFirst) {
       const promoted: Player = { ...player, placedFirst: true };
       setPlayer(promoted);
       persist(promoted);
+      setPromotion("PRIVATE");
     }
+  }
+
+  function dismissPromotion() {
+    setPromotion(null);
     const enemy = player?.side === "red" ? "Blue" : "Red";
     flashMsg(
-      `◆ PROMOTED TO PRIVATE ◆ Hold your ground — ${enemy} is already moving on your position.`,
+      `⚠ ${enemy} is already moving on your position — hold the line, Private.`,
     );
   }
 
@@ -127,6 +134,14 @@ export function HomeExperience() {
       <ViewNav active="/" />
 
       {ready && !player && <Onboarding onComplete={handleComplete} />}
+
+      {promotion && player && (
+        <PromotionModal
+          rank={promotion}
+          side={player.side}
+          onClose={dismissPromotion}
+        />
+      )}
     </>
   );
 }
