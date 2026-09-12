@@ -155,6 +155,9 @@ export function Settings() {
   return (
     <>
       <div className="cartridge settings">
+        <Link href="/report" className="back-btn" aria-label="Back to field report">
+          ‹ BACK
+        </Link>
         <header className="bg-header">
           <div className="wordmark">
             <span className="coin">$</span>settings

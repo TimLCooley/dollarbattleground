@@ -140,6 +140,9 @@ export function FieldReport() {
   return (
     <>
       <div className="cartridge fieldreport">
+        <Link href="/" className="back-btn" aria-label="Home">
+          ‹ HOME
+        </Link>
         <GearLink />
         <header className="bg-header">
           <div className="wordmark">

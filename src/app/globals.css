@@ -545,6 +545,33 @@ body {
 }
 
 /* ---------------- settings ---------------- */
+.cartridge.settings {
+  position: relative;
+}
+.back-btn {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  font-family: var(--font-pixel), monospace;
+  font-size: 11px;
+  color: var(--parch);
+  text-decoration: none;
+  padding: 5px 8px;
+  background: var(--ground-2);
+  border: 3px solid #0c3c21;
+  box-shadow: var(--shadow-pix);
+}
+.back-btn:hover {
+  color: var(--gold);
+}
+.back-btn:focus-visible {
+  outline: 3px solid var(--gold);
+  outline-offset: 1px;
+}
 .st-section {
   display: flex;
   flex-direction: column;

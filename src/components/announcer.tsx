@@ -96,6 +96,12 @@ export function FieldRadio({
     return () => window.clearInterval(t);
   }, []);
 
+  // Auto-rotate the clock format (Zulu -> UTC -> local); tap still cycles too.
+  useEffect(() => {
+    const t = window.setInterval(() => setTmode((m) => (m + 1) % 3), 5000);
+    return () => window.clearInterval(t);
+  }, []);
+
   const addr = rank ? titleCase(rank) : "General";
   const list = briefings(counts, addr);
   const brief = flash ? { m: flash, s: "" } : list[idx % list.length];
