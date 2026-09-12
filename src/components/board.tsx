@@ -434,6 +434,15 @@ const VIEWS: { href: string; label: string }[] = [
   { href: "/both", label: "Both" },
 ];
 
+function startOver() {
+  try {
+    localStorage.removeItem("bg_player_v1");
+  } catch {
+    /* ignore */
+  }
+  window.location.href = "/";
+}
+
 export function ViewNav({ active }: { active: string }) {
   return (
     <nav className="view-nav" aria-label="Perspective">
@@ -446,6 +455,28 @@ export function ViewNav({ active }: { active: string }) {
           {v.label}
         </Link>
       ))}
+      <button
+        type="button"
+        className="view-restart"
+        onClick={startOver}
+        aria-label="Start over"
+        title="Start over — clears your enlistment"
+      >
+        <svg
+          width="15"
+          height="15"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          aria-hidden="true"
+        >
+          <path d="M21 12a9 9 0 1 1-2.64-6.36" />
+          <polyline points="21 3 21 9 15 9" />
+        </svg>
+      </button>
     </nav>
   );
 }
