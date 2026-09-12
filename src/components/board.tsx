@@ -225,10 +225,23 @@ export function BoardView({
   const [spent, setSpent] = useState(0);
   const [hint, setHint] = useState("Tap a position to take it.");
   const bonusArmed = useRef(false);
+  const [hoverIndex, setHoverIndex] = useState<number | null>(null);
 
   const won = counts.n === 0;
   const pct = (v: number) => Math.round((v / TOTAL) * 100);
   const tufts = useMemo(seedTufts, []);
+
+  // Tiles a click would take, previewed on hover (X for $5, 3×3 for $10).
+  const previewSet = useMemo(() => {
+    if (hoverIndex == null) return null;
+    const idxs =
+      tool === "x"
+        ? xPattern(hoverIndex)
+        : tool === "strike" && isOfficer
+          ? strikePattern(hoverIndex)
+          : [hoverIndex];
+    return new Set(idxs);
+  }, [hoverIndex, tool, isOfficer]);
 
   const onTap = useCallback(
     (i: number) => {
@@ -292,11 +305,12 @@ export function BoardView({
           <span className="coin">$</span>battleground
         </div>
         <div className={"roundline rl-" + side}>
-          <span className="rl-rank">{side.toUpperCase()}</span>
           {insignia && insignia.kind !== "none" && (
             <Insignia ins={insignia} size={20} />
           )}
-          <span className="rl-rank">{title ?? "COMMAND"}</span>
+          {title && <span className="rl-rank">{title}</span>}
+          <span className="rl-sep" aria-hidden="true" />
+          <span className="rl-side">{side.toUpperCase()}</span>
           <span className="rl-sep" aria-hidden="true" />
           <span className="rl-live">
             Season 1 &middot; <b>LIVE</b>
@@ -347,12 +361,14 @@ export function BoardView({
           className="board"
           data-side={side}
           aria-label="15 by 15 battleground"
+          onMouseLeave={() => setHoverIndex(null)}
         >
           {cells.map((c, i) => {
             const cls =
               "cell" +
               (c ? " " + c : tufts[i] ? " tuft" : "") +
-              (popping.has(i) ? " pop" : "");
+              (popping.has(i) ? " pop" : "") +
+              (previewSet?.has(i) ? " preview" : "");
             return (
               <button
                 key={i}
@@ -360,6 +376,7 @@ export function BoardView({
                 className={cls}
                 aria-label={`Tile ${i % N},${Math.floor(i / N)}`}
                 onClick={() => onTap(i)}
+                onMouseEnter={() => setHoverIndex(i)}
               />
             );
           })}
@@ -430,6 +447,9 @@ export function BoardView({
             }
           }}
         >
+          <span className="tool-badge" title="Commissions you as an Officer">
+            <Insignia ins={{ kind: "bar", bars: 2, color: "gold" }} size={18} />
+          </span>
           <span className="t-price">$5</span>
           <Burst />
           <span className="t-title">X-STRIKE</span>

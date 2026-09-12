@@ -201,10 +201,16 @@ body {
   letter-spacing: 0.5px;
   color: var(--cream);
 }
-.roundline.rl-blue .rl-rank {
+.rl-side {
+  font-family: var(--font-pixel), monospace;
+  font-size: 17px;
+  letter-spacing: 0.5px;
+  color: var(--cream);
+}
+.roundline.rl-blue .rl-side {
   color: #9dc0ff;
 }
-.roundline.rl-red .rl-rank {
+.roundline.rl-red .rl-side {
   color: #ffb0ac;
 }
 .rl-sep {
@@ -313,12 +319,12 @@ body {
 .cell.blue {
   background: var(--blue);
 }
-/* hover preview: tint toward the player's side so they see what they'll claim */
+/* hover preview: tint the tiles a click would take (single, X, or 3x3) */
 @media (hover: hover) {
-  .board[data-side="red"] .cell:hover {
+  .board[data-side="red"] .cell.preview {
     background: var(--red-l);
   }
-  .board[data-side="blue"] .cell:hover {
+  .board[data-side="blue"] .cell.preview {
     background: var(--blue-l);
   }
 }
@@ -576,6 +582,7 @@ body {
   gap: 8px;
 }
 .tool {
+  position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -589,6 +596,13 @@ body {
   box-shadow: var(--shadow-pix);
   user-select: none;
   text-align: center;
+}
+.tool-badge {
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  line-height: 0;
+  filter: drop-shadow(1px 1px 0 rgba(0, 0, 0, 0.3));
 }
 .tool .price {
   font-family: var(--font-pixel), monospace;
