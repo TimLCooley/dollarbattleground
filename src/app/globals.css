@@ -777,8 +777,22 @@ body {
 }
 .fr-time {
   flex: 0 0 auto;
+  background: none;
+  border: 0;
+  padding: 0;
+  font: inherit;
+  letter-spacing: inherit;
   color: var(--parch);
   opacity: 0.8;
+  cursor: pointer;
+}
+.fr-time:hover {
+  color: var(--gold);
+  opacity: 1;
+}
+.fr-time:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
 }
 /* the message sits on its own recessed "transmission screen" so it reads as
    the focal point against the green panel */

@@ -71,20 +71,25 @@ export function FieldRadio({
   flash?: string | null;
 }) {
   const [idx, setIdx] = useState(0);
-  const [time, setTime] = useState("");
+  const [now, setNow] = useState<Date | null>(null);
+  const [tmode, setTmode] = useState(0); // 0 = Zulu, 1 = UTC, 2 = local
 
   useEffect(() => {
-    const tick = () =>
-      setTime(
-        new Date().toLocaleTimeString([], {
-          hour: "numeric",
-          minute: "2-digit",
-        }),
-      );
+    const tick = () => setNow(new Date());
     tick();
-    const t = window.setInterval(tick, 30000);
+    const t = window.setInterval(tick, 15000);
     return () => window.clearInterval(t);
   }, []);
+
+  const pad = (n: number) => String(n).padStart(2, "0");
+  const time = !now
+    ? ""
+    : tmode === 0
+      ? `${pad(now.getUTCHours())}${pad(now.getUTCMinutes())}Z`
+      : tmode === 1
+        ? `${pad(now.getUTCHours())}:${pad(now.getUTCMinutes())} UTC`
+        : now.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+  const tlabel = tmode === 0 ? "Zulu" : tmode === 1 ? "UTC" : "local";
 
   useEffect(() => {
     const t = window.setInterval(() => setIdx((i) => i + 1), 8000);
@@ -105,7 +110,14 @@ export function FieldRadio({
           <span className="fr-dot" aria-hidden="true" />
           {side.toUpperCase()} COMMAND
         </span>
-        <span className="fr-time">{time}</span>
+        <button
+          type="button"
+          className="fr-time"
+          onClick={() => setTmode((m) => (m + 1) % 3)}
+          title={`${tlabel} time — tap to switch`}
+        >
+          {time}
+        </button>
       </div>
       <button
         type="button"
