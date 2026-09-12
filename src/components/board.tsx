@@ -391,31 +391,29 @@ export function BoardView({
           <span className="price">$5</span>
           <span className="desc">X-flip + bonus tile</span>
         </div>
+        {isOfficer ? (
+          <div
+            className="tool officer"
+            role="button"
+            tabIndex={0}
+            aria-pressed={tool === "strike"}
+            onClick={() => pickTool("strike")}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                pickTool("strike");
+              }
+            }}
+          >
+            <span className="price">$10</span>
+            <span className="desc">Airstrike</span>
+          </div>
+        ) : (
+          <div className="tool locked" aria-disabled="true">
+            <span className="desc">Officers Only</span>
+          </div>
+        )}
       </div>
-
-      {isOfficer ? (
-        <div
-          className="tool-officer active"
-          role="button"
-          tabIndex={0}
-          aria-pressed={tool === "strike"}
-          onClick={() => pickTool("strike")}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" || e.key === " ") {
-              e.preventDefault();
-              pickTool("strike");
-            }
-          }}
-        >
-          <span className="price">$10</span>
-          <span className="desc">★ Airstrike — seize a 3×3 block</span>
-        </div>
-      ) : (
-        <div className="tool-officer locked" aria-disabled="true">
-          <span className="price">🔒 $10</span>
-          <span className="desc">Officer only — buy a $5 strike to earn your commission</span>
-        </div>
-      )}
 
       <div className="statbar">
         <span>

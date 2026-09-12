@@ -342,13 +342,14 @@ body {
 /* actions */
 .tools {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(3, 1fr);
   gap: 8px;
 }
 .tool {
   display: flex;
   flex-direction: column;
   align-items: center;
+  justify-content: center;
   gap: 1px;
   padding: 9px 6px;
   cursor: pointer;
@@ -628,46 +629,13 @@ body {
   color: var(--parch);
 }
 
-/* $10 officer action (full-width, gated) */
-.tool-officer {
-  width: 100%;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 2px;
-  padding: 10px 8px;
-  text-align: center;
-  box-shadow: var(--shadow-pix);
-  user-select: none;
-}
-.tool-officer .price {
-  font-family: var(--font-pixel), monospace;
-  font-size: 14px;
-}
-.tool-officer .desc {
-  font-size: 14px;
-  line-height: 1.15;
-}
-.tool-officer.active {
-  cursor: pointer;
-  color: var(--ink);
-  background: var(--gold);
-  border: 3px solid #7a5a12;
-}
-.tool-officer.active[aria-pressed="true"] {
-  outline: 3px solid var(--cream);
-  outline-offset: 1px;
-}
-.tool-officer.locked {
+/* $10 officer action — third button in the row, gated */
+.tool.locked {
   cursor: not-allowed;
-  color: var(--parch);
-  opacity: 0.72;
-  background: var(--ground);
-  border: 3px dashed #2a5a3c;
-}
-.tool-officer:focus-visible {
-  outline: 3px solid var(--gold);
-  outline-offset: 2px;
+  color: var(--ink);
+  background: var(--parch);
+  border-color: #b9a878;
+  text-align: center;
 }
 
 @media (prefers-reduced-motion: reduce) {
