@@ -195,6 +195,21 @@ body {
   flex: 0 0 auto;
   filter: drop-shadow(1px 1px 0 rgba(0, 0, 0, 0.35));
 }
+.rl-ranklink {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  text-decoration: none;
+  color: inherit;
+}
+.rl-ranklink:hover .rl-rank,
+.rl-ranklink:focus-visible .rl-rank {
+  color: var(--gold);
+}
+.rl-ranklink:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
+}
 .rl-rank {
   font-family: var(--font-pixel), monospace;
   font-size: 12px;
@@ -382,6 +397,126 @@ body {
   font-size: 14px;
   opacity: 0.75;
   font-style: italic;
+}
+
+/* ---------------- field report (service jacket) ---------------- */
+.fieldreport {
+  gap: 14px;
+}
+.fr-classified {
+  font-family: var(--font-pixel), monospace;
+  font-size: 10px;
+  letter-spacing: 1px;
+  color: var(--gold);
+}
+.dr-subject {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: var(--ground);
+  border: 3px solid #0c3c21;
+  box-shadow: var(--shadow-pix);
+  padding: 12px;
+}
+.dr-subject.rl-red {
+  border-color: #6f1d1d;
+}
+.dr-subject.rl-blue {
+  border-color: #1d3a72;
+}
+.dr-subject .insignia {
+  flex: 0 0 auto;
+  filter: drop-shadow(2px 2px 0 rgba(0, 0, 0, 0.35));
+}
+.dr-subject-txt {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.dr-rank {
+  font-family: var(--font-pixel), monospace;
+  font-size: 15px;
+  color: var(--cream);
+  text-shadow: 2px 2px 0 rgba(0, 0, 0, 0.35);
+}
+.dr-subject.rl-blue .dr-rank {
+  color: #9dc0ff;
+}
+.dr-subject.rl-red .dr-rank {
+  color: #ffb0ac;
+}
+.dr-side {
+  font-size: 15px;
+  color: var(--parch);
+}
+.dr-side b {
+  font-family: var(--font-pixel), monospace;
+  font-size: 11px;
+  color: var(--cream);
+}
+.dr-section {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.dr-row {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  font-size: 15px;
+}
+.dr-label {
+  flex: 0 0 auto;
+  color: var(--parch);
+}
+.dr-dots {
+  flex: 1;
+  min-width: 10px;
+  transform: translateY(-3px);
+  border-bottom: 2px dotted rgba(246, 239, 219, 0.22);
+}
+.dr-value {
+  flex: 0 0 auto;
+  font-family: var(--font-pixel), monospace;
+  font-size: 12px;
+  color: var(--cream);
+}
+.dr-promote {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 4px;
+  background: var(--ground);
+  border: 3px solid #0c3c21;
+  box-shadow: var(--shadow-pix);
+  padding: 9px 11px;
+}
+.dr-promote-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+  font-family: var(--font-pixel), monospace;
+  font-size: 11px;
+  color: var(--gold);
+}
+.dr-need {
+  color: var(--parch);
+}
+.dr-need b {
+  color: var(--gold);
+}
+.dr-bar {
+  height: 14px;
+  background: var(--mortar);
+  box-shadow: var(--shadow-pix);
+  overflow: hidden;
+}
+.dr-bar i {
+  display: block;
+  height: 100%;
+  background: var(--gold);
+  transition: width 0.3s steps(6);
 }
 .fm-list {
   list-style: none;

@@ -11,12 +11,20 @@ const KEY = "bg_player_v1";
 interface Player {
   side: Team;
   email: string;
-  logins: number; // small career-progress nudge
-  spent: number; // total $ spent — the main rank driver
-  isOfficer: boolean; // gated by buying a $5 action
-  placedFirst: boolean; // planted first tile -> promoted to Private
-  captures: number; // total tiles taken (war record)
-  rankKey: string; // last acknowledged rank
+  logins: number;
+  spent: number; // total $ spent
+  isOfficer: boolean;
+  placedFirst: boolean;
+  captures: number; // total positions taken
+  reclaimed: number; // positions flipped from the enemy
+  xStrikes: number; // $5 actions ordered
+  officerActions: number; // $10 actions used
+  days: number; // distinct days reported for duty
+  lastLoginDay: string; // YYYY-MM-DD
+  enlistedAt: string; // ISO
+  lastActionAt: string | null; // ISO
+  lastPromotionAt: string | null; // ISO
+  rankKey: string;
 }
 
 function tilesFor(amount: number): number {
@@ -27,6 +35,9 @@ function orderOfKey(key: string): number {
   return RANKS.find((r) => r.key === key)?.order ?? 0;
 }
 
+const nowISO = () => new Date().toISOString();
+const today = () => new Date().toISOString().slice(0, 10);
+
 export function HomeExperience() {
   const board = useBattleground();
   const [player, setPlayer] = useState<Player | null>(null);
@@ -36,15 +47,15 @@ export function HomeExperience() {
   const [promotionRank, setPromotionRank] = useState<Rank | null>(null);
   const firstThreat = useRef(false);
 
-  // Returning players: count the login, advance enlisted rank, and celebrate
-  // any promotion earned since last visit.
   useEffect(() => {
     try {
       const raw = localStorage.getItem(KEY);
       if (raw) {
         const p = JSON.parse(raw) as Partial<Player> & { buys?: number };
         if (p?.side) {
-          const spent = p.spent ?? (p.buys ? p.buys * 5 : 0); // migrate old buys
+          const spent = p.spent ?? (p.buys ? p.buys * 5 : 0);
+          const t = today();
+          const newDay = !!p.lastLoginDay && p.lastLoginDay !== t;
           const next: Player = {
             side: p.side,
             email: p.email ?? "",
@@ -53,10 +64,21 @@ export function HomeExperience() {
             isOfficer: p.isOfficer ?? false,
             placedFirst: p.placedFirst ?? true,
             captures: p.captures ?? 0,
+            reclaimed: p.reclaimed ?? 0,
+            xStrikes: p.xStrikes ?? 0,
+            officerActions: p.officerActions ?? 0,
+            days: (p.days ?? 1) + (newDay ? 1 : 0),
+            lastLoginDay: t,
+            enlistedAt: p.enlistedAt ?? nowISO(),
+            lastActionAt: p.lastActionAt ?? null,
+            lastPromotionAt: p.lastPromotionAt ?? null,
             rankKey: p.rankKey ?? "recruit",
           };
           const nr = rankFor(next);
-          if (nr.order > orderOfKey(next.rankKey)) setPromotionRank(nr);
+          if (nr.order > orderOfKey(next.rankKey)) {
+            next.lastPromotionAt = nowISO();
+            setPromotionRank(nr);
+          }
           next.rankKey = nr.key;
           setPlayer(next);
           localStorage.setItem(KEY, JSON.stringify(next));
@@ -85,6 +107,14 @@ export function HomeExperience() {
       isOfficer: false,
       placedFirst: false,
       captures: 0,
+      reclaimed: 0,
+      xStrikes: 0,
+      officerActions: 0,
+      days: 1,
+      lastLoginDay: today(),
+      enlistedAt: nowISO(),
+      lastActionAt: null,
+      lastPromotionAt: null,
       rankKey: "recruit",
     };
     setPlayer(p);
@@ -92,13 +122,16 @@ export function HomeExperience() {
     setPlacing(true);
   }
 
-  function handlePlace() {
+  function handlePlace(_i: number, reclaimed: number) {
     setPlacing(false);
     if (player && !player.placedFirst) {
       const promoted: Player = {
         ...player,
         placedFirst: true,
         captures: player.captures + 1,
+        reclaimed: player.reclaimed + reclaimed,
+        lastActionAt: nowISO(),
+        lastPromotionAt: nowISO(),
       };
       const nr = rankFor(promoted);
       promoted.rankKey = nr.key;
@@ -109,22 +142,26 @@ export function HomeExperience() {
     }
   }
 
-  // Every paid action ($1/$5/$10) adds to career progress and can promote you.
-  // A $5+ action also commissions you as an Officer.
-  function handlePurchase(amount: number) {
+  function handlePurchase(amount: number, reclaimed: number) {
     if (!player) return;
     const prev = rankFor(player);
     const next: Player = {
       ...player,
       spent: player.spent + amount,
       captures: player.captures + tilesFor(amount),
+      reclaimed: player.reclaimed + reclaimed,
+      xStrikes: player.xStrikes + (amount === 5 ? 1 : 0),
+      officerActions: player.officerActions + (amount === 10 ? 1 : 0),
       isOfficer: player.isOfficer || amount >= 5,
+      lastActionAt: nowISO(),
     };
     const nr = rankFor(next);
+    const promoted = nr.order > prev.order;
+    if (promoted) next.lastPromotionAt = nowISO();
     next.rankKey = nr.key;
     setPlayer(next);
     persist(next);
-    if (nr.order > prev.order) setPromotionRank(nr);
+    if (promoted) setPromotionRank(nr);
   }
 
   function dismissPromotion() {
@@ -157,7 +194,6 @@ export function HomeExperience() {
         onPlace={handlePlace}
         isOfficer={player?.isOfficer}
         onPurchase={handlePurchase}
-        totalSpent={player?.spent}
         record={player ? { captures: player.captures } : undefined}
         flash={flash}
       />

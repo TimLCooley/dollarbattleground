@@ -100,6 +100,20 @@ export function rankFor(p: {
   return highest(ENLISTED, progress);
 }
 
+// The next rank up in the player's track and how many more Actions it needs.
+export function nextRank(p: {
+  logins: number;
+  isOfficer: boolean;
+  spent: number;
+}): { rank: Rank; needed: number } | null {
+  const progress = progressOf(p);
+  const list = p.isOfficer ? OFFICER : ENLISTED;
+  for (const r of list) {
+    if (r.req > progress) return { rank: r, needed: r.req - progress };
+  }
+  return null; // top of the ladder
+}
+
 // ------------------------------ insignia icons ------------------------------
 const GOLD = "var(--gold)";
 const SILVER = "#c9d0d6";

@@ -219,9 +219,9 @@ interface BoardViewProps {
   lockedSide?: Team; // /red and /blue (and a chosen player) lock you to a faction
   title?: string; // rank/command label shown in the header
   placementMode?: boolean; // onboarding "plant your flag" — next tap is a free claim
-  onPlace?: (i: number) => void;
+  onPlace?: (i: number, reclaimed: number) => void;
   isOfficer?: boolean; // unlocks the $10 officer action
-  onPurchase?: (amount: number) => void; // fired on any paid action ($1/$5/$10)
+  onPurchase?: (amount: number, reclaimed: number) => void; // any action; reclaimed = enemy tiles flipped
   insignia?: InsigniaSpec; // rank insignia
   totalSpent?: number; // cumulative $ for the statbar (overrides local session)
   record?: { captures: number }; // your-impact stat (positions taken)
@@ -271,39 +271,47 @@ export function BoardView({
     return new Set(idxs);
   }, [hoverIndex, tool, isOfficer]);
 
+  // How many of these tiles are currently the enemy's (i.e. reclaimed on flip).
+  const enemyIn = (idxs: number[]) =>
+    idxs.filter((k) => cells[k] && cells[k] !== side).length;
+
   const onTap = useCallback(
     (i: number) => {
       if (locked) return;
       if (placementMode) {
         claim([i], side); // free first tile
-        onPlace?.(i);
+        onPlace?.(i, enemyIn([i]));
         return;
       }
       if (bonusArmed.current) {
         claim([i], side);
         bonusArmed.current = false;
         setHint("Bonus tile placed. ✦");
+        onPurchase?.(0, enemyIn([i])); // the free bonus tile (no charge)
         return;
       }
       if (tool === "flip") {
         claim([i], side);
         setSpent((v) => v + 1);
         setHint("Flipped one tile.");
-        onPurchase?.(1);
+        onPurchase?.(1, enemyIn([i]));
       } else if (tool === "x") {
-        claim(xPattern(i), side);
+        const idxs = xPattern(i);
+        claim(idxs, side);
         setSpent((v) => v + 5);
         bonusArmed.current = true;
         setHint("X placed! Now tap any tile — your bonus flip.");
-        onPurchase?.(5); // buying a $5 action commissions you as an Officer
+        onPurchase?.(5, enemyIn(idxs));
       } else if (tool === "strike" && isOfficer) {
-        claim(strikePattern(i), side);
+        const idxs = strikePattern(i);
+        claim(idxs, side);
         setSpent((v) => v + 10);
         setHint("Airstrike! 3×3 block seized.");
-        onPurchase?.(10);
+        onPurchase?.(10, enemyIn(idxs));
       }
     },
-    [locked, tool, side, claim, placementMode, onPlace, isOfficer, onPurchase],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [locked, tool, side, claim, placementMode, onPlace, isOfficer, onPurchase, cells],
   );
 
   function pickSide(t: Team) {
@@ -333,10 +341,12 @@ export function BoardView({
           <span className="coin">$</span>battleground
         </div>
         <div className={"roundline rl-" + side}>
-          {insignia && insignia.kind !== "none" && (
-            <Insignia ins={insignia} size={20} />
-          )}
-          {title && <span className="rl-rank">{title}</span>}
+          <Link href="/settings" className="rl-ranklink" title="Field report">
+            {insignia && insignia.kind !== "none" && (
+              <Insignia ins={insignia} size={20} />
+            )}
+            {title && <span className="rl-rank">{title}</span>}
+          </Link>
           <span className="rl-sep" aria-hidden="true" />
           <span className="rl-side">{side.toUpperCase()}</span>
           <span className="rl-sep" aria-hidden="true" />
