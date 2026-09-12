@@ -780,33 +780,47 @@ body {
   color: var(--parch);
   opacity: 0.8;
 }
+/* the message sits on its own recessed "transmission screen" so it reads as
+   the focal point against the green panel */
 .fr-body {
   position: relative;
   display: flex;
   flex-direction: column;
-  gap: 3px;
+  gap: 5px;
   width: 100%;
   text-align: left;
-  background: none;
-  border: 0;
-  padding: 2px 26px 0 0;
   cursor: pointer;
+  background: #0a2213;
+  border: 3px solid #061a0f;
+  box-shadow:
+    inset 2px 2px 0 rgba(0, 0, 0, 0.4),
+    inset -2px -2px 0 rgba(255, 255, 255, 0.04);
+  padding: 11px 32px 11px 13px;
 }
 .fr-msg {
   font-family: var(--font-hand), sans-serif;
-  font-size: 18px;
+  font-size: 20px;
   line-height: 1.3;
-  color: var(--cream);
+  color: #fbf4da;
+  text-shadow: 0 0 7px rgba(251, 244, 218, 0.18);
   animation: annfade 0.4s ease-out;
-}
-.field-radio.alert .fr-msg {
-  color: #ffd7d2;
 }
 .fr-sub {
   font-family: var(--font-hand), sans-serif;
   font-size: 14px;
   line-height: 1.35;
-  color: #79bfa0;
+  color: #8fd6b1;
+}
+.field-radio.alert .fr-body {
+  background: #290c0c;
+  border-color: #180707;
+}
+.field-radio.alert .fr-msg {
+  color: #ffdad5;
+  text-shadow: 0 0 7px rgba(255, 120, 110, 0.25);
+}
+.field-radio.alert .fr-sub {
+  color: #e79b95;
 }
 .fr-next {
   position: absolute;
