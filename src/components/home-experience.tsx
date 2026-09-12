@@ -12,13 +12,15 @@ interface Player {
   email: string;
   logins: number;
   isOfficer: boolean;
+  placedFirst: boolean; // planted their first tile -> promoted to Private
 }
 
-// Enlisted ranks climb with login count; Officers are commissioned by buying a
-// $5 action. (US Army ladder — only Recruit/Private wired for now.)
+// Recruit is the transient "just enlisted" rank; planting your first tile
+// promotes you to Private. Officers are commissioned by buying a $5 action.
+// (US Army ladder — higher enlisted ranks by login count are TBD.)
 function rankLabel(p: Player): string {
   if (p.isOfficer) return "LIEUTENANT";
-  return p.logins >= 2 ? "PRIVATE" : "RECRUIT";
+  return p.placedFirst ? "PRIVATE" : "RECRUIT";
 }
 
 export function HomeExperience() {
@@ -40,6 +42,7 @@ export function HomeExperience() {
             email: p.email ?? "",
             logins: (p.logins ?? 1) + 1,
             isOfficer: !!p.isOfficer,
+            placedFirst: p.placedFirst ?? true, // returning => already deployed
           };
           setPlayer(next);
           localStorage.setItem(KEY, JSON.stringify(next));
@@ -60,7 +63,13 @@ export function HomeExperience() {
   }
 
   function handleComplete(side: Team, email: string) {
-    const p: Player = { side, email, logins: 1, isOfficer: false };
+    const p: Player = {
+      side,
+      email,
+      logins: 1,
+      isOfficer: false,
+      placedFirst: false,
+    };
     setPlayer(p);
     persist(p);
     setPlacing(true);
@@ -68,9 +77,15 @@ export function HomeExperience() {
 
   function handlePlace() {
     setPlacing(false);
+    // Planting your first tile promotes Recruit -> Private.
+    if (player && !player.placedFirst) {
+      const promoted: Player = { ...player, placedFirst: true };
+      setPlayer(promoted);
+      persist(promoted);
+    }
     const enemy = player?.side === "red" ? "Blue" : "Red";
     flashMsg(
-      `⚠ Recruit, ${enemy} is already moving on your position — hold the line!`,
+      `◆ PROMOTED TO PRIVATE ◆ Hold your ground — ${enemy} is already moving on your position.`,
     );
   }
 
