@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createClient } from "@/utils/supabase/client";
 import { Announcer } from "./announcer";
-import { Insignia, type InsigniaSpec } from "@/lib/ranks";
+import { Insignia, rankFor, type InsigniaSpec } from "@/lib/ranks";
 
 const N = 15;
 const TOTAL = N * N;
@@ -572,21 +572,50 @@ export function ViewNav({ active }: { active: string }) {
   );
 }
 
+// Shared core: read the enlisted player's rank so every view shows it the same.
+export function usePlayerRank(): { insignia: InsigniaSpec; name: string } | null {
+  const [rank, setRank] = useState<{ insignia: InsigniaSpec; name: string } | null>(
+    null,
+  );
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem("bg_player_v1");
+      if (!raw) return;
+      const p = JSON.parse(raw);
+      if (!p?.side) return;
+      const r = rankFor({
+        placedFirst: p.placedFirst ?? true,
+        logins: p.logins ?? 1,
+        spent: p.spent ?? 0,
+        isOfficer: p.isOfficer ?? false,
+      });
+      setRank({ insignia: r.insignia, name: r.name.toUpperCase() });
+    } catch {
+      /* first visit / storage blocked */
+    }
+  }, []);
+  return rank;
+}
+
 // A single command view that owns its own board.
 export function Command({
   lockedSide,
-  title,
   active,
 }: {
   lockedSide?: Team;
-  title?: string;
   active: string;
 }) {
   const board = useBattleground();
+  const pr = usePlayerRank();
   return (
     <>
-      <Announcer counts={board.counts} playerSide={lockedSide} />
-      <BoardView board={board} lockedSide={lockedSide} title={title} />
+      <Announcer counts={board.counts} />
+      <BoardView
+        board={board}
+        lockedSide={lockedSide}
+        title={pr?.name}
+        insignia={pr?.insignia}
+      />
       <ViewNav active={active} />
     </>
   );
@@ -595,12 +624,23 @@ export function Command({
 // Split view: ONE board, seen from both command centers at once.
 export function BothCommand() {
   const board = useBattleground();
+  const pr = usePlayerRank();
   return (
     <>
       <Announcer counts={board.counts} />
       <div className="split">
-        <BoardView board={board} lockedSide="blue" />
-        <BoardView board={board} lockedSide="red" />
+        <BoardView
+          board={board}
+          lockedSide="blue"
+          title={pr?.name}
+          insignia={pr?.insignia}
+        />
+        <BoardView
+          board={board}
+          lockedSide="red"
+          title={pr?.name}
+          insignia={pr?.insignia}
+        />
       </div>
       <ViewNav active="/both" />
     </>
