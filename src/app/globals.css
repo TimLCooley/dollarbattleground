@@ -194,6 +194,13 @@ body {
   color: var(--parch);
   white-space: nowrap;
 }
+/* Every direct child shares one centered axis with a uniform line-box, so the
+   mixed pixel/hand fonts at different sizes stop riding their own baselines. */
+.roundline > * {
+  display: inline-flex;
+  align-items: center;
+  line-height: 1;
+}
 .roundline .insignia {
   flex: 0 0 auto;
   filter: drop-shadow(1px 1px 0 rgba(0, 0, 0, 0.35));
@@ -214,12 +221,18 @@ body {
   outline-offset: 2px;
 }
 .rl-rank {
+  display: inline-flex;
+  align-items: center;
+  line-height: 1;
   font-family: var(--font-pixel), monospace;
   font-size: 11px;
   letter-spacing: 0.5px;
   color: var(--cream);
 }
 .rl-side {
+  display: inline-flex;
+  align-items: center;
+  line-height: 1;
   font-family: var(--font-pixel), monospace;
   font-size: 16px;
   letter-spacing: 0.5px;
