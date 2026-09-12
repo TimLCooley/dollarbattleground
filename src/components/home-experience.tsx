@@ -181,7 +181,7 @@ export function HomeExperience() {
   }
 
   const rank = player ? rankFor(player) : null;
-  const title = rank ? rank.name.toUpperCase() : undefined;
+  const title = rank ? rank.abbr : undefined; // compact rank for the header
 
   return (
     <>

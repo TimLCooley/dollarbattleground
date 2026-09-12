@@ -19,6 +19,7 @@ export function PromotionModal({
       role="dialog"
       aria-modal="true"
       aria-label="Promotion"
+      onClick={onClose}
     >
       <div className={"promo-card " + side}>
         <div className="promo-kicker">

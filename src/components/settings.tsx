@@ -181,9 +181,9 @@ export function Settings() {
           {next ? (
             <div className="dr-promote">
               <div className="dr-promote-top">
-                <span>NEXT: {next.rank.name.toUpperCase()}</span>
-                <span className="dr-need">
-                  <b>{next.needed}</b> more Actions
+                <span>
+                  Promotion: <b>{next.rank.name.toUpperCase()}</b> in{" "}
+                  {next.needed} more actions
                 </span>
               </div>
               <div className="dr-bar">

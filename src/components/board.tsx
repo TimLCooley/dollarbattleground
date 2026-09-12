@@ -593,7 +593,7 @@ export function ViewNav({ active }: { active: string }) {
 // Shared core: read the enlisted player's rank so every view shows it the same.
 interface PlayerRank {
   insignia: InsigniaSpec;
-  name: string;
+  abbr: string;
   captures: number;
 }
 export function usePlayerRank(): PlayerRank | null {
@@ -612,7 +612,7 @@ export function usePlayerRank(): PlayerRank | null {
       });
       setRank({
         insignia: r.insignia,
-        name: r.name.toUpperCase(),
+        abbr: r.abbr,
         captures: p.captures ?? 0,
       });
     } catch {
@@ -637,7 +637,7 @@ export function Command({
       <BoardView
         board={board}
         lockedSide={lockedSide}
-        title={pr?.name}
+        title={pr?.abbr}
         insignia={pr?.insignia}
         record={pr ? { captures: pr.captures } : undefined}
       />
@@ -657,14 +657,14 @@ export function BothCommand() {
         <BoardView
           board={board}
           lockedSide="blue"
-          title={pr?.name}
+          title={pr?.abbr}
           insignia={pr?.insignia}
           record={record}
         />
         <BoardView
           board={board}
           lockedSide="red"
-          title={pr?.name}
+          title={pr?.abbr}
           insignia={pr?.insignia}
           record={record}
         />
