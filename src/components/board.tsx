@@ -10,7 +10,7 @@ const TOTAL = N * N;
 
 export type Team = "red" | "blue";
 type CellVal = Team | null;
-type Tool = "flip" | "x";
+type Tool = "flip" | "x" | "strike";
 
 function seedTufts(): boolean[] {
   let s = 991;
@@ -149,12 +149,29 @@ function xPattern(i: number): number[] {
   return out;
 }
 
+// Officer-tier "airstrike": a 3x3 block. (Exact $10 mechanic TBD — placeholder.)
+function strikePattern(i: number): number[] {
+  const x = i % N;
+  const y = Math.floor(i / N);
+  const out: number[] = [];
+  for (let dy = -1; dy <= 1; dy++) {
+    for (let dx = -1; dx <= 1; dx++) {
+      const nx = x + dx,
+        ny = y + dy;
+      if (nx >= 0 && nx < N && ny >= 0 && ny < N) out.push(ny * N + nx);
+    }
+  }
+  return out;
+}
+
 interface BoardViewProps {
   board: Battleground;
   lockedSide?: Team; // /red and /blue (and a chosen player) lock you to a faction
-  title?: string; // command banner label
+  title?: string; // command banner label (rank on Home)
   placementMode?: boolean; // onboarding "plant your flag" — next tap is a free claim
   onPlace?: (i: number) => void;
+  isOfficer?: boolean; // unlocks the $10 officer action
+  onCommission?: () => void; // fired when a $5 action is bought (enlisted -> officer)
 }
 
 export function BoardView({
@@ -163,6 +180,8 @@ export function BoardView({
   title,
   placementMode,
   onPlace,
+  isOfficer,
+  onCommission,
 }: BoardViewProps) {
   const { cells, counts, popping, claim } = board;
   const [internalSide, setInternalSide] = useState<Team>("blue");
@@ -171,7 +190,7 @@ export function BoardView({
   const [spent, setSpent] = useState(0);
   const [hint, setHint] = useState(
     lockedSide
-      ? "Hold the line, Captain — tap a tile to deploy."
+      ? "Hold the line — tap a tile to deploy."
       : "Tap a tile to flip it to your color.",
   );
   const bonusArmed = useRef(false);
@@ -198,14 +217,19 @@ export function BoardView({
         claim([i], side);
         setSpent((v) => v + 1);
         setHint("Flipped one tile.");
-      } else {
+      } else if (tool === "x") {
         claim(xPattern(i), side);
         setSpent((v) => v + 5);
         bonusArmed.current = true;
         setHint("X placed! Now tap any tile — your bonus flip.");
+        onCommission?.(); // buying a $5 action commissions you as an Officer
+      } else if (tool === "strike" && isOfficer) {
+        claim(strikePattern(i), side);
+        setSpent((v) => v + 10);
+        setHint("Airstrike! 3×3 block seized.");
       }
     },
-    [won, tool, side, claim, placementMode, onPlace],
+    [won, tool, side, claim, placementMode, onPlace, isOfficer, onCommission],
   );
 
   function pickSide(t: Team) {
@@ -215,12 +239,15 @@ export function BoardView({
   }
 
   function pickTool(t: Tool) {
+    if (t === "strike" && !isOfficer) return; // officers only
     setTool(t);
     bonusArmed.current = false;
     setHint(
       t === "flip"
         ? "Tap a tile to flip it — $1."
-        : "Tap a center tile — X-flip 5 tiles for $5, then a bonus flip.",
+        : t === "x"
+          ? "Tap a center tile — X-flip 5 tiles for $5, then a bonus flip."
+          : "Airstrike armed — tap a tile to seize a 3×3 block for $10.",
     );
   }
 
@@ -365,6 +392,30 @@ export function BoardView({
           <span className="desc">X-flip + bonus tile</span>
         </div>
       </div>
+
+      {isOfficer ? (
+        <div
+          className="tool-officer active"
+          role="button"
+          tabIndex={0}
+          aria-pressed={tool === "strike"}
+          onClick={() => pickTool("strike")}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault();
+              pickTool("strike");
+            }
+          }}
+        >
+          <span className="price">$10</span>
+          <span className="desc">★ Airstrike — seize a 3×3 block</span>
+        </div>
+      ) : (
+        <div className="tool-officer locked" aria-disabled="true">
+          <span className="price">🔒 $10</span>
+          <span className="desc">Officer only — buy a $5 strike to earn your commission</span>
+        </div>
+      )}
 
       <div className="statbar">
         <span>

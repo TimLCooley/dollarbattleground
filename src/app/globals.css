@@ -615,6 +615,61 @@ body {
   animation: annfade 0.3s ease-out;
 }
 
+/* onboarding prompt + fine print */
+.ob-prompt {
+  font-size: 17px;
+  color: var(--cream);
+  margin: 0;
+}
+.ob-fine {
+  font-size: 14px;
+  opacity: 0.7;
+  margin: 0;
+  color: var(--parch);
+}
+
+/* $10 officer action (full-width, gated) */
+.tool-officer {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 10px 8px;
+  text-align: center;
+  box-shadow: var(--shadow-pix);
+  user-select: none;
+}
+.tool-officer .price {
+  font-family: var(--font-pixel), monospace;
+  font-size: 14px;
+}
+.tool-officer .desc {
+  font-size: 14px;
+  line-height: 1.15;
+}
+.tool-officer.active {
+  cursor: pointer;
+  color: var(--ink);
+  background: var(--gold);
+  border: 3px solid #7a5a12;
+}
+.tool-officer.active[aria-pressed="true"] {
+  outline: 3px solid var(--cream);
+  outline-offset: 1px;
+}
+.tool-officer.locked {
+  cursor: not-allowed;
+  color: var(--parch);
+  opacity: 0.72;
+  background: var(--ground);
+  border: 3px dashed #2a5a3c;
+}
+.tool-officer:focus-visible {
+  outline: 3px solid var(--gold);
+  outline-offset: 2px;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .ann-dot,
   .ann-text,

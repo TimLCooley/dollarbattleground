@@ -3,107 +3,60 @@
 import { useState } from "react";
 import type { Team } from "./board";
 
-type Step = "welcome" | "side" | "promote" | "claim";
+type Step = "recruit" | "enlist";
 
 export function Onboarding({
   onComplete,
 }: {
-  onComplete: (side: Team, name: string, email: string) => void;
+  onComplete: (side: Team, email: string) => void;
 }) {
-  const [step, setStep] = useState<Step>("welcome");
+  const [step, setStep] = useState<Step>("recruit");
   const [side, setSide] = useState<Team | null>(null);
-  const [name, setName] = useState("");
   const [email, setEmail] = useState("");
 
-  const enemy = side === "red" ? "Blue" : "Red";
+  function choose(t: Team) {
+    setSide(t);
+    setStep("enlist");
+  }
+
   const accent = side ? ` ${side}` : "";
 
   return (
     <div className="ob-overlay" role="dialog" aria-modal="true" aria-label="Enlist">
       <div className={"ob-card" + accent}>
-        {step === "welcome" && (
+        {step === "recruit" && (
           <>
-            <div className="ob-kicker">◆ INCOMING ◆</div>
+            <div className="ob-kicker">◆ RECRUITMENT OPEN ◆</div>
             <h1 className="ob-title">THE BATTLEGROUND</h1>
             <p className="ob-body">
-              One board. Two colors. Total war. The fight is already raging —
-              without you. Time to change that.
+              One board. Two colors. Total war. The fight is already underway.
             </p>
-            <button className="ob-btn" onClick={() => setStep("side")}>
-              ENTER THE WAR →
-            </button>
-          </>
-        )}
-
-        {step === "side" && (
-          <>
-            <h2 className="ob-title">CHOOSE YOUR SIDE</h2>
-            <p className="ob-body">
-              Pick a color. You fight for it now — there is no switching sides
-              mid-war.
-            </p>
+            <p className="ob-prompt">Pick your side.</p>
             <div className="ob-sides">
-              <button
-                className="ob-side blue"
-                onClick={() => {
-                  setSide("blue");
-                  setStep("promote");
-                }}
-              >
+              <button className="ob-side blue" onClick={() => choose("blue")}>
                 <span className="ob-swatch" />
                 BLUE
               </button>
-              <button
-                className="ob-side red"
-                onClick={() => {
-                  setSide("red");
-                  setStep("promote");
-                }}
-              >
+              <button className="ob-side red" onClick={() => choose("red")}>
                 <span className="ob-swatch" />
                 RED
               </button>
             </div>
+            <p className="ob-fine">
+              Choose carefully. There is no switching sides.
+            </p>
           </>
         )}
 
-        {step === "promote" && (
+        {step === "enlist" && side && (
           <>
-            <div className="ob-kicker">◆ FIELD PROMOTION ◆</div>
-            <h2 className="ob-title">You&apos;re a CAPTAIN now.</h2>
+            <div className="ob-kicker">◆ ENLISTMENT COMPLETE ◆</div>
+            <h2 className="ob-title">WELCOME, RECRUIT.</h2>
             <p className="ob-body">
-              Every Captain needs a name the {enemy}s will learn to fear. What do
-              we call you?
+              You fight for <b>{side.toUpperCase()}</b> now. Your first
+              deployment is free.
             </p>
-            <input
-              className="ob-input"
-              type="text"
-              placeholder="Your callsign"
-              value={name}
-              maxLength={20}
-              autoFocus
-              onChange={(e) => setName(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && name.trim()) setStep("claim");
-              }}
-            />
-            <button
-              className="ob-btn"
-              disabled={!name.trim()}
-              onClick={() => setStep("claim")}
-            >
-              ACCEPT COMMISSION →
-            </button>
-          </>
-        )}
-
-        {step === "claim" && side && (
-          <>
-            <h2 className="ob-title">CLAIM YOUR FIRST TILE</h2>
-            <p className="ob-body">
-              Your first unit deploys <b>free</b>, Captain {name || ""}. Where
-              should we send your field orders?
-            </p>
+            <p className="ob-prompt">Where should we send your field orders?</p>
             <input
               className="ob-input"
               type="email"
@@ -112,19 +65,16 @@ export function Onboarding({
               autoFocus
               onChange={(e) => setEmail(e.target.value)}
               onKeyDown={(e) => {
-                if (e.key === "Enter") onComplete(side, name.trim(), email.trim());
+                if (e.key === "Enter") onComplete(side, email.trim());
               }}
             />
             <button
               className="ob-btn"
-              onClick={() => onComplete(side, name.trim(), email.trim())}
+              onClick={() => onComplete(side, email.trim())}
             >
-              DEPLOY MY UNIT →
+              DEPLOY ME →
             </button>
-            <button
-              className="ob-skip"
-              onClick={() => onComplete(side, name.trim(), "")}
-            >
+            <button className="ob-skip" onClick={() => onComplete(side, "")}>
               skip — deploy without orders
             </button>
           </>
