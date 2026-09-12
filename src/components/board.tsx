@@ -395,23 +395,6 @@ export function BoardView({
         </div>
       </div>
 
-      <div>
-        <div className="meter" aria-label="Territory control">
-          <i className="b" style={{ width: `${(counts.b / TOTAL) * 100}%` }} />
-          <i className="n" style={{ width: `${(counts.n / TOTAL) * 100}%` }} />
-          <i className="r" style={{ width: `${(counts.r / TOTAL) * 100}%` }} />
-        </div>
-        <div className="meter-labels">
-          <span className="bl">
-            <b>{counts.b}</b> BLUE
-          </span>
-          <span className="ol">{counts.n} OPEN</span>
-          <span className="rl">
-            <b>{counts.r}</b> RED
-          </span>
-        </div>
-      </div>
-
       <div className="attack-head">★ CHOOSE YOUR ATTACK ★</div>
       <div className="attack-sub">{hint}</div>
 

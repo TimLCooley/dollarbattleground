@@ -705,6 +705,12 @@ body {
   color: var(--gold);
   letter-spacing: 2px;
 }
+.sb-val {
+  display: inline-block;
+  min-width: 1.6em;
+  color: var(--gold);
+  animation: annfade 0.35s ease-out;
+}
 .statusbar.alert {
   background: #3a1414;
   border-color: #7c2020;
