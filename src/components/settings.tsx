@@ -62,20 +62,16 @@ function NavRow({
   value,
   onClick,
   danger,
-  purple,
 }: {
   label: string;
   value?: string;
   onClick?: () => void;
   danger?: boolean;
-  purple?: boolean;
 }) {
   return (
     <button
       type="button"
-      className={
-        "st-row st-link" + (danger ? " danger" : "") + (purple ? " purple" : "")
-      }
+      className={"st-row st-link" + (danger ? " danger" : "")}
       onClick={onClick}
     >
       <span className="st-label">{label}</span>
@@ -249,7 +245,7 @@ export function Settings() {
           <NavRow label="Terms of Service" />
           <NavRow label="Privacy Policy" />
           <NavRow label="Cookie Policy" />
-          <NavRow label="Refund Policy" purple />
+          <NavRow label="Refund Policy" />
         </section>
       </div>
 

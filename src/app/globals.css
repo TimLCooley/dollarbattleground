@@ -637,16 +637,6 @@ body {
 .st-link.danger .st-label {
   color: #ff9d95;
 }
-.st-link.purple {
-  background: #6b3fa0;
-  border-color: #48286e;
-}
-.st-link.purple .st-label,
-.st-link.purple .st-value,
-.st-link.purple .st-chev {
-  color: #f3e9ff;
-  opacity: 1;
-}
 .st-toggle.disabled {
   opacity: 0.5;
   cursor: not-allowed;
