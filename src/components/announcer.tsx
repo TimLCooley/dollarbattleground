@@ -73,6 +73,31 @@ export function FieldRadio({
   const [idx, setIdx] = useState(0);
   const [now, setNow] = useState<Date | null>(null);
   const [tmode, setTmode] = useState(0); // 0 = Zulu, 1 = UTC, 2 = local
+  const [agentBrief, setAgentBrief] = useState<{ m: string; s: string } | null>(
+    null,
+  );
+
+  // Ask the board_manager agent (Gemini) for a line about THIS player's live
+  // situation. Best-effort — falls back to the canned briefings below.
+  useEffect(() => {
+    let alive = true;
+    fetch("/api/agent/briefing", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ side, rank }),
+    })
+      .then((r) => r.json())
+      .then((d: { briefing?: { line: string; nudge: string } | null }) => {
+        if (alive && d?.briefing) {
+          setAgentBrief({ m: d.briefing.line, s: d.briefing.nudge });
+          setIdx(0); // surface the live agent line the moment it arrives
+        }
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, [side, rank]);
 
   useEffect(() => {
     const tick = () => setNow(new Date());
@@ -103,7 +128,9 @@ export function FieldRadio({
   }, []);
 
   const addr = rank ? titleCase(rank) : "General";
-  const list = briefings(counts, addr);
+  const canned = briefings(counts, addr);
+  // The live agent line leads; canned briefings fill the rotation behind it.
+  const list = agentBrief ? [agentBrief, ...canned] : canned;
   const brief = flash ? { m: flash, s: "" } : list[idx % list.length];
 
   return (
