@@ -62,11 +62,15 @@ export function LoginOtp({
     setError(null);
     try {
       const supabase = createClient();
-      const { error: err } = await supabase.auth.verifyOtp({
-        email: email.trim(),
-        token,
-        type: "email",
-      });
+      const mail = email.trim();
+      // Try the login OTP type first, then the first-signup type, so a brand-new
+      // account and a returning one both verify.
+      let err = (await supabase.auth.verifyOtp({ email: mail, token, type: "email" }))
+        .error;
+      if (err) {
+        err = (await supabase.auth.verifyOtp({ email: mail, token, type: "signup" }))
+          .error;
+      }
       if (err) {
         setError(err.message || "That code didn't work. Check it and retry.");
         setBusy(false);

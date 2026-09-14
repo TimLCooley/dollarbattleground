@@ -1,5 +1,5 @@
 import "server-only";
-import { getStripe } from "./stripe";
+import { getModeStripe } from "./stripe-mode";
 
 // One Stripe Customer per Supabase user. We tag the customer with the Supabase
 // user id in metadata and look it up by search — no DB migration required. If a
@@ -10,7 +10,7 @@ export async function getOrCreateCustomer(
   userId: string,
   email?: string | null,
 ): Promise<string> {
-  const stripe = getStripe();
+  const stripe = await getModeStripe();
 
   // Existing customer for this user?
   const found = await stripe.customers.search({
@@ -36,7 +36,7 @@ export async function getOrCreateCustomer(
 // The customer's default / most-recent saved card, if any, for one-tap repeat
 // charges. Returns the payment method id or null.
 export async function getSavedCard(customerId: string): Promise<string | null> {
-  const stripe = getStripe();
+  const stripe = await getModeStripe();
   const customer = await stripe.customers.retrieve(customerId);
   if (!customer.deleted) {
     const def = customer.invoice_settings?.default_payment_method;

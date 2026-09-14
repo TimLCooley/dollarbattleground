@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/utils/supabase/server";
-import { getStripe, isStripeConfigured } from "@/lib/stripe";
+import { isStripeConfigured } from "@/lib/stripe";
+import { getModeStripe } from "@/lib/stripe-mode";
 import { getOrCreateCustomer, getSavedCard } from "@/lib/stripe-customer";
 import { fulfillPayment } from "@/lib/fulfill";
 import { ACTION_AMOUNT, isValidCenter, type ActionKind } from "@/lib/board-patterns";
@@ -56,7 +57,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Not signed in" }, { status: 401 });
   }
 
-  const stripe = getStripe();
+  const stripe = await getModeStripe();
   const metadata = {
     supabase_user_id: user.id,
     kind,

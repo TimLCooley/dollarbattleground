@@ -1,5 +1,5 @@
 import "server-only";
-import { getStripe } from "./stripe";
+import { getModeStripe } from "./stripe-mode";
 import { createAdminClient } from "@/utils/supabase/admin";
 import { cellsFor, isValidCenter, type ActionKind } from "./board-patterns";
 
@@ -19,7 +19,7 @@ export interface FulfillResult {
 export async function fulfillPayment(
   paymentIntentId: string,
 ): Promise<FulfillResult> {
-  const stripe = getStripe();
+  const stripe = await getModeStripe();
   const pi = await stripe.paymentIntents.retrieve(paymentIntentId);
 
   if (pi.status !== "succeeded") {

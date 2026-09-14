@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/utils/supabase/server";
-import { getStripe } from "@/lib/stripe";
+import { getModeStripe } from "@/lib/stripe-mode";
 import { fulfillPayment } from "@/lib/fulfill";
 
 // Called by the browser right after a card payment confirms, so the flip shows
@@ -28,7 +28,8 @@ export async function POST(req: Request) {
   }
 
   // Authorization: you can only finalize your own payment.
-  const pi = await getStripe().paymentIntents.retrieve(paymentIntentId);
+  const stripe = await getModeStripe();
+  const pi = await stripe.paymentIntents.retrieve(paymentIntentId);
   if (pi.metadata?.supabase_user_id !== user.id) {
     return NextResponse.json({ error: "Not your payment" }, { status: 403 });
   }
