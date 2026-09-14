@@ -136,7 +136,8 @@ export function useBattleground(): Battleground {
         return next;
       });
       pop([index]);
-      supabase
+      // Fresh client so we use the session the OTP verify just established.
+      createClient()
         .rpc("claim_free_tile", {
           p_x: index % N,
           p_y: Math.floor(index / N),
@@ -146,7 +147,7 @@ export function useBattleground(): Battleground {
           if (error) console.error("claim_free_tile failed:", error.message);
         });
     },
-    [supabase, pop],
+    [pop],
   );
 
   return { cells, counts, popping, claimFree };
