@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { AdminAgents } from "./admin-agents";
+import { AdminTiles } from "./admin-tiles";
 
 interface RosterRow {
   id: string;
@@ -13,6 +14,8 @@ interface RosterRow {
   held: number;
   spent: number;
   purchases: number;
+  actions: number;
+  lastActionAt: string | null;
   freeUsed: boolean;
   score: number;
 }
@@ -109,6 +112,18 @@ const COLUMNS: Column[] = [
     render: (r) => <span>{r.held}</span>,
   },
   {
+    key: "actions",
+    label: "Actions",
+    align: "right",
+    sort: (r) => r.actions,
+    render: (r) =>
+      r.actions > 0 ? (
+        <span className="adm-actions-pts">{r.actions}</span>
+      ) : (
+        <span className="adm-dim">0</span>
+      ),
+  },
+  {
     key: "score",
     label: "Score",
     align: "right",
@@ -153,7 +168,7 @@ export function AdminPanel() {
   const [liveOk, setLiveOk] = useState(false);
   const [modeMsg, setModeMsg] = useState<string | null>(null);
 
-  const [tab, setTab] = useState<"roster" | "agents">("roster");
+  const [tab, setTab] = useState<"roster" | "tiles" | "agents">("roster");
 
   useEffect(() => {
     (async () => {
@@ -261,6 +276,12 @@ export function AdminPanel() {
           ROSTER
         </button>
         <button
+          className={tab === "tiles" ? "on" : ""}
+          onClick={() => setTab("tiles")}
+        >
+          TILE LOG
+        </button>
+        <button
           className={tab === "agents" ? "on" : ""}
           onClick={() => setTab("agents")}
         >
@@ -268,6 +289,7 @@ export function AdminPanel() {
         </button>
       </nav>
 
+      {tab === "tiles" && <AdminTiles />}
       {tab === "agents" && <AdminAgents />}
 
       {tab === "roster" && (

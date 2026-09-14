@@ -1,7 +1,12 @@
 import "server-only";
 import { getModeStripe } from "./stripe-mode";
 import { createAdminClient } from "@/utils/supabase/admin";
-import { cellsFor, isValidCenter, type ActionKind } from "./board-patterns";
+import {
+  cellsFor,
+  isValidCenter,
+  ACTION_AMOUNT,
+  type ActionKind,
+} from "./board-patterns";
 
 // The single, idempotent place a paid flip happens. Called by BOTH the webhook
 // (reliable, source of truth) and the finalize route (instant UX). It verifies
@@ -49,6 +54,7 @@ export async function fulfillPayment(
     p_cells: cells,
     p_team: team,
     p_owner: owner,
+    p_amount_cents: ACTION_AMOUNT[kind] * 100,
   });
   if (error) {
     return { ok: false, error: error.message };

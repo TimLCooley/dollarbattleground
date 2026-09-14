@@ -19,6 +19,8 @@ export interface RosterRow {
   held: number;
   spent: number;
   purchases: number;
+  actions: number;
+  lastActionAt: string | null;
   freeUsed: boolean;
   score: number;
 }
@@ -56,6 +58,16 @@ export async function GET() {
   const { data: free } = await db.from("free_claims").select("user_id");
   const freeSet = new Set((free ?? []).map((f) => (f as { user_id: string }).user_id));
 
+  // 3b) action points from player_stats
+  const { data: stats } = await db
+    .from("player_stats")
+    .select("user_id,actions,last_action_at");
+  const statsBy = new Map<string, { actions: number; last: string | null }>();
+  for (const s of stats ?? []) {
+    const row = s as { user_id: string; actions: number; last_action_at: string | null };
+    statsBy.set(row.user_id, { actions: row.actions, last: row.last_action_at });
+  }
+
   // 4) Stripe spend by supabase_user_id (mode-aware)
   const spentBy = new Map<string, { amt: number; n: number }>();
   try {
@@ -83,7 +95,9 @@ export async function GET() {
     const held = heldBy.get(u.id) ?? 0;
     const s = spentBy.get(u.id) ?? { amt: 0, n: 0 };
     const spent = s.amt / 100;
-    const score = Math.round(spent * 10 + held + s.n * 2);
+    const st = statsBy.get(u.id);
+    const actions = st?.actions ?? 0;
+    const score = Math.round(spent * 10 + held + actions * 2);
     return {
       id: u.id,
       email: u.email ?? null,
@@ -94,6 +108,8 @@ export async function GET() {
       held,
       spent,
       purchases: s.n,
+      actions,
+      lastActionAt: st?.last ?? null,
       freeUsed: freeSet.has(u.id),
       score,
     };
