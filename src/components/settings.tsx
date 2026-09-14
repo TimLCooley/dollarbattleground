@@ -9,17 +9,9 @@ const SKEY = "bg_settings_v1";
 
 interface Prefs {
   email: boolean;
-  catTerritory: boolean;
-  catPromotion: boolean;
-  catBattle: boolean;
-  sms: boolean;
 }
 const DEFAULT: Prefs = {
   email: true,
-  catTerritory: true,
-  catPromotion: true,
-  catBattle: false,
-  sms: false,
 };
 
 function Toggle({
@@ -61,24 +53,35 @@ function NavRow({
   label,
   value,
   onClick,
+  href,
   danger,
 }: {
   label: string;
   value?: string;
   onClick?: () => void;
+  href?: string;
   danger?: boolean;
 }) {
-  return (
-    <button
-      type="button"
-      className={"st-row st-link" + (danger ? " danger" : "")}
-      onClick={onClick}
-    >
+  const cls = "st-row st-link" + (danger ? " danger" : "");
+  const inner = (
+    <>
       <span className="st-label">{label}</span>
       {value && <span className="st-value">{value}</span>}
       <span className="st-chev" aria-hidden="true">
         ›
       </span>
+    </>
+  );
+  if (href) {
+    return (
+      <Link href={href} className={cls}>
+        {inner}
+      </Link>
+    );
+  }
+  return (
+    <button type="button" className={cls} onClick={onClick}>
+      {inner}
     </button>
   );
 }
@@ -155,8 +158,8 @@ export function Settings() {
   return (
     <>
       <div className="cartridge settings">
-        <Link href="/report" className="back-btn" aria-label="Back to field report">
-          ‹ BACK
+        <Link href="/" className="back-btn" aria-label="Home">
+          ‹ HOME
         </Link>
         <header className="bg-header">
           <div className="wordmark">
@@ -165,46 +168,23 @@ export function Settings() {
         </header>
 
         <section className="st-section">
-          <h2 className="fm-h">BATTLE ALERTS</h2>
+          <h2 className="fm-h">EMAIL DISPATCHES</h2>
           <Toggle
-            label="Email alerts"
+            label="Email dispatches"
+            sub="orders, promotions & battle alerts"
             on={prefs.email}
             onToggle={() => toggle("email")}
           />
-          <Toggle
-            label="My territory attacked"
-            on={prefs.catTerritory}
-            onToggle={() => toggle("catTerritory")}
-            disabled={!prefs.email}
-          />
-          <Toggle
-            label="Promotions"
-            on={prefs.catPromotion}
-            onToggle={() => toggle("catPromotion")}
-            disabled={!prefs.email}
-          />
-          <Toggle
-            label="Major battle events"
-            on={prefs.catBattle}
-            onToggle={() => toggle("catBattle")}
-            disabled={!prefs.email}
-          />
-        </section>
-
-        <section className="st-section">
-          <h2 className="fm-h">TEXT ALERTS</h2>
-          <Toggle label="SMS alerts" sub="coming soon" on={prefs.sms} disabled />
+          <p className="st-note">
+            One switch covers every dispatch. Turn it off and we&apos;ll stand
+            down — no field emails.
+          </p>
         </section>
 
         <section className="st-section">
           <h2 className="fm-h">BILLING</h2>
           <NavRow label="Payment method" value="None on file" />
-          <NavRow label="Payment history" value="—" />
-        </section>
-
-        <section className="st-section">
-          <h2 className="fm-h">HISTORY</h2>
-          <NavRow label="Action history" value="View" />
+          <NavRow label="Receipts &amp; history" value="View" href="/receipts" />
         </section>
 
         <section className="st-section">
@@ -225,6 +205,10 @@ export function Settings() {
               <button type="button" className="ob-btn" onClick={saveEmail}>
                 SAVE
               </button>
+              <p className="st-note">
+                ✉ Saving an email opts you in to field dispatches. Stand down
+                anytime with the switch above.
+              </p>
             </div>
           ) : (
             <NavRow
@@ -242,10 +226,11 @@ export function Settings() {
 
         <section className="st-section">
           <h2 className="fm-h">LEGAL</h2>
-          <NavRow label="Terms of Service" />
-          <NavRow label="Privacy Policy" />
-          <NavRow label="Cookie Policy" />
-          <NavRow label="Refund Policy" />
+          <NavRow
+            label="Terms, Privacy &amp; Refunds"
+            value="View"
+            href="/legal"
+          />
         </section>
       </div>
 

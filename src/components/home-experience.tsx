@@ -98,10 +98,10 @@ export function HomeExperience() {
     }
   }
 
-  function handleComplete(side: Team, email: string) {
+  function handleEnlist(side: Team) {
     const p: Player = {
       side,
-      email,
+      email: "",
       logins: 1,
       spent: 0,
       isOfficer: false,
@@ -122,11 +122,28 @@ export function HomeExperience() {
     setPlacing(true);
   }
 
-  function handlePlace(_i: number, reclaimed: number) {
+  function handlePlace(
+    _i: number,
+    reclaimed: number,
+    email: string,
+    optIn: boolean,
+  ) {
     setPlacing(false);
+    // Email + dispatch opt-in are captured here, at the claim step.
+    try {
+      const raw = localStorage.getItem("bg_settings_v1");
+      const cur = raw ? JSON.parse(raw) : {};
+      localStorage.setItem(
+        "bg_settings_v1",
+        JSON.stringify({ ...cur, email: optIn }),
+      );
+    } catch {
+      /* ignore */
+    }
     if (player && !player.placedFirst) {
       const promoted: Player = {
         ...player,
+        email: email || player.email,
         placedFirst: true,
         captures: player.captures + 1,
         reclaimed: player.reclaimed + reclaimed,
@@ -206,7 +223,7 @@ export function HomeExperience() {
 
       <ViewNav active="/" />
 
-      {ready && !player && <Onboarding onComplete={handleComplete} />}
+      {ready && !player && <Onboarding onEnlist={handleEnlist} />}
 
       {promotionRank && player && (
         <PromotionModal

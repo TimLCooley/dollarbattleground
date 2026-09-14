@@ -2,29 +2,21 @@
 
 import { useState } from "react";
 import type { Team } from "./board";
+import { LoginOtp } from "./login-otp";
 
-type Step = "recruit" | "enlist";
+type View = "pick" | "login";
 
 export function Onboarding({
-  onComplete,
+  onEnlist,
 }: {
-  onComplete: (side: Team, email: string) => void;
+  onEnlist: (side: Team) => void;
 }) {
-  const [step, setStep] = useState<Step>("recruit");
-  const [side, setSide] = useState<Team | null>(null);
-  const [email, setEmail] = useState("");
-
-  function choose(t: Team) {
-    setSide(t);
-    setStep("enlist");
-  }
-
-  const accent = side ? ` ${side}` : "";
+  const [view, setView] = useState<View>("pick");
 
   return (
     <div className="ob-overlay" role="dialog" aria-modal="true" aria-label="Enlist">
-      <div className={"ob-card" + accent}>
-        {step === "recruit" && (
+      <div className="ob-card">
+        {view === "pick" && (
           <>
             <div className="ob-kicker">◆ RECRUITMENT OPEN ◆</div>
             <h1 className="ob-title">THE BATTLEGROUND</h1>
@@ -33,11 +25,11 @@ export function Onboarding({
             </p>
             <p className="ob-prompt">Pick your side.</p>
             <div className="ob-sides">
-              <button className="ob-side blue" onClick={() => choose("blue")}>
+              <button className="ob-side blue" onClick={() => onEnlist("blue")}>
                 <span className="ob-swatch" />
                 BLUE
               </button>
-              <button className="ob-side red" onClick={() => choose("red")}>
+              <button className="ob-side red" onClick={() => onEnlist("red")}>
                 <span className="ob-swatch" />
                 RED
               </button>
@@ -45,39 +37,22 @@ export function Onboarding({
             <p className="ob-fine">
               Choose carefully. There is no switching sides.
             </p>
+            <div className="ob-divider" aria-hidden="true" />
+            <button
+              type="button"
+              className="ob-login-link"
+              onClick={() => setView("login")}
+            >
+              Already enlisted? Log in / Re-join the War
+            </button>
           </>
         )}
 
-        {step === "enlist" && side && (
-          <>
-            <div className="ob-kicker">◆ ENLISTMENT COMPLETE ◆</div>
-            <h2 className="ob-title">WELCOME, RECRUIT.</h2>
-            <p className="ob-body">
-              You fight for <b>{side.toUpperCase()}</b> now. Your first
-              deployment is free.
-            </p>
-            <p className="ob-prompt">Where should we send your field orders?</p>
-            <input
-              className="ob-input"
-              type="email"
-              placeholder="you@email.com"
-              value={email}
-              autoFocus
-              onChange={(e) => setEmail(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") onComplete(side, email.trim());
-              }}
-            />
-            <button
-              className="ob-btn"
-              onClick={() => onComplete(side, email.trim())}
-            >
-              DEPLOY ME →
-            </button>
-            <button className="ob-skip" onClick={() => onComplete(side, "")}>
-              skip — deploy without orders
-            </button>
-          </>
+        {view === "login" && (
+          <LoginOtp
+            onBack={() => setView("pick")}
+            onSignedIn={() => window.location.reload()}
+          />
         )}
       </div>
     </div>

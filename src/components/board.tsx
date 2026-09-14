@@ -5,6 +5,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createClient } from "@/utils/supabase/client";
 import { FieldRadio } from "./announcer";
 import { Insignia, rankFor, type InsigniaSpec } from "@/lib/ranks";
+import { addReceipt } from "@/lib/receipts";
+import { SpendConfirm, type PendingSpend } from "./spend-confirm";
+import { ClaimTile } from "./claim-tile";
+import { xPattern, strikePattern } from "@/lib/board-patterns";
 
 const N = 15;
 const TOTAL = N * N;
@@ -35,7 +39,10 @@ export interface Battleground {
   cells: CellVal[];
   counts: { b: number; r: number; n: number };
   popping: Set<number>;
-  claim: (indices: number[], team: Team) => void;
+  // Only the one free first tile is client-initiated (server enforces one per
+  // user). Paid flips are painted server-side after Stripe confirms payment, so
+  // there is no client-side paint for them — the board updates via realtime.
+  claimFree: (index: number, team: Team) => void;
 }
 
 // Live board backed by the shared Supabase `tiles` table: loads the current
@@ -118,61 +125,30 @@ export function useBattleground(): Battleground {
     return { b, r, n: TOTAL - b - r };
   }, [cells]);
 
-  const claim = useCallback(
-    (indices: number[], team: Team) => {
-      // Optimistic paint for instant feedback; realtime confirms it.
+  // The one free first tile. Server enforces one-per-user (claim_free_tile);
+  // optimistic paint for instant feedback, realtime confirms it.
+  const claimFree = useCallback(
+    (index: number, team: Team) => {
       setCells((prev) => {
         const next = [...prev];
-        indices.forEach((i) => (next[i] = team));
+        next[index] = team;
         return next;
       });
-      pop(indices);
-      const p_cells = indices.map((i) => ({ x: i % N, y: Math.floor(i / N) }));
+      pop([index]);
       supabase
-        .rpc("claim_tiles", { p_cells, p_team: team })
+        .rpc("claim_free_tile", {
+          p_x: index % N,
+          p_y: Math.floor(index / N),
+          p_team: team,
+        })
         .then(({ error }) => {
-          if (error) console.error("claim_tiles failed:", error.message);
+          if (error) console.error("claim_free_tile failed:", error.message);
         });
     },
     [supabase, pop],
   );
 
-  return { cells, counts, popping, claim };
-}
-
-function xPattern(i: number): number[] {
-  const x = i % N;
-  const y = Math.floor(i / N);
-  const out: number[] = [];
-  (
-    [
-      [0, 0],
-      [-1, -1],
-      [1, -1],
-      [-1, 1],
-      [1, 1],
-    ] as const
-  ).forEach(([dx, dy]) => {
-    const nx = x + dx,
-      ny = y + dy;
-    if (nx >= 0 && nx < N && ny >= 0 && ny < N) out.push(ny * N + nx);
-  });
-  return out;
-}
-
-// Officer-tier "airstrike": a 3x3 block. (Exact $10 mechanic TBD — placeholder.)
-function strikePattern(i: number): number[] {
-  const x = i % N;
-  const y = Math.floor(i / N);
-  const out: number[] = [];
-  for (let dy = -1; dy <= 1; dy++) {
-    for (let dx = -1; dx <= 1; dx++) {
-      const nx = x + dx,
-        ny = y + dy;
-      if (nx >= 0 && nx < N && ny >= 0 && ny < N) out.push(ny * N + nx);
-    }
-  }
-  return out;
+  return { cells, counts, popping, claimFree };
 }
 
 function Crosshair() {
@@ -219,13 +195,68 @@ interface BoardViewProps {
   lockedSide?: Team; // /red and /blue (and a chosen player) lock you to a faction
   title?: string; // rank/command label shown in the header
   placementMode?: boolean; // onboarding "plant your flag" — next tap is a free claim
-  onPlace?: (i: number, reclaimed: number) => void;
+  onPlace?: (
+    i: number,
+    reclaimed: number,
+    email: string,
+    optIn: boolean,
+  ) => void;
   isOfficer?: boolean; // unlocks the $10 officer action
   onPurchase?: (amount: number, reclaimed: number) => void; // any action; reclaimed = enemy tiles flipped
   insignia?: InsigniaSpec; // rank insignia
   totalSpent?: number; // cumulative $ for the statbar (overrides local session)
   record?: { captures: number }; // your-impact stat (positions taken)
   flash?: string | null; // transient briefing (threats/promotions)
+}
+
+function HeaderMenu() {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("mousedown", onDown);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDown);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
+
+  return (
+    <div className="hmenu" ref={ref}>
+      <button
+        type="button"
+        className="hmenu-btn"
+        aria-label="Menu"
+        aria-haspopup="true"
+        aria-expanded={open}
+        onClick={() => setOpen((o) => !o)}
+      >
+        <span className="hmenu-bars" aria-hidden="true">
+          <span />
+          <span />
+          <span />
+        </span>
+      </button>
+      {open && (
+        <nav className="hmenu-pop" aria-label="Main menu">
+          <Link href="/report" className="hmenu-item" onClick={() => setOpen(false)}>
+            Field Report
+          </Link>
+          <Link href="/settings" className="hmenu-item" onClick={() => setOpen(false)}>
+            Settings
+          </Link>
+        </nav>
+      )}
+    </div>
+  );
 }
 
 export function BoardView({
@@ -241,14 +272,18 @@ export function BoardView({
   record,
   flash,
 }: BoardViewProps) {
-  const { cells, counts, popping, claim } = board;
+  const { cells, counts, popping, claimFree } = board;
   const [internalSide, setInternalSide] = useState<Team>("blue");
   const side: Team = lockedSide ?? internalSide;
   const [tool, setTool] = useState<Tool>("flip");
   const [spent, setSpent] = useState(0);
   const [hint, setHint] = useState("Tap a position to take it.");
-  const bonusArmed = useRef(false);
   const [hoverIndex, setHoverIndex] = useState<number | null>(null);
+  // A paid order awaiting the player's explicit confirm (nothing is charged or
+  // flipped until they authorize it). idxs carries the exact tiles to seize.
+  const [pending, setPending] = useState<PendingSpend | null>(null);
+  // The free first-tile the recruit tapped, awaiting the email claim step.
+  const [pendingPlace, setPendingPlace] = useState<number | null>(null);
 
   // No neutral tiles: the board is always fully red/blue. A side at 100% has
   // nothing left to take, so that side is locked out — but the OTHER side can
@@ -279,39 +314,67 @@ export function BoardView({
     (i: number) => {
       if (locked) return;
       if (placementMode) {
-        claim([i], side); // free first tile
-        onPlace?.(i, enemyIn([i]));
+        // Don't claim yet — the recruit confirms the tile with the email
+        // claim step, and only then does it flip.
+        setPendingPlace(i);
         return;
       }
-      if (bonusArmed.current) {
-        claim([i], side);
-        bonusArmed.current = false;
-        setHint("Bonus tile placed. ✦");
-        onPurchase?.(0, enemyIn([i])); // the free bonus tile (no charge)
-        return;
-      }
+      // Paid orders don't fire on the tap — they open a confirmation first.
+      // The server derives the exact cells from this center tile.
       if (tool === "flip") {
-        claim([i], side);
-        setSpent((v) => v + 1);
-        setHint("Flipped one tile.");
-        onPurchase?.(1, enemyIn([i]));
+        setPending({ kind: "flip", amount: 1, tiles: 1, side, center: i });
       } else if (tool === "x") {
-        const idxs = xPattern(i);
-        claim(idxs, side);
-        setSpent((v) => v + 5);
-        bonusArmed.current = true;
-        setHint("X placed! Now tap any tile — your bonus flip.");
-        onPurchase?.(5, enemyIn(idxs));
+        setPending({
+          kind: "x",
+          amount: 5,
+          tiles: xPattern(i).length,
+          side,
+          center: i,
+        });
       } else if (tool === "strike" && isOfficer) {
-        const idxs = strikePattern(i);
-        claim(idxs, side);
-        setSpent((v) => v + 10);
-        setHint("Airstrike! 3×3 block seized.");
-        onPurchase?.(10, enemyIn(idxs));
+        setPending({
+          kind: "strike",
+          amount: 10,
+          tiles: strikePattern(i).length,
+          side,
+          center: i,
+        });
       }
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [locked, tool, side, claim, placementMode, onPlace, isOfficer, onPurchase, cells],
+    [locked, tool, side, placementMode, onPlace, isOfficer, onPurchase, cells],
+  );
+
+  // Payment already succeeded (server-side) by the time this runs — the flip is
+  // painted server-side via the finalize route / webhook and arrives over
+  // realtime. Here we just update the local UI stats + receipt cache.
+  const confirmSpend = useCallback(() => {
+    const p = pending;
+    if (!p) return;
+    setSpent((v) => v + p.amount);
+    setHint(
+      p.kind === "flip"
+        ? "Position taken."
+        : p.kind === "x"
+          ? "X-strike away — 5 tiles seized."
+          : "Airstrike! 3×3 block seized.",
+    );
+    onPurchase?.(p.amount, 0);
+    addReceipt({ amount: p.amount, kind: p.kind, tiles: p.tiles, side });
+    setPending(null);
+  }, [pending, side, onPurchase]);
+
+  // The recruit gave their email and claimed the free first tile.
+  const confirmPlace = useCallback(
+    (email: string, optIn: boolean) => {
+      const i = pendingPlace;
+      if (i == null) return;
+      claimFree(i, side);
+      onPlace?.(i, enemyIn([i]), email, optIn);
+      setPendingPlace(null);
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [pendingPlace, side, claimFree, onPlace, cells],
   );
 
   function pickSide(t: Team) {
@@ -324,12 +387,11 @@ export function BoardView({
     if (placementMode) return; // locked to the free placement
     if (t === "strike" && !isOfficer) return; // officers only
     setTool(t);
-    bonusArmed.current = false;
     setHint(
       t === "flip"
         ? "Tap a tile to flip it — $1."
         : t === "x"
-          ? "Tap a center tile — X-flip 5 tiles for $5, then a bonus flip."
+          ? "Tap a center tile — X-flip 5 tiles for $5."
           : "Airstrike armed — tap a tile to seize a 3×3 block for $10.",
     );
   }
@@ -337,6 +399,7 @@ export function BoardView({
   return (
     <div className={"cartridge" + (lockedSide ? ` ${lockedSide}-cmd` : "")}>
       <header className="bg-header">
+        <HeaderMenu />
         <div className="wordmark">
           <span className="coin">$</span>battleground
         </div>
@@ -513,6 +576,21 @@ export function BoardView({
         )}
       </div>
 
+      {pending && (
+        <SpendConfirm
+          pending={pending}
+          onConfirm={confirmSpend}
+          onCancel={() => setPending(null)}
+        />
+      )}
+
+      {pendingPlace != null && (
+        <ClaimTile
+          side={side}
+          onConfirm={confirmPlace}
+          onReselect={() => setPendingPlace(null)}
+        />
+      )}
     </div>
   );
 }
