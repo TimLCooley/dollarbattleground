@@ -12,9 +12,13 @@ export default async function AdminPage() {
   if (!adminId) {
     return (
       <div className="adm-denied">
-        <div className="adm-denied-kicker">◆ RESTRICTED ◆</div>
+        <div className="ts-stamp">TOP SECRET</div>
+        <div className="adm-denied-kicker">◆ CLEARANCE REQUIRED ◆</div>
         <h1>ACCESS DENIED</h1>
-        <p>This sector is command-only. Log in as an authorized officer.</p>
+        <p>
+          This file is above your pay grade, soldier. Command personnel only —
+          log in with authorized credentials.
+        </p>
         <Link href="/" className="adm-denied-link">
           ‹ Return to the board
         </Link>

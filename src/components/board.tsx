@@ -9,6 +9,7 @@ import { addReceipt } from "@/lib/receipts";
 import { SpendConfirm, type PendingSpend } from "./spend-confirm";
 import { ClaimTile } from "./claim-tile";
 import { xPattern, strikePattern } from "@/lib/board-patterns";
+import { isAdminUser } from "@/lib/admin-shared";
 
 const N = 15;
 const TOTAL = N * N;
@@ -211,7 +212,20 @@ interface BoardViewProps {
 
 function HeaderMenu() {
   const [open, setOpen] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
   const ref = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    let alive = true;
+    createClient()
+      .auth.getUser()
+      .then(({ data: { user } }) => {
+        if (alive && user) setIsAdmin(isAdminUser(user));
+      });
+    return () => {
+      alive = false;
+    };
+  }, []);
 
   useEffect(() => {
     if (!open) return;
@@ -253,6 +267,15 @@ function HeaderMenu() {
           <Link href="/settings" className="hmenu-item" onClick={() => setOpen(false)}>
             Settings
           </Link>
+          {isAdmin && (
+            <Link
+              href="/admin"
+              className="hmenu-item hmenu-admin"
+              onClick={() => setOpen(false)}
+            >
+              ★ Command
+            </Link>
+          )}
         </nav>
       )}
     </div>
