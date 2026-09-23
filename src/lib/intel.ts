@@ -1,5 +1,6 @@
 import "server-only";
 import type { Db } from "@/lib/app-config";
+import { themeOf } from "@/lib/recruiter";
 
 // Intel Ops' brief: the one set of real numbers every agent works from — the
 // board, the funnel, and how posts are performing. Built fresh on demand
@@ -184,13 +185,14 @@ export async function intelBrief(db: Db): Promise<IntelBrief> {
   // ── social ──
   const { data: postedRows } = await db
     .from("agent_posts")
-    .select("faction,angle,impressions,likes,reposts,replies,clicks,copy")
+    .select("faction,angle,reason,impressions,likes,reposts,replies,clicks,copy")
     .eq("status", "posted")
     .order("posted_at", { ascending: false })
     .limit(200);
   const posted = (postedRows ?? []) as {
     faction: string | null;
     angle: string | null;
+    reason: string | null;
     impressions: number | null;
     likes: number | null;
     reposts: number | null;
@@ -201,7 +203,9 @@ export async function intelBrief(db: Db): Promise<IntelBrief> {
   const queued = await count(db, "agent_posts", (q) => q.eq("status", "queued"));
   const agg = new Map<string, { n: number; imp: number; eng: number; clk: number }>();
   for (const p of posted) {
-    for (const k of [`team:${p.faction ?? "?"}`, `angle:${p.angle ?? "?"}`]) {
+    // Every post is an experiment — score by team, angle, and the lead theme it tested.
+    const theme = themeOf(p.reason);
+    for (const k of [`team:${p.faction ?? "?"}`, `angle:${p.angle ?? "?"}`, ...(theme ? [`theme:${theme}`] : [])]) {
       const a = agg.get(k) ?? { n: 0, imp: 0, eng: 0, clk: 0 };
       a.n++;
       a.imp += p.impressions ?? 0;

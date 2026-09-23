@@ -1,6 +1,6 @@
 import "server-only";
 import { cfgGet, cfgSet, type Db } from "@/lib/app-config";
-import { decideNextPost, type Angle } from "@/lib/recruiter";
+import { decideNextPost, themeOf, type Angle, type Theme } from "@/lib/recruiter";
 import { getTweetMetrics, postTweet, postTweetWithMedia, uploadVideo, type Faction } from "@/lib/x";
 import { produceVideo } from "@/lib/producer";
 import { getStripeMode } from "@/lib/stripe-mode";
@@ -65,15 +65,17 @@ export async function setAutopilot(db: Db, patch: Partial<AutopilotConfig>): Pro
 async function recentContext(db: Db, faction: Faction) {
   const { data } = await db
     .from("agent_posts")
-    .select("copy,deny_reason,status,angle")
+    .select("copy,deny_reason,status,angle,reason")
     .eq("faction", faction)
     .order("created_at", { ascending: false })
     .limit(20);
-  const rows = (data ?? []) as { copy: string; deny_reason: string | null; status: string; angle: Angle | null }[];
+  const rows = (data ?? []) as { copy: string; deny_reason: string | null; status: string; angle: Angle | null; reason: string | null }[];
   const live = rows.filter((r) => r.status !== "denied");
   return {
     recentCopies: live.map((r) => r.copy).slice(0, 6),
     recentAngles: live.map((r) => r.angle).filter(Boolean).slice(0, 6) as Angle[],
+    // Every post is an experiment: the next one leads with a theme the last two didn't.
+    recentThemes: rows.map((r) => themeOf(r.reason)).filter(Boolean).slice(0, 4) as Theme[],
     // The Commander's feedback is universal: denials from EITHER team train both.
     denyReasons: await recentDenyReasons(db),
   };

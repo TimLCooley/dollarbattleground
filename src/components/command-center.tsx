@@ -47,6 +47,7 @@ interface Gen {
 }
 interface Post {
   id: number;
+  faction: "red" | "blue" | null;
   status: string;
   format: string;
   angle: string | null;
@@ -117,13 +118,17 @@ export function CommandCenter() {
   const [gen, setGen] = useState<Gen | null>(null);
   const [pct, setPct] = useState<number | null>(null); // slider position (saved on release)
   const [notes, setNotes] = useState(""); // Commander's standing feedback (saved on blur)
+  const [filter, setFilter] = useState<Record<"red" | "blue", "queued" | "posted" | "denied">>({ red: "queued", blue: "queued" });
   const chatEnd = useRef<HTMLDivElement>(null);
 
   const agent = ROSTER.find((a) => a.key === sel)!;
 
-  const loadPosts = useCallback(async (faction: string) => {
-    const r = await fetch(`/api/admin/recruiter?faction=${faction}`);
-    setPosts(r.ok ? (await r.json()).posts : []);
+  // Both teams' queues, side by side.
+  const loadPosts = useCallback(async () => {
+    const [r, b] = await Promise.all([fetch("/api/admin/recruiter?faction=red"), fetch("/api/admin/recruiter?faction=blue")]);
+    const rp = r.ok ? ((await r.json()).posts as Post[]) : [];
+    const bp = b.ok ? ((await b.json()).posts as Post[]) : [];
+    setPosts([...rp, ...bp]);
   }, []);
   const loadChat = useCallback(async (key: string) => {
     const r = await fetch(`/api/admin/agent-chat?agent=${key}`);
@@ -170,17 +175,17 @@ export function CommandCenter() {
     if (pct != null && gen && pct !== gen.orders.recruit_pct) genPost({ action: "set", patch: { recruit_pct: pct } });
   }
   useEffect(() => {
-    setTab(agent.hasQueue ? "queue" : "chat");
     loadChat(agent.key);
-    if (agent.faction) loadPosts(agent.faction);
-    else setPosts(null);
-  }, [agent, loadChat, loadPosts]);
+  }, [agent, loadChat]);
+  useEffect(() => {
+    loadPosts().catch(() => {});
+  }, [loadPosts]);
   useEffect(() => {
     chatEnd.current?.scrollIntoView({ behavior: "smooth" });
   }, [msgs, tab]);
 
   const kpis = useMemo(() => {
-    const p = posts ?? [];
+    const p = (posts ?? []).filter((x) => x.faction === agent.faction);
     return {
       queued: p.filter((x) => x.status === "queued").length,
       posted: p.filter((x) => x.status === "posted").length,
@@ -188,25 +193,67 @@ export function CommandCenter() {
     };
   }, [posts]);
 
-  async function post(action: string, extra: Record<string, unknown>, tag: string) {
+  async function post(action: string, extra: Record<string, unknown>, tag: string, faction: "red" | "blue") {
     setBusy(tag);
     setErr(null);
     try {
       const res = await fetch("/api/admin/recruiter", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action, faction: agent.faction, ...extra }),
+        body: JSON.stringify({ action, faction, ...extra }),
       });
       const d = await res.json();
       if (!res.ok) setErr(d.error ?? "Failed");
-      if (agent.faction) await loadPosts(agent.faction);
+      await loadPosts();
     } finally {
       setBusy(null);
     }
   }
-  function deny(id: number) {
-    const reason = window.prompt("Why deny this? (your reason trains the agent)");
-    if (reason?.trim()) post("deny", { id, reason: reason.trim() }, `deny-${id}`);
+  function deny(id: number, faction: "red" | "blue") {
+    const reason = window.prompt("Why deny this? (your reason trains BOTH agents)");
+    if (reason?.trim()) post("deny", { id, reason: reason.trim() }, `deny-${id}`, faction);
+  }
+
+  // One post card. The lead theme is tagged into `reason` by the brain; show it as a chip.
+  const themeOf = (r: string | null) => r?.match(/\[theme:(\w+)\]/)?.[1] ?? null;
+  const cleanReason = (r: string | null) => (r ?? "").replace(/\[theme:\w+\]\s*/, "");
+  function card(p: Post, f: "red" | "blue") {
+    const theme = themeOf(p.reason);
+    return (
+      <div key={p.id} className={"cc-card " + p.status}>
+        <div className="cc-card-top">
+          <span className="cc-card-side">
+            {p.angle && <span className={"cc-angle a-" + p.angle}>{p.angle}</span>}
+            {theme && <span className="cc-theme">{theme}</span>}
+            <span className="cc-dim"> {p.format === "video" ? `video · ${p.video_kind ?? ""}` : "text"}</span>
+            {p.replaces ? <span className="cc-dim"> · replaces #{p.replaces}</span> : null}
+          </span>
+          <span className={"cc-status " + p.status}>{p.status === "queued" ? "draft" : p.status}</span>
+        </div>
+        <p className="cc-copy">{p.copy}</p>
+        {p.reason && <p className="cc-why">🧪 {cleanReason(p.reason)}</p>}
+        {p.deny_reason && <p className="cc-denied">✕ {p.deny_reason}</p>}
+        {p.status === "queued" && p.scheduled_for && (
+          <p className="cc-why">⏱ posts {new Date(p.scheduled_for).toLocaleString()} unless denied</p>
+        )}
+        {p.last_error && <p className="cc-denied">⚠ {p.last_error}</p>}
+        {p.external_id && (
+          <a className="xlink" href={`https://x.com/i/status/${p.external_id}`} target="_blank" rel="noreferrer">
+            ↗ View on X
+          </a>
+        )}
+        {p.status === "queued" && (
+          <div className="cc-card-acts">
+            <button className="cc-btn sm" onClick={() => post("publish", { id: p.id }, `pub-${p.id}`, f)} disabled={busy === `pub-${p.id}`}>
+              {busy === `pub-${p.id}` ? "Posting…" : "▶ Post now"}
+            </button>
+            <button className="cc-btn sm ghost" onClick={() => deny(p.id, f)} disabled={busy === `deny-${p.id}`}>
+              ✕ Deny
+            </button>
+          </div>
+        )}
+      </div>
+    );
   }
 
   async function send() {
@@ -250,7 +297,7 @@ export function CommandCenter() {
       const d = await r.json();
       if (!r.ok) setErr(d.error ?? "Failed");
       await loadAp();
-      if (agent.faction) await loadPosts(agent.faction);
+      await loadPosts();
     } finally {
       setBusy(null);
     }
@@ -344,10 +391,8 @@ export function CommandCenter() {
           </header>
 
           <div className="cc-tabs">
-            <button className={tab === "chat" ? "on" : ""} onClick={() => setTab("chat")}>💬 Chat</button>
-            {agent.hasQueue && (
-              <button className={tab === "queue" ? "on" : ""} onClick={() => setTab("queue")}>📋 Queue</button>
-            )}
+            <button className={tab === "queue" ? "on" : ""} onClick={() => setTab("queue")}>📋 Queues — Red | Blue</button>
+            <button className={tab === "chat" ? "on" : ""} onClick={() => setTab("chat")}>💬 Chat with {agent.name.split(" ")[0]}</button>
           </div>
 
           {tab === "chat" ? (
@@ -384,55 +429,42 @@ export function CommandCenter() {
             </div>
           ) : (
             <>
-              <div className="cc-actions">
-                <button className="cc-btn" onClick={() => post("draft", { goal }, "draft")} disabled={busy === "draft"}>
-                  {busy === "draft" ? "Thinking…" : "⚡ Draft a post"}
-                </button>
-                {err && <span className="ct-error">{err}</span>}
-              </div>
-              {!posts ? (
-                <p className="adm-loading">Loading…</p>
-              ) : posts.length === 0 ? (
-                <p className="cc-empty">No posts yet — hit “Draft a post”.</p>
-              ) : (
-                <div className="cc-queue">
-                  {posts.map((p) => (
-                    <div key={p.id} className={"cc-card " + p.status}>
-                      <div className="cc-card-top">
-                        <span className="cc-card-side">
-                          {p.x_account === "blue" ? "🔵" : "🔴"}
-                          {p.angle && <span className={"cc-angle a-" + p.angle}>{p.angle}</span>}
-                          <span className="cc-dim"> {p.format === "video" ? `video · ${p.video_kind ?? ""}` : "text"}</span>
-                          {p.replaces ? <span className="cc-dim"> · replaces #{p.replaces}</span> : null}
-                        </span>
-                        <span className={"cc-status " + p.status}>{p.status}</span>
+              {err && <p className="ct-error">{err}</p>}
+              <div className="cc-cols">
+                {(["red", "blue"] as const).map((f) => {
+                  const all = (posts ?? []).filter((p) => p.faction === f);
+                  const n = {
+                    queued: all.filter((p) => p.status === "queued").length,
+                    posted: all.filter((p) => p.status === "posted").length,
+                    denied: all.filter((p) => p.status === "denied").length,
+                  };
+                  const shown = all.filter((p) => p.status === filter[f]);
+                  return (
+                    <section key={f} className="cc-col" data-faction={f}>
+                      <div className="cc-col-head">
+                        <span className="cc-col-name">{f === "red" ? "🔴 RED SOCIAL" : "🔵 BLUE SOCIAL"}</span>
+                        <button className="cc-btn sm" onClick={() => post("draft", { goal }, `draft-${f}`, f)} disabled={busy === `draft-${f}`}>
+                          {busy === `draft-${f}` ? "Thinking…" : "⚡ Draft"}
+                        </button>
                       </div>
-                      <p className="cc-copy">{p.copy}</p>
-                      {p.reason && <p className="cc-why">💡 {p.reason}</p>}
-                      {p.deny_reason && <p className="cc-denied">✕ {p.deny_reason}</p>}
-                      {p.status === "queued" && p.scheduled_for && (
-                        <p className="cc-why">⏱ posts {new Date(p.scheduled_for).toLocaleString()} unless denied</p>
-                      )}
-                      {p.last_error && <p className="cc-denied">⚠ {p.last_error}</p>}
-                      {p.external_id && (
-                        <a className="xlink" href={`https://x.com/i/status/${p.external_id}`} target="_blank" rel="noreferrer">
-                          ↗ View on X
-                        </a>
-                      )}
-                      {p.status === "queued" && (
-                        <div className="cc-card-acts">
-                          <button className="cc-btn sm" onClick={() => post("publish", { id: p.id }, `pub-${p.id}`)} disabled={busy === `pub-${p.id}`}>
-                            {busy === `pub-${p.id}` ? "Posting…" : "▶ Post now"}
+                      <div className="cc-filters">
+                        {(["queued", "posted", "denied"] as const).map((s) => (
+                          <button key={s} className={filter[f] === s ? "on" : ""} onClick={() => setFilter({ ...filter, [f]: s })}>
+                            {s === "queued" ? "DRAFT" : s.toUpperCase()} {n[s]}
                           </button>
-                          <button className="cc-btn sm ghost" onClick={() => deny(p.id)} disabled={busy === `deny-${p.id}`}>
-                            ✕ Deny
-                          </button>
-                        </div>
+                        ))}
+                      </div>
+                      {!posts ? (
+                        <p className="adm-loading">Loading…</p>
+                      ) : shown.length === 0 ? (
+                        <p className="cc-empty">Nothing {filter[f] === "queued" ? "in draft" : filter[f]}.</p>
+                      ) : (
+                        <div className="cc-queue">{shown.map((p) => card(p, f))}</div>
                       )}
-                    </div>
-                  ))}
-                </div>
-              )}
+                    </section>
+                  );
+                })}
+              </div>
             </>
           )}
         </main>

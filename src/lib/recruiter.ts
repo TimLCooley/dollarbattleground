@@ -33,6 +33,7 @@ export interface DecideInput {
   daysLeft?: number | null;
   recentCopies?: string[];
   recentAngles?: Angle[]; // newest first
+  recentThemes?: Theme[]; // newest first — the next post leads with a different one
   denyReasons?: string[];
   brief?: IntelBrief | null;
   orders?: GeneralOrders | null;
@@ -74,7 +75,7 @@ const PITCH =
 
 const ANGLE_GUIDE: Record<Angle, string> = {
   recruit:
-    "THIS IS AN AD. Match the SHAPE of the first style example exactly: (1) the real countdown — 'N days left to join <Side>'s founding class' (or 'to claim your spot'); (2) the offer — pick your side, first position's free, or join as an officer; (3) where we need boots, by front/direction; (4) the link dollarbattleground.com. Three or four short sentences. No scoreboard. No cleverness. No story. Say it straight.",
+    "THIS IS AN AD, and every ad is an EXPERIMENT. Quality bar = the first style example: that clear, that direct, 2–4 short sentences, ending with the link dollarbattleground.com. Ingredients to draw from: the real countdown ('N days left…'), the offer (pick your side / first position's free / join as an officer), where we need boots by front. But NEVER reuse the wording or opening of a recent post — lead with this post's assigned theme, vary the hook, the length, the front you name. No scoreboard. No story. Say it straight.",
   teaser: "A coming-soon hook that makes someone want to pick a side before launch. Include the link dollarbattleground.com.",
   update: "A war-desk update: what actually happened on the map — ground gained or lost, by direction (the east, the south, the center). NO link. Reads like an account reporting, not selling.",
   hype: "Pump your own side. Swagger with specifics. NO link.",
@@ -119,17 +120,42 @@ const BANNED = [
   "flipping tiles",
 ];
 
-// What recruiting posts are actually about. All four are true — rotate them,
-// don't stack them.
-function recruitThemes(daysLeft?: number | null): string {
-  return `RECRUITING THEMES (pick one or two per post, rotate across posts):
-- SELECTIVE: we're looking for the best. This side earns its rank on the line; not everyone makes the cut.
-- COUNTDOWN (real): ${daysLeft != null ? `${daysLeft} day${daysLeft === 1 ? "" : "s"} left in the recruiting campaign — join now and you're in the founding class of your side.` : "the recruiting campaign is open now — join and you're in the founding class of your side."}
-- OFFICER PATH (real mechanic): a strike commissions you as a Second Lieutenant — you can join as an OFFICER, not a private, and earn rank from there. (Never say what it costs.)
-- LOW FRICTION: your first position is free.`;
+// What recruiting posts are actually about. All four are true. Each post
+// LEADS with one theme — scheduled so consecutive posts differ — and the
+// agent states what it's testing, so Intel can score themes against clicks.
+export type Theme = "countdown" | "officer" | "selective" | "free";
+const THEMES: Theme[] = ["countdown", "officer", "selective", "free"];
+
+export function chooseTheme(recentThemes: Theme[] = []): Theme {
+  const avoid = new Set(recentThemes.slice(0, 2));
+  const pool = THEMES.filter((t) => !avoid.has(t));
+  return (pool.length ? pool : THEMES)[Math.floor(Math.random() * (pool.length || THEMES.length))];
 }
 
-function buildPrompt(input: DecideInput, angle: Angle): { system: string; user: string } {
+// Themes are tagged into `reason` ("[theme:officer] …") so they round-trip
+// through the DB without a schema change.
+export function themeOf(reason: string | null | undefined): Theme | null {
+  const m = reason?.match(/\[theme:(countdown|officer|selective|free)\]/);
+  return (m?.[1] as Theme) ?? null;
+}
+
+function recruitThemes(lead: Theme, daysLeft?: number | null): string {
+  const countdown =
+    daysLeft != null
+      ? `${daysLeft} day${daysLeft === 1 ? "" : "s"} left in the recruiting campaign — join now and you're in the founding class of your side.`
+      : "the recruiting campaign is open now — join and you're in the founding class of your side.";
+  const all: Record<Theme, string> = {
+    selective: "SELECTIVE: we're looking for the best. This side earns its rank on the line; not everyone makes the cut.",
+    countdown: `COUNTDOWN (real): ${countdown}`,
+    officer: "OFFICER PATH (real mechanic): a strike commissions you as a Second Lieutenant — you can join as an OFFICER, not a private. (Never say what it costs.)",
+    free: "FREE FIRST POSITION: your first position is free — the lowest-friction way in.",
+  };
+  return `THIS POST'S LEAD THEME: ${lead.toUpperCase()} — open with it. You may fold in ONE other theme, no more.
+${THEMES.map((t) => (t === lead ? "→ " : "  ") + all[t]).join("\n")}
+EXPERIMENT: every post tests something. Vary the opening, the sentence count (2–4), which front you name, and the call to action. In "reason", state the hypothesis in one line, e.g. "Testing officer hook with no fronts named, 2 sentences."`;
+}
+
+function buildPrompt(input: DecideInput, angle: Angle, theme: Theme): { system: string; user: string } {
   const rec = agentByKey(`${input.faction}_recruiter`);
   const handle = input.faction === "red" ? "@RedBattleGround" : "@BluBattleGround";
   const other = input.faction === "red" ? "Blue" : "Red";
@@ -154,16 +180,16 @@ ${angle === "recruit" ? `MAP RIGHT NOW (background only — do NOT put the score
 ${PITCH}
 ${input.commanderNotes?.trim() ? `\nCOMMANDER'S STANDING FEEDBACK — applies to every agent and every post, and outranks the General's orders:\n${input.commanderNotes.trim()}\n` : ""}
 THIS POST'S ANGLE: ${angle.toUpperCase()} — ${ANGLE_GUIDE[angle]}
-${angle === "recruit" ? recruitThemes(input.daysLeft) + "\n" : ""}(The angle's link rule is absolute and overrides any standing order: only recruit/teaser posts carry the link. The General controls how OFTEN you recruit, not whether this post links.)
+${angle === "recruit" ? recruitThemes(theme, input.daysLeft) + "\n" : ""}(The angle's link rule is absolute and overrides any standing order: only recruit/teaser posts carry the link. The General controls how OFTEN you recruit, not whether this post links.)
 
 VOICE RULES: ≤ 200 characters. At most one emoji, usually none. No hashtags. No exclamation-point pileups. ${angle === "recruit" ? "Recruiting posts are ADS: plain, confident, direct — offer, urgency, call to action. Do not try to be clever or tell a story." : "Specifics over adjectives. Write like the person behind the account."}
 TERRITORY LANGUAGE ONLY: this is a territory war. Say positions, ground, territory, fronts, and compass directions — "pushing in from the south", "the eastern front", "the northwest", "the center". NEVER grid coordinates (no "4,7", no "H8" — nobody knows what they mean) and NEVER "flip tiles" / "tile flipping". You "take a position", "take ground", "hold the line".
 NEVER mention spending money or prices — no dollar amounts, ever. Say "take a position", "a strike commissions you", "first position free".
 NEVER invent game mechanics, events, or deadlines — no "freeze", "lockout", "round", "buzzer", "season" unless the brief literally says so. The game is: one map, two sides, positions, strikes (2×2), barrages (3×3), first position free, a strike commissions you as an officer. A quiet map is just a quiet map.
 NEVER USE: ${BANNED.map((b) => `"${b}"`).join(", ")}.
-STYLE EXAMPLES for this angle (do NOT copy them; match the feel):
+STYLE EXAMPLES for this angle (the QUALITY BAR — match the clarity, never the wording):
 - ${EXEMPLARS[angle].join("\n- ")}
-${input.recentCopies?.length ? `\nDO NOT REPEAT these recent posts (new idea, new wording): ${input.recentCopies.map((c) => `"${c}"`).join("; ")}` : ""}
+${input.recentCopies?.length ? `\nRECENT POSTS — do NOT reuse their opening line, structure, or phrasing; this one must read as a different experiment: ${input.recentCopies.map((c) => `"${c}"`).join("; ")}` : ""}
 ${input.denyReasons?.length ? `\nTHE COMMANDER DENIED recent posts (from either team — his feedback is universal) for these reasons; treat each as a rule: ${input.denyReasons.map((r) => `"${r}"`).join("; ")}` : ""}
 
 Format is "text" unless the brief shows a genuinely notable board swing worth a field report (then "video" with videoKind "social_clip").
@@ -171,7 +197,7 @@ Respond ONLY as JSON: {"copy":"<the post>","format":"text|video","videoKind":"co
   return { system, user };
 }
 
-function parseDraft(text: string | null | undefined, input: DecideInput, angle: Angle): PostDraft | null {
+function parseDraft(text: string | null | undefined, input: DecideInput, angle: Angle, theme: Theme): PostDraft | null {
   if (!text) return null;
   const raw = text.slice(text.indexOf("{"), text.lastIndexOf("}") + 1);
   try {
@@ -191,7 +217,8 @@ function parseDraft(text: string | null | undefined, input: DecideInput, angle: 
       copy,
       videoKind: p.videoKind === "coming_soon" || p.videoKind === "social_clip" ? p.videoKind : null,
       videoSpec: null,
-      reason: typeof p.reason === "string" ? p.reason : "",
+      // Tag the lead theme so it round-trips (variety scheduling + Intel scoring).
+      reason: `[theme:${theme}] ${typeof p.reason === "string" ? p.reason : ""}`.trim(),
     };
   } catch {
     return null;
@@ -221,17 +248,18 @@ async function gemini(system: string, user: string): Promise<string | null> {
 
 export async function decideNextPost(input: DecideInput): Promise<PostDraft | null> {
   const angle = input.forceAngle ?? chooseAngle(input.orders?.recruit_pct ?? 60, input.recentAngles ?? [], input.phase);
-  const { system, user } = buildPrompt(input, angle);
+  const theme = chooseTheme(input.recentThemes ?? []);
+  const { system, user } = buildPrompt(input, angle, theme);
 
-  // Claude first (two tries — the link guardrail can reject a draft), then Gemini.
+  // Claude first (two tries — the guardrails can reject a draft), then Gemini.
   if (claudeConfigured()) {
     for (let i = 0; i < 2; i++) {
-      const d = parseDraft(await claudeChat(system, [{ role: "user", content: user }], 2000), input, angle);
+      const d = parseDraft(await claudeChat(system, [{ role: "user", content: user }], 2000), input, angle, theme);
       if (d) return d;
     }
   }
   for (let i = 0; i < 2; i++) {
-    const d = parseDraft(await gemini(system, user), input, angle);
+    const d = parseDraft(await gemini(system, user), input, angle, theme);
     if (d) return d;
   }
   return null;
