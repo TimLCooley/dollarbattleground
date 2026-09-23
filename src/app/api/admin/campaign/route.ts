@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/admin-auth";
 import { createAdminClient } from "@/utils/supabase/admin";
+import { midnightDenver } from "@/lib/gate";
 
 // Campaign window (15-day recruiting push) + the $200K revenue goal. Stored in
 // app_config so the countdown + goal show across the command center.
@@ -45,7 +46,8 @@ export async function POST(req: Request) {
 
   if (body.action === "start") {
     const days = body.days && body.days > 0 ? body.days : 15;
-    const ends = new Date(now.getTime() + days * 86_400_000).toISOString();
+    // Ends at midnight Mountain as day N begins — the gate opens itself then.
+    const ends = midnightDenver(days, now);
     await write(db, CAMPAIGN_KEY, { started_at: now.toISOString(), ends_at: ends }, now);
   } else if (body.action === "stop") {
     await write(db, CAMPAIGN_KEY, {}, now);

@@ -7,6 +7,7 @@ import { getStripeMode } from "@/lib/stripe-mode";
 import { intelBrief } from "@/lib/intel";
 import { getCommanderNotes, getOrders, planOrders } from "@/lib/general";
 import { runDispatches } from "@/lib/dispatch";
+import { openGatesIfDue } from "@/lib/gate";
 
 export type { Db };
 
@@ -398,6 +399,17 @@ export async function runAutopilot(db: Db, opts: { force?: boolean } = {}): Prom
     if (d.notified) notes.push(`digest sent (${d.notified} events)`);
   } catch (e) {
     notes.push(`email: ${e instanceof Error ? e.message : "failed"}`);
+  }
+
+  // The gate opens itself when the campaign clock runs out (midnight Mountain
+  // on the last day) and the launch signal drains to the waitlist by side —
+  // also regardless of the switch.
+  try {
+    const g = await openGatesIfDue(db);
+    if (g.opened) notes.push("🚪 THE GATES ARE OPEN — launch signal going out");
+    if (g.sent) notes.push(`launch: ${g.sent} sent${g.done ? " (list complete)" : ""}`);
+  } catch (e) {
+    notes.push(`gate: ${e instanceof Error ? e.message : "failed"}`);
   }
 
   // The General re-plans from the brief once a day — even while the switch is

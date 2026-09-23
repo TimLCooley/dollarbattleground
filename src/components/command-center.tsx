@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { CartButton, StripeToggle } from "@/components/stripe-ops";
+import { CartButton, GateButton, StripeToggle } from "@/components/stripe-ops";
 
 // The command center, full width: RED on the left, BLUE on the right, COMMAND
 // in the middle. Each team column is that side's queue (draft / posted /
@@ -469,6 +469,7 @@ export function CommandCenter() {
 
         {/* ops strip: money live?, autopilot, last tick */}
         <div className="cc-ops">
+          <GateButton />
           <CartButton />
           <StripeToggle onChange={() => loadAp().catch(() => {})} />
           <button
