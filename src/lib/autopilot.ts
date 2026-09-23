@@ -330,14 +330,14 @@ export async function publishPost(db: Db, id: number): Promise<{ id: string; vid
 export async function refreshMetrics(db: Db): Promise<number> {
   const { data } = await db
     .from("agent_posts")
-    .select("id,external_id,faction,x_account")
+    .select("id,external_id,reply_external_id,faction,x_account")
     .eq("status", "posted")
     .not("external_id", "is", null)
     .limit(300);
-  const byFaction: Record<Faction, { id: number; ext: string }[]> = { red: [], blue: [] };
-  for (const r of (data ?? []) as { id: number; external_id: string | null; faction: string | null; x_account: string | null }[]) {
+  const byFaction: Record<Faction, { id: number; ext: string; ownReply: boolean }[]> = { red: [], blue: [] };
+  for (const r of (data ?? []) as { id: number; external_id: string | null; reply_external_id: string | null; faction: string | null; x_account: string | null }[]) {
     const f = (r.faction === "blue" || r.x_account === "blue" ? "blue" : "red") as Faction;
-    if (r.external_id) byFaction[f].push({ id: r.id, ext: r.external_id });
+    if (r.external_id) byFaction[f].push({ id: r.id, ext: r.external_id, ownReply: Boolean(r.reply_external_id) });
   }
   let updated = 0;
   const now = new Date().toISOString();
@@ -351,7 +351,15 @@ export async function refreshMetrics(db: Db): Promise<number> {
         if (!m) continue;
         await db
           .from("agent_posts")
-          .update({ impressions: m.impressions, likes: m.likes, reposts: m.reposts, replies: m.replies, quotes: m.quotes, metrics_at: now })
+          // Our own link reply is not engagement — don't count it.
+          .update({
+            impressions: m.impressions,
+            likes: m.likes,
+            reposts: m.reposts,
+            replies: Math.max(0, m.replies - (r.ownReply ? 1 : 0)),
+            quotes: m.quotes,
+            metrics_at: now,
+          })
           .eq("id", r.id);
         updated++;
       }
