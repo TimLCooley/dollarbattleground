@@ -301,7 +301,7 @@ export function CommandCenter() {
         autoDrafting.current[f] = false;
       } else if (!autoDrafting.current[f]) {
         autoDrafting.current[f] = true;
-        post("draft", {}, `draft-${f}`, f).catch(() => {});
+        post("draft", { auto: true }, `draft-${f}`, f).catch(() => {});
       }
     }
   }, [posts, post]);

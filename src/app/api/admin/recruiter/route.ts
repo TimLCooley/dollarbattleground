@@ -30,30 +30,27 @@ export async function POST(req: Request) {
     goal?: string;
     id?: number;
     reason?: string;
+    auto?: boolean;
   };
   const faction: Faction = body.faction === "blue" ? "blue" : "red";
 
   try {
     if (body.action === "draft") {
-      return NextResponse.json({ post: await draftPost(db, faction, body.goal?.trim() || DEFAULT_GOAL) });
+      // The ⚡ button always drafts; the page's auto-draft only fills an empty column.
+      const post = await draftPost(db, faction, body.goal?.trim() || DEFAULT_GOAL, { force: !body.auto });
+      return NextResponse.json({ post });
     }
 
     if (body.action === "deny") {
       if (!body.id || !body.reason?.trim())
         return NextResponse.json({ error: "id + reason required" }, { status: 400 });
-      const { data: denied } = await db
+      // No automatic replacement: the queue refills itself (page auto-draft +
+      // the tick), so a denial just removes the post and trains the agents.
+      await db
         .from("agent_posts")
         .update({ status: "denied", deny_reason: body.reason.trim(), decided_at: new Date().toISOString() })
-        .eq("id", body.id)
-        .select("goal,scheduled_for,faction")
-        .single();
-      const d = denied as { goal: string | null; scheduled_for: string | null; faction: string | null } | null;
-      const f = (d?.faction as Faction) || faction;
-      const replacement = await draftPost(db, f, d?.goal || DEFAULT_GOAL, {
-        replaces: body.id,
-        slot: d?.scheduled_for ?? null,
-      });
-      return NextResponse.json({ replacement });
+        .eq("id", body.id);
+      return NextResponse.json({ ok: true });
     }
 
     if (body.action === "publish") {
