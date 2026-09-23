@@ -11,7 +11,8 @@ export async function GET() {
   if (!(await requireAdmin())) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   const db = createAdminClient();
   const { config, state } = await getAutopilot(db);
-  return NextResponse.json({ config, state, stripeMode: await getStripeMode() });
+  const stripeMode = await getStripeMode().catch(() => "test" as const);
+  return NextResponse.json({ config, state, stripeMode });
 }
 
 export async function POST(req: Request) {

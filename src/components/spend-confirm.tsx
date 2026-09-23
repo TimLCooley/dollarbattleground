@@ -147,6 +147,7 @@ export function SpendConfirm({
         )}
 
         <p className="spend-fine">
+          All sales are final — positions can be retaken by the other side.{" "}
           <Link href="/legal#terms" className="spend-terms">
             Terms &amp; Conditions
           </Link>

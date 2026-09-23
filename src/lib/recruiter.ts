@@ -87,20 +87,20 @@ const ANGLE_GUIDE: Record<Angle, string> = {
 const EXEMPLARS: Record<Angle, string[]> = {
   recruit: [
     // The Commander's gold standard — match this SHAPE: countdown → pick your side + first position's free → where we need boots (by front) → link.
-    "15 days left to join Blue's founding class. Pick your side, first position's free, a dollar holds the line after that. We need boots on the western and center fronts. dollarbattleground.com",
+    "15 days left to join Blue's founding class. Pick your side, first position's free. We need boots on the western and center fronts. dollarbattleground.com",
     "14 days left to join Red's founding class. Claim your spot — first position's free. We need officers on the eastern front. dollarbattleground.com",
     "Join as an officer: one strike commissions you Second Lieutenant. 13 days left in Blue's recruiting window. We need boots in the south. dollarbattleground.com",
     "We're looking for the best. 12 days left to claim your spot in Red's founding class — first position's free. Hold the center with us. dollarbattleground.com",
   ],
   teaser: ["The map opens soon. Red or Blue — decide before your neighbor does: dollarbattleground.com"],
   update: [
-    "Overnight: Blue pushed up from the south and took nine positions. Red held the east. Map's dead even at 113–112.",
+    "Overnight: Blue pushed up from the south and took ground. Red held the east. The map is close.",
     "The northwest has changed hands three times this week. Nobody's holding it. Nobody's leaving it alone either.",
   ],
   hype: ["Red doesn't hold the line. Red IS the line. 🔴", "Half the map. Zero panic. That's the Blue way."],
   taunt: [
     "Red's been 'about to break through' in the west for two days now. We've started leaving snacks.",
-    "Blue calls it 'strategic patience.' We call it 112 positions and counting down.",
+    "Blue calls it 'strategic patience.' We call it a countdown.",
   ],
 };
 
@@ -195,7 +195,7 @@ ${input.recentCopies?.length ? `\nRECENT POSTS — do NOT reuse their opening li
 ${input.denyReasons?.length ? `\nTHE COMMANDER DENIED recent posts (from either team — his feedback is universal) for these reasons; treat each as a rule: ${input.denyReasons.map((r) => `"${r}"`).join("; ")}` : ""}
 
 Format is "text" unless the brief shows a genuinely notable board swing worth a field report (then "video" with videoKind "social_clip").
-Respond ONLY as JSON: {"copy":"<the post>","format":"text|video","videoKind":"coming_soon|social_clip|null","reason":"<one sentence to the Commander: why this post now>"}`;
+Respond ONLY as JSON: {"copy":"<the post>","format":"text|video","videoKind":"social_clip|null","reason":"<one sentence to the Commander: why this post now>"}`;
   return { system, user };
 }
 
@@ -217,7 +217,7 @@ function parseDraft(text: string | null | undefined, input: DecideInput, angle: 
       angle,
       xAccount: input.faction,
       copy,
-      videoKind: p.videoKind === "coming_soon" || p.videoKind === "social_clip" ? p.videoKind : null,
+      videoKind: p.videoKind === "social_clip" ? "social_clip" : null,
       videoSpec: null,
       // Tag the lead theme so it round-trips (variety scheduling + Intel scoring).
       reason: `[theme:${theme}] ${typeof p.reason === "string" ? p.reason : ""}`.trim(),

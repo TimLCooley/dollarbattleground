@@ -57,8 +57,6 @@ export function AdminTiles() {
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
 
-  const [simBusy, setSimBusy] = useState(false);
-  const [simMsg, setSimMsg] = useState<string | null>(null);
 
   const load = useCallback(async (cell?: { x: number; y: number }) => {
     setRows(null);
@@ -105,39 +103,9 @@ export function AdminTiles() {
     load();
   }
 
-  async function simulate() {
-    if (
-      !window.confirm(
-        "Add simulated battle history to the board? This is test data — wipe it before you go live.",
-      )
-    )
-      return;
-    setSimBusy(true);
-    setSimMsg(null);
-    try {
-      const res = await fetch("/api/admin/simulate", { method: "POST" });
-      const d = await res.json().catch(() => ({}));
-      if (res.ok) {
-        setSimMsg(`✓ Seeded ${d.events} flips across ${d.cells} cells (${d.players} players).`);
-        loadHot(range, from, to);
-        recent();
-      } else {
-        setSimMsg(`⚠ ${d.error ?? "Failed"}`);
-      }
-    } catch (e) {
-      setSimMsg(`⚠ ${e instanceof Error ? e.message : "Failed"}`);
-    } finally {
-      setSimBusy(false);
-    }
-  }
-
   return (
     <div className="tl">
       <div className="tl-simbar">
-        <button className="tl-btn" onClick={simulate} disabled={simBusy} type="button">
-          {simBusy ? "Simulating…" : "⚙ Simulate board"}
-        </button>
-        {simMsg && <span className="tl-simmsg">{simMsg}</span>}
       </div>
 
       <div className="tl-layout">

@@ -190,9 +190,15 @@ Respond ONLY JSON: {"headline":"<UPPERCASE, <=6 words>","spoken":"<what you say 
     if (s.data?.status === "failed") { console.log("HEYGEN failed"); return false; }
   }
   if (!url) { console.log("HEYGEN timeout"); return false; }
-  await new Promise((r) => setTimeout(r, 5000));
-  const wallet1 = await walletUsd();
-  const cost = Math.max(0, Number((wallet0 - wallet1).toFixed(4)));
+  // HeyGen settles the wallet a little after the render; wait for it to move
+  // (up to 40s) and never book $0 — the cap must always see real spend.
+  let wallet1 = wallet0;
+  for (let i = 0; i < 8 && wallet1 >= wallet0; i++) {
+    await new Promise((r) => setTimeout(r, 5000));
+    wallet1 = await walletUsd();
+  }
+  let cost = Math.max(0, Number((wallet0 - wallet1).toFixed(4)));
+  if (cost === 0) { cost = 0.2; console.log("wallet hasn't settled — booking the typical $0.20"); }
   await recordSpend(faction, cost);
   console.log(`SPEND — this clip $${cost.toFixed(4)}; ${faction} month now $${(used.month + cost).toFixed(2)}/${budget.per_team_month_usd}; wallet $${wallet1.toFixed(2)}`);
   await mkdir("public/_wr", { recursive: true });
@@ -246,6 +252,10 @@ Respond ONLY JSON: {"headline":"<UPPERCASE, <=6 words>","spoken":"<what you say 
 // ── entry ───────────────────────────────────────────────────────────────────
 const mode = process.argv[2];
 if (mode === "due") {
+  // Rendering costs money: when the autopilot is OFF nothing will post, so
+  // don't render placeholders either.
+  const ap = (await cfg("autopilot")) ?? {};
+  if (!ap.enabled && !process.env.FORCE) { console.log("Autopilot is OFF — not rendering placeholders (FORCE=1 to override)."); process.exit(0); }
   // Render every video placeholder whose slot is within the next 2 hours.
   const horizon = new Date(Date.now() + 2 * 60 * 60_000).toISOString();
   const due = await fetch(`${SB}/rest/v1/agent_posts?format=eq.video&video_kind=eq.social_clip&status=eq.queued&media_url=is.null&scheduled_for=lte.${horizon}&select=id,faction,video_spec,reason,scheduled_for&order=scheduled_for.asc`, { headers: sbh }).then((r) => r.json());

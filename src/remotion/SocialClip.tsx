@@ -38,7 +38,7 @@ export const DEFAULT_SOCIAL_PROPS: SocialClipProps = {
   headline: "RED PUNCHES THROUGH THE NORTHERN LINE",
   redPct: 58,
   bluePct: 42,
-  locator: "GRID 7,4",
+  locator: "THE CENTER",
   url: "dollarbattleground.com",
   variant: "field",
   seconds: 10,
@@ -203,7 +203,7 @@ export const SocialClip = (props: SocialClipProps) => {
 
         {/* reporter name tag */}
         <div style={{ color: "#fff", fontSize: 15, fontWeight: 700, opacity: 0.9, marginBottom: 6, textShadow: "0 2px 6px rgba(0,0,0,.7)" }}>
-          {props.reporterName} · {props.role === "field" ? "ON THE FRONT" : "ANCHOR"}
+          {props.reporterName} · {props.role === "field" ? "ON THE FRONT" : "AT THE DESK"}
         </div>
 
         <div

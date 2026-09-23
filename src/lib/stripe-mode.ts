@@ -8,18 +8,17 @@ import { createAdminClient } from "@/utils/supabase/admin";
 
 export type StripeMode = "test" | "live";
 
+// Fails LOUDLY if the mode can't be read: silently falling back to "test"
+// while live would make real cards decline and the webhook mis-verify.
 export async function getStripeMode(): Promise<StripeMode> {
-  try {
-    const admin = createAdminClient();
-    const { data } = await admin
-      .from("app_config")
-      .select("value")
-      .eq("key", "stripe_mode")
-      .single();
-    return data?.value === "live" ? "live" : "test";
-  } catch {
-    return "test";
-  }
+  const admin = createAdminClient();
+  const { data, error } = await admin
+    .from("app_config")
+    .select("value")
+    .eq("key", "stripe_mode")
+    .single();
+  if (error) throw new Error(`Stripe mode unavailable: ${error.message}`);
+  return data?.value === "live" ? "live" : "test";
 }
 
 export async function setStripeMode(mode: StripeMode): Promise<void> {
