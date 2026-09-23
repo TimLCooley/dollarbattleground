@@ -156,3 +156,61 @@ export function CartButton() {
     </span>
   );
 }
+
+// The gate. The timer opens it at midnight Mountain on the last campaign day;
+// this button is the override (open early / close again). Opening starts the
+// launch signal to the waitlist, drained by the tick in batches.
+interface Gate {
+  open: boolean;
+  opened_by?: string;
+  launch_done?: boolean;
+  launch_sent?: number;
+}
+
+export function GateButton() {
+  const [gate, setGate] = useState<Gate | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    fetch("/api/admin/gate")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((g) => g && setGate(g))
+      .catch(() => {});
+  }, []);
+
+  async function flip() {
+    if (!gate) return;
+    const ok = gate.open
+      ? window.confirm("Close the gates again? Visitors go back to the Coming Soon wall. Launch emails already sent stay sent.")
+      : window.confirm(
+          "OPEN THE GATES NOW?\n\nThe Coming Soon wall comes down for everyone and the launch signal goes to the whole waitlist — Red to Red, Blue to Blue — starting on the next tick. The timer would do this on its own at midnight on the last day.",
+        );
+    if (!ok) return;
+    setBusy(true);
+    try {
+      const r = await fetch("/api/admin/gate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: gate.open ? "close" : "open" }),
+      });
+      if (r.ok) setGate(await r.json());
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (!gate) return null;
+  const label = gate.open
+    ? `🚪 GATES OPEN${gate.launch_sent ? ` · ${gate.launch_sent} signalled${gate.launch_done ? "" : "…"}` : ""}`
+    : "🚪 GATES CLOSED";
+  return (
+    <button
+      className={"cc-btn sm" + (gate.open ? "" : " ghost")}
+      disabled={busy}
+      onClick={flip}
+      title={gate.open ? `opened by ${gate.opened_by ?? "?"}` : "opens itself at midnight on the last campaign day"}
+    >
+      {label}
+    </button>
+  );
+}

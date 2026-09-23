@@ -373,7 +373,7 @@ export async function sendWaitlistWelcome(db: Db, email: string, side: Side | nu
   const camp = await cfgGet<{ ends_at?: string }>(db, "campaign");
   const days = camp?.ends_at ? Math.max(0, Math.ceil((new Date(camp.ends_at).getTime() - Date.now()) / 86_400_000)) : 0;
   const who = side ? `${NAME[side]} soldier` : "soldier";
-  const subject = days > 0 ? `You're on the list — ${days} day${days === 1 ? "" : "s"} until the gates close` : `You're on the list`;
+  const subject = days > 0 ? `You're on the list — ${days} day${days === 1 ? "" : "s"} left to enlist` : `You're on the list`;
   return logAndSend(db, {
     userId: null,
     email,
@@ -384,7 +384,7 @@ export async function sendWaitlistWelcome(db: Db, email: string, side: Side | nu
     html: (url) =>
       wrap(
         `<p style="margin:0 0 10px;font-size:17px;font-weight:700;color:${COLOR[s]}">You're on the list, ${who}.</p>
-         ${days > 0 ? `<p style="margin:0 0 10px;font-size:14px;color:#efe4c4">Gates close in <b>${days}</b> day${days === 1 ? "" : "s"}. When they open you get first call — pick your position before the other side does.</p>` : ""}
+         ${days > 0 ? `<p style="margin:0 0 10px;font-size:14px;color:#efe4c4">Enlistment closes in <b>${days}</b> day${days === 1 ? "" : "s"}. When the gates open you get first call — pick your position before the other side does.</p>` : ""}
          <p style="margin:0 0 6px;font-size:14px;color:#efe4c4">Until then, bring a friend. The side with more boots holds more ground.</p>
          ${cta(url, "SHARE THE FRONT →", s)}`,
         `You're getting this because you enlisted at dollarbattleground.com. You'll get one signal when mobilization begins.`,
@@ -392,16 +392,56 @@ export async function sendWaitlistWelcome(db: Db, email: string, side: Side | nu
   });
 }
 
+// The launch signal: the gates are open. One email per waitlist address,
+// red to Red, blue to Blue, never twice (email_log kind "launch" is the ledger).
+// Sent in batches by the tick; ~2/s keeps Resend's rate limit happy.
+export async function sendLaunchEmails(db: Db, limit: number): Promise<{ sent: number; remaining: number }> {
+  if (!isEmailConfigured()) return { sent: 0, remaining: 0 };
+  const [{ data: list }, { data: logged }] = await Promise.all([
+    db.from("waitlist").select("email,side").order("created_at", { ascending: true }).limit(5000),
+    db.from("email_log").select("email").eq("kind", "launch").limit(10000),
+  ]);
+  const done = new Set(((logged ?? []) as { email: string }[]).map((r) => r.email.toLowerCase()));
+  const pending = ((list ?? []) as { email: string; side: string | null }[]).filter((r) => !done.has(r.email.toLowerCase()));
+  const batch = pending.slice(0, limit);
+  let sent = 0;
+  for (const r of batch) {
+    const side: Side | null = r.side === "red" || r.side === "blue" ? r.side : null;
+    const s: Side = side ?? "red";
+    const enemy = NAME[s === "red" ? "blue" : "red"];
+    const id = await logAndSend(db, {
+      userId: null,
+      email: r.email,
+      kind: "launch",
+      subject: side ? `${NAME[side]}: the gates are open — take your position` : `The gates are open — pick your side`,
+      target: side ? `${SITE}/${side}` : SITE,
+      meta: { side },
+      html: (url) =>
+        wrap(
+          `<p style="margin:0 0 10px;font-size:17px;font-weight:700;color:${COLOR[s]}">${side ? `Mobilization has begun, ${NAME[side]} soldier.` : "Mobilization has begun."}</p>
+           <p style="margin:0 0 10px;font-size:14px;color:#efe4c4">The map is live. Your first position is free — ${side ? `take it before ${enemy} does` : "pick your side and take it"}. Officers commission from the field.</p>
+           <p style="margin:0 0 6px;font-size:14px;color:#efe4c4">The founding class is whoever shows up first. That's you, if you move.</p>
+           ${cta(url, side ? "TAKE YOUR POSITION →" : "PICK YOUR SIDE →", s)}`,
+          `You asked us to signal you when the gates opened at dollarbattleground.com. This is that signal.`,
+        ),
+    });
+    if (id) sent++;
+    await new Promise((r) => setTimeout(r, 550));
+  }
+  return { sent, remaining: pending.length - batch.length };
+}
+
 // ── Commander notifications ─────────────────────────────────────────────────
 // One digest per tick listing what happened since the last one: signups,
 // purchases, takeovers, dispatches that went out, posts that published.
 // Batched by design — a hot hour is one email, not forty.
 
-const NOTIFY_KINDS = ["player_new", "waitlist_new", "purchase", "takeover", "email_takeover", "email_reminder", "email_waitlist", "email_waitlist_welcome", "post_published"];
+const NOTIFY_KINDS = ["player_new", "waitlist_new", "purchase", "takeover", "email_takeover", "email_reminder", "email_waitlist", "email_waitlist_welcome", "email_launch", "post_published"];
 const KIND_LABEL: Record<string, string> = {
   player_new: "signup",
   waitlist_new: "waitlist signup",
   email_waitlist_welcome: "welcome sent",
+  email_launch: "launch signal sent",
   purchase: "purchase",
   takeover: "takeover",
   email_takeover: "takeover alert sent",

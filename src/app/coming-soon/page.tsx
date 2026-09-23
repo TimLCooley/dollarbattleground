@@ -33,7 +33,14 @@ export default function ComingSoonPage() {
     if (ref) setSource(ref);
     fetch("/api/campaign")
       .then((r) => (r.ok ? r.json() : null))
-      .then((d) => d?.active && setDays(d.daysLeft))
+      .then((d) => {
+        // Gates open → this wall is over; go to the board (side kept).
+        if (d?.gateOpen) {
+          window.location.replace(s === "red" || s === "blue" ? `/${s}` : "/");
+          return;
+        }
+        if (d?.active) setDays(d.daysLeft);
+      })
       .catch(() => {});
   }, []);
 
@@ -140,7 +147,7 @@ export default function ComingSoonPage() {
         </p>
         {days != null && (
           <p className="cs-countdown" aria-live="polite">
-            ⏳ <b>{days}</b> {dayWord} until the gates close
+            ⏳ <b>{days}</b> {dayWord} left to enlist as a founding officer
           </p>
         )}
 
@@ -149,8 +156,8 @@ export default function ComingSoonPage() {
             <div className="cs-gate">
               <p className="cs-tag cs-thanks">
                 ✓ You&apos;re on the list{side ? `, ${side === "red" ? "🔴 Red" : "🔵 Blue"} soldier` : ""}.
-                {days != null ? ` Gates close in ${days} ${dayWord} — ` : " "}
-                we&apos;ll signal you the moment mobilization begins.
+                {days != null ? ` Enlistment closes in ${days} ${dayWord} — ` : " "}
+                we&apos;ll signal you the moment the gates open.
               </p>
             </div>
           ) : (
