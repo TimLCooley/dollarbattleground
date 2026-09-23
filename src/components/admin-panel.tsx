@@ -246,6 +246,13 @@ export function AdminPanel() {
 
   async function switchMode(next: "test" | "live") {
     setModeMsg(null);
+    if (next === mode) return;
+    // Both directions are consequential — confirm before flipping.
+    const warning =
+      next === "live"
+        ? "Switch Stripe to LIVE?\n\n• Real cards will be charged real money.\n• The autopilot will start publishing posts on schedule (if it's ON).\n\nContinue?"
+        : "Switch Stripe back to TEST?\n\n• Real payments STOP — visitors' cards will be declined.\n• The autopilot holds all posting while in test mode.\n\nContinue?";
+    if (!window.confirm(warning)) return;
     const res = await fetch("/api/admin/stripe-mode", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -276,9 +283,15 @@ export function AdminPanel() {
             className={
               "adm-toggle-opt live" + (mode === "live" ? " on" : "")
             }
-            onClick={() => switchMode("live")}
-            disabled={mode === null || !liveOk}
-            title={liveOk ? "" : "Live keys not configured"}
+            onClick={() =>
+              liveOk
+                ? switchMode("live")
+                : setModeMsg(
+                    "Can't go live yet — the live keys aren't in Vercel. Add STRIPE_SECRET_KEY_LIVE (sk_live_…), NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY_LIVE (pk_live_…) and STRIPE_WEBHOOK_SECRET, redeploy, then flip this.",
+                  )
+            }
+            disabled={mode === null}
+            title={liveOk ? "Switch to real charges" : "Live keys not configured — click for details"}
           >
             LIVE
           </button>
@@ -288,7 +301,7 @@ export function AdminPanel() {
         </span>
         {!liveOk && (
           <span className="adm-mode-note">
-            Live disabled — add STRIPE_SECRET_KEY_LIVE + publishable
+            Live keys not in Vercel yet — LIVE won't switch until they are
           </span>
         )}
         {modeMsg && <span className="adm-mode-err">{modeMsg}</span>}
