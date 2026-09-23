@@ -39,7 +39,7 @@ export function Legal() {
           <h2 className="lg-h">REFUNDS — ALL SALES FINAL</h2>
           <p>
             <b>All purchases are final. We do not offer refunds.</b> Every paid
-            action in {GAME} — taking a position, an X-Strike, an airstrike, or
+            action in {GAME} — taking a position, a 2×2 strike, a 3×3 barrage, or
             any future purchase — is a real-time move in a live, competitive game
             that takes effect the instant you authorize it and cannot be undone,
             reversed, or restored.

@@ -1,9 +1,7 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
-import { AdminAgents } from "./admin-agents";
-import { AdminTiles } from "./admin-tiles";
+import { SpendConfirm, type PendingSpend } from "./spend-confirm";
 
 interface RosterRow {
   id: string;
@@ -168,7 +166,14 @@ export function AdminPanel() {
   const [liveOk, setLiveOk] = useState(false);
   const [modeMsg, setModeMsg] = useState<string | null>(null);
 
-  const [tab, setTab] = useState<"roster" | "tiles" | "agents">("roster");
+  // Test checkout — opens the real SpendConfirm/Stripe flow (test mode)
+  const [testPay, setTestPay] = useState<PendingSpend | null>(null);
+  const [payMsg, setPayMsg] = useState<string | null>(null);
+  const TEST_ORDERS: { label: string; order: PendingSpend }[] = [
+    { label: "$1 · single", order: { kind: "flip", amount: 1, tiles: 1, side: "red", center: 112 } },
+    { label: "$5 · 2×2", order: { kind: "x", amount: 5, tiles: 4, side: "red", center: 112 } },
+    { label: "$10 · 3×3", order: { kind: "strike", amount: 10, tiles: 9, side: "red", center: 112 } },
+  ];
 
   useEffect(() => {
     (async () => {
@@ -255,45 +260,7 @@ export function AdminPanel() {
   }
 
   return (
-    <div className="adm">
-      <header className="adm-head">
-        <div>
-          <div className="adm-kicker">◆ COMMAND CONSOLE ◆</div>
-          <h1 className="adm-title">
-            <span className="adm-coin">$</span> ROSTER
-          </h1>
-        </div>
-        <Link href="/" className="adm-exit">
-          ‹ BOARD
-        </Link>
-      </header>
-
-      <nav className="adm-tabs">
-        <button
-          className={tab === "roster" ? "on" : ""}
-          onClick={() => setTab("roster")}
-        >
-          ROSTER
-        </button>
-        <button
-          className={tab === "tiles" ? "on" : ""}
-          onClick={() => setTab("tiles")}
-        >
-          TILE LOG
-        </button>
-        <button
-          className={tab === "agents" ? "on" : ""}
-          onClick={() => setTab("agents")}
-        >
-          AGENTS
-        </button>
-      </nav>
-
-      {tab === "tiles" && <AdminTiles />}
-      {tab === "agents" && <AdminAgents />}
-
-      {tab === "roster" && (
-        <>
+    <>
       {/* Stripe mode */}
       <section className="adm-mode">
         <span className="adm-mode-label">STRIPE</span>
@@ -326,6 +293,42 @@ export function AdminPanel() {
         )}
         {modeMsg && <span className="adm-mode-err">{modeMsg}</span>}
       </section>
+
+      {/* Test checkout — feel the real payment flow (uses the current Stripe mode) */}
+      <section className="adm-mode">
+        <span className="adm-mode-label">TEST CHECKOUT</span>
+        <div className="adm-toggle" role="group" aria-label="Test checkout">
+          {TEST_ORDERS.map((t) => (
+            <button
+              key={t.label}
+              className="adm-toggle-opt"
+              onClick={() => {
+                setPayMsg(null);
+                setTestPay(t.order);
+              }}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
+        <span className="adm-mode-note">
+          {mode === "live"
+            ? "⚠ LIVE mode — a real charge. Switch to TEST for card 4242…"
+            : "Opens the live checkout in test mode (use card 4242 4242 4242 4242)."}
+        </span>
+        {payMsg && <span className="adm-mode-state test">{payMsg}</span>}
+      </section>
+
+      {testPay && (
+        <SpendConfirm
+          pending={testPay}
+          onConfirm={() => {
+            setTestPay(null);
+            setPayMsg("✓ Test purchase completed.");
+          }}
+          onCancel={() => setTestPay(null)}
+        />
+      )}
 
       {/* Summary */}
       {summary && (
@@ -414,8 +417,6 @@ export function AdminPanel() {
           </table>
         </div>
       )}
-        </>
-      )}
-    </div>
+    </>
   );
 }

@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Silkscreen, Schoolbell } from "next/font/google";
 import "./globals.css";
+import { FaviconSwitcher } from "@/components/favicon-switcher";
 
 const silkscreen = Silkscreen({
   variable: "--font-pixel",
@@ -36,7 +37,10 @@ export default function RootLayout({
       lang="en"
       className={`${silkscreen.variable} ${schoolbell.variable} antialiased`}
     >
-      <body>{children}</body>
+      <body>
+        <FaviconSwitcher />
+        {children}
+      </body>
     </html>
   );
 }

@@ -16,8 +16,14 @@ export interface PendingSpend {
 
 const COPY: Record<ActionKind, { name: string; detail: string }> = {
   flip: { name: "TAKE POSITION", detail: "Seize one (1) enemy tile." },
-  x: { name: "X-STRIKE", detail: "Seize 5 tiles in an X." },
-  strike: { name: "AIRSTRIKE", detail: "Seize a 3×3 block — 9 tiles at once." },
+  x: { name: "2×2 STRIKE", detail: "Seize a 2×2 block — 4 tiles at once." },
+  strike: { name: "3×3 BARRAGE", detail: "Seize a 3×3 block — 9 tiles at once." },
+};
+
+// The bonus banked pieces each bundle includes (placed free after the buy).
+const BONUS: Partial<Record<ActionKind, string>> = {
+  x: "Includes 2 FREE tiles to place after.",
+  strike: "Includes a FREE 2×2 block + 1 FREE tile to place after.",
 };
 
 export function SpendConfirm({
@@ -94,9 +100,8 @@ export function SpendConfirm({
 
         {clientSecret ? (
           <>
-            <p className="spend-detail">
-              Enter your card to authorize <b>${pending.amount}</b>. We&apos;ll
-              save it so next time is one tap.
+            <p className="spend-detail spend-secure">
+              🔒 <b>${pending.amount}</b> · secure · saved for one-tap next time
             </p>
             <StripePayment
               clientSecret={clientSecret}
@@ -114,6 +119,9 @@ export function SpendConfirm({
         ) : (
           <>
             <p className="spend-detail">{copy.detail}</p>
+            {BONUS[pending.kind] && (
+              <p className="spend-bonus">🎁 {BONUS[pending.kind]}</p>
+            )}
             <div className="spend-cost">
               <span className="spend-cost-label">COST</span>
               <span className="spend-cost-amt">${pending.amount}</span>

@@ -4,6 +4,10 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { ViewNav } from "./board";
 import { createClient } from "@/utils/supabase/client";
+import { RANKS, Insignia } from "@/lib/ranks";
+
+const ENLISTED_RANKS = RANKS.filter((r) => r.tier === "enlisted");
+const OFFICER_RANKS = RANKS.filter((r) => r.tier === "officer");
 
 const SKEY = "bg_settings_v1";
 
@@ -91,6 +95,8 @@ export function Settings() {
   const [email, setEmail] = useState("");
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState("");
+  const [ranksOpen, setRanksOpen] = useState(false);
+  const [activitiesOpen, setActivitiesOpen] = useState(false);
 
   useEffect(() => {
     try {
@@ -222,6 +228,87 @@ export function Settings() {
           )}
           <NavRow label="Sign out" onClick={signOut} />
           <NavRow label="Delete account" danger onClick={deleteAccount} />
+        </section>
+
+        <section className="st-section">
+          <h2 className="fm-h">PROMOTIONS</h2>
+
+          <button
+            type="button"
+            className="st-row st-link"
+            aria-expanded={ranksOpen}
+            onClick={() => setRanksOpen((v) => !v)}
+          >
+            <span className="st-label">Ranks</span>
+            <span className={"st-chev" + (ranksOpen ? " open" : "")} aria-hidden="true">
+              ›
+            </span>
+          </button>
+          {ranksOpen && (
+            <div className="st-acc-body">
+              <p className="st-note">
+                You start as a Recruit (0 pts). Your first flip earns Private (3
+                pts); a return or another flip makes you PFC (4). Reach each
+                threshold to earn the rank.
+              </p>
+              <div className="rk-list">
+                {ENLISTED_RANKS.map((r) => (
+                  <div className="rk-row" key={r.key}>
+                    <span className="rk-ins">
+                      <Insignia ins={r.insignia} size={26} />
+                    </span>
+                    <span className="rk-name">{r.name}</span>
+                    <span className="rk-req">{r.req} pts</span>
+                  </div>
+                ))}
+              </div>
+              <h3 className="rk-sub">OFFICER CORPS · commission with a paid strike ($5+)</h3>
+              <div className="rk-list">
+                {OFFICER_RANKS.map((r) => (
+                  <div className="rk-row" key={r.key}>
+                    <span className="rk-ins">
+                      <Insignia ins={r.insignia} size={26} />
+                    </span>
+                    <span className="rk-name">{r.name}</span>
+                    <span className="rk-req">{r.req} pts</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <button
+            type="button"
+            className="st-row st-link"
+            aria-expanded={activitiesOpen}
+            onClick={() => setActivitiesOpen((v) => !v)}
+          >
+            <span className="st-label">Activities</span>
+            <span className={"st-chev" + (activitiesOpen ? " open" : "")} aria-hidden="true">
+              ›
+            </span>
+          </button>
+          {activitiesOpen && (
+            <div className="st-acc-body">
+              <div className="rk-legend">
+                <h3 className="rk-legend-h">WHAT EARNS POINTS</h3>
+                <div className="rk-leg-row">
+                  <span className="rk-leg-pt">+3</span>
+                  <span>Flip a tile</span>
+                  <span className="rk-leg-sub">each tile you flip</span>
+                </div>
+                <div className="rk-leg-row">
+                  <span className="rk-leg-pt">+1</span>
+                  <span>Report for duty</span>
+                  <span className="rk-leg-sub">each return, 8+ hours apart</span>
+                </div>
+                <p className="st-note">
+                  Your rank climbs on points from the field — flips and showing up.
+                  Commission into the Officer Corps with your first paid strike ($5+).
+                </p>
+              </div>
+            </div>
+          )}
         </section>
 
         <section className="st-section">

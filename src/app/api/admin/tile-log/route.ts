@@ -18,6 +18,43 @@ export async function GET(req: Request) {
   const limit = Math.min(Number(url.searchParams.get("limit")) || 60, 200);
 
   const db = createAdminClient();
+
+  // "Most fought-for" mode: aggregate flips per cell within a date range.
+  if (url.searchParams.get("hot")) {
+    const since = url.searchParams.get("since");
+    const until = url.searchParams.get("until");
+    let q = db
+      .from("tile_events")
+      .select("x,y,team,created_at")
+      .order("created_at", { ascending: false })
+      .limit(8000);
+    if (since) q = q.gte("created_at", since);
+    if (until) q = q.lte("created_at", until);
+    const { data, error: hErr } = await q;
+    if (hErr) {
+      return NextResponse.json({ error: hErr.message }, { status: 500 });
+    }
+    const cells = new Map<
+      string,
+      { x: number; y: number; flips: number; red: number; blue: number; team: string; last: string }
+    >();
+    for (const e of data ?? []) {
+      const key = `${e.x},${e.y}`;
+      let c = cells.get(key);
+      if (!c) {
+        // events arrive newest-first, so the first one seen is the current owner
+        c = { x: e.x, y: e.y, flips: 0, red: 0, blue: 0, team: e.team, last: e.created_at };
+        cells.set(key, c);
+      }
+      c.flips++;
+      if (e.team === "red") c.red++;
+      else if (e.team === "blue") c.blue++;
+    }
+    const rows = [...cells.values()]
+      .sort((a, b) => b.flips - a.flips || b.last.localeCompare(a.last))
+      .slice(0, 24);
+    return NextResponse.json({ hot: true, rows, total: cells.size });
+  }
   let query = db
     .from("tile_events")
     .select("id,x,y,team,owner_id,source,created_at")

@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { BoardView, useBattleground, ViewNav, type Team } from "./board";
+import { BoardView, useBattleground, ViewNav, postAdminPaint, type Team } from "./board";
+import { useAdminFreePlay } from "./use-admin-freeplay";
 import { Onboarding } from "./onboarding";
 import { PromotionModal } from "./promotion";
 import { rankFor, RANKS, type Rank } from "@/lib/ranks";
@@ -24,12 +25,13 @@ interface Player {
   enlistedAt: string; // ISO
   lastActionAt: string | null; // ISO
   lastPromotionAt: string | null; // ISO
+  lastSeenAt: string | null; // ISO — last time we counted them present
   rankKey: string;
 }
 
-function tilesFor(amount: number): number {
-  return amount >= 10 ? 9 : amount >= 5 ? 5 : 1;
-}
+// A fresh visit only counts as a "return" (a login) after this much inactivity,
+// so hopping between pages within a session doesn't inflate rank progression.
+const SESSION_GAP_HOURS = 8;
 
 function orderOfKey(key: string): number {
   return RANKS.find((r) => r.key === key)?.order ?? 0;
@@ -40,6 +42,7 @@ const today = () => new Date().toISOString().slice(0, 10);
 
 export function HomeExperience() {
   const board = useBattleground();
+  const { freePlay } = useAdminFreePlay();
   const [player, setPlayer] = useState<Player | null>(null);
   const [ready, setReady] = useState(false);
   const [placing, setPlacing] = useState(false);
@@ -55,11 +58,16 @@ export function HomeExperience() {
         if (p?.side) {
           const spent = p.spent ?? (p.buys ? p.buys * 5 : 0);
           const t = today();
-          const newDay = !!p.lastLoginDay && p.lastLoginDay !== t;
+          // Only count a fresh login/day after a real gap of inactivity —
+          // page navigation within a session no longer bumps rank.
+          const lastSeen = p.lastSeenAt ? Date.parse(p.lastSeenAt) : 0;
+          const hoursSince = lastSeen ? (Date.now() - lastSeen) / 3_600_000 : Infinity;
+          const isReturn = hoursSince >= SESSION_GAP_HOURS;
+          const newDay = isReturn && !!p.lastLoginDay && p.lastLoginDay !== t;
           const next: Player = {
             side: p.side,
             email: p.email ?? "",
-            logins: (p.logins ?? 1) + 1,
+            logins: (p.logins ?? 1) + (isReturn ? 1 : 0),
             spent,
             isOfficer: p.isOfficer ?? false,
             placedFirst: p.placedFirst ?? true,
@@ -68,10 +76,11 @@ export function HomeExperience() {
             xStrikes: p.xStrikes ?? 0,
             officerActions: p.officerActions ?? 0,
             days: (p.days ?? 1) + (newDay ? 1 : 0),
-            lastLoginDay: t,
+            lastLoginDay: isReturn ? t : (p.lastLoginDay ?? t),
             enlistedAt: p.enlistedAt ?? nowISO(),
             lastActionAt: p.lastActionAt ?? null,
             lastPromotionAt: p.lastPromotionAt ?? null,
+            lastSeenAt: nowISO(),
             rankKey: p.rankKey ?? "recruit",
           };
           const nr = rankFor(next);
@@ -115,11 +124,14 @@ export function HomeExperience() {
       enlistedAt: nowISO(),
       lastActionAt: null,
       lastPromotionAt: null,
+      lastSeenAt: nowISO(),
       rankKey: "recruit",
     };
     setPlayer(p);
     persist(p);
     setPlacing(true);
+    // Flip the tab favicon to their faction color immediately.
+    window.dispatchEvent(new CustomEvent("bg:sidechange", { detail: side }));
   }
 
   function handlePlace(
@@ -159,13 +171,13 @@ export function HomeExperience() {
     }
   }
 
-  function handlePurchase(amount: number, reclaimed: number) {
+  function handlePurchase(amount: number, reclaimed: number, captures: number) {
     if (!player) return;
     const prev = rankFor(player);
     const next: Player = {
       ...player,
       spent: player.spent + amount,
-      captures: player.captures + tilesFor(amount),
+      captures: player.captures + captures,
       reclaimed: player.reclaimed + reclaimed,
       xStrikes: player.xStrikes + (amount === 5 ? 1 : 0),
       officerActions: player.officerActions + (amount === 10 ? 1 : 0),
@@ -209,7 +221,8 @@ export function HomeExperience() {
         insignia={rank?.insignia}
         placementMode={placing}
         onPlace={handlePlace}
-        isOfficer={player?.isOfficer}
+        isOfficer={player?.isOfficer || freePlay}
+        adminPaint={freePlay ? postAdminPaint : undefined}
         onPurchase={handlePurchase}
         record={player ? { captures: player.captures } : undefined}
         flash={flash}

@@ -50,6 +50,30 @@ export async function fulfillPayment(
 
   const cells = cellsFor(kind, center);
   const admin = createAdminClient();
+
+  // Bonus banked pieces for the bundle. Overlap (tiles in the block already this
+  // team's) is computed BEFORE painting and converts to banked singles (no-waste).
+  let bonusSingles = 0;
+  let bonusBlocks = 0;
+  if (kind === "x") bonusSingles = 2;
+  else if (kind === "strike") {
+    bonusSingles = 1;
+    bonusBlocks = 1;
+  }
+  if (kind === "x" || kind === "strike") {
+    const xs = cells.map((c) => c.x);
+    const ys = cells.map((c) => c.y);
+    const { data: ownAlready } = await admin
+      .from("tiles")
+      .select("x")
+      .eq("team", team)
+      .gte("x", Math.min(...xs))
+      .lte("x", Math.max(...xs))
+      .gte("y", Math.min(...ys))
+      .lte("y", Math.max(...ys));
+    bonusSingles += ownAlready?.length ?? 0;
+  }
+
   const { error } = await admin.rpc("claim_paid", {
     p_cells: cells,
     p_team: team,
@@ -58,6 +82,17 @@ export async function fulfillPayment(
   });
   if (error) {
     return { ok: false, error: error.message };
+  }
+
+  // Credit the banked bonus pieces. A failure here doesn't undo the paid paint
+  // (which already succeeded), so we log rather than fail the whole fulfillment.
+  if (bonusSingles > 0 || bonusBlocks > 0) {
+    const { error: bankErr } = await admin.rpc("credit_bank", {
+      p_owner: owner,
+      p_singles: bonusSingles,
+      p_blocks: bonusBlocks,
+    });
+    if (bankErr) console.error("credit_bank failed:", bankErr.message);
   }
 
   // Mark fulfilled so a second call (webhook/finalize race) is a no-op.

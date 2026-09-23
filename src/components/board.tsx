@@ -9,7 +9,10 @@ import { addReceipt } from "@/lib/receipts";
 import { SpendConfirm, type PendingSpend } from "./spend-confirm";
 import { ClaimTile } from "./claim-tile";
 import { xPattern, strikePattern } from "@/lib/board-patterns";
-import { isAdminUser } from "@/lib/admin-shared";
+import { ScreenFx, CELE_MS, type Cele, type ScreenFxState } from "./screen-fx";
+import { StrikeStage, TIER_FX, useFxSpeed, type Proj } from "@/lib/flip-fx";
+import { SocialFeeds } from "./social-feed";
+import { useAdminFreePlay } from "./use-admin-freeplay";
 
 const N = 15;
 const TOTAL = N * N;
@@ -17,6 +20,17 @@ const TOTAL = N * N;
 export type Team = "red" | "blue";
 type CellVal = Team | null;
 type Tool = "flip" | "x" | "strike";
+
+// Admin free paint (Free Play / god-mode): server-authoritative, admin-gated.
+export function postAdminPaint(center: number, kind: Tool, team: Team) {
+  fetch("/api/admin/paint", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ center, kind, team }),
+  }).then((r) => {
+    if (!r.ok) r.json().then((j) => console.error("admin paint failed:", j)).catch(() => {});
+  });
+}
 
 function seedTufts(): boolean[] {
   let s = 991;
@@ -40,6 +54,7 @@ export interface Battleground {
   cells: CellVal[];
   counts: { b: number; r: number; n: number };
   popping: Set<number>;
+  owned: Set<number>; // tiles the current player currently holds
   // Only the one free first tile is client-initiated (server enforces one per
   // user). Paid flips are painted server-side after Stripe confirms payment, so
   // there is no client-side paint for them — the board updates via realtime.
@@ -53,6 +68,8 @@ export function useBattleground(): Battleground {
   const supabase = useMemo(() => createClient(), []);
   const [cells, setCells] = useState<CellVal[]>(seed5050);
   const [popping, setPopping] = useState<Set<number>>(new Set());
+  const [owned, setOwned] = useState<Set<number>>(new Set());
+  const myIdRef = useRef<string | null>(null);
 
   const pop = useCallback((indices: number[]) => {
     setPopping((prev) => {
@@ -69,22 +86,34 @@ export function useBattleground(): Battleground {
     }, 200);
   }, []);
 
-  // Initial load of the whole board.
+  // Initial load of the whole board + which tiles are mine.
   useEffect(() => {
     let active = true;
-    supabase
-      .from("tiles")
-      .select("x,y,team")
-      .then(({ data, error }) => {
-        if (!active || error || !data) return;
-        setCells(() => {
-          const next: CellVal[] = new Array(TOTAL).fill(null);
-          for (const r of data as { x: number; y: number; team: CellVal }[]) {
-            next[r.y * N + r.x] = r.team;
-          }
-          return next;
-        });
-      });
+    (async () => {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      const uid = user?.id ?? null;
+      myIdRef.current = uid;
+      const { data, error } = await supabase
+        .from("tiles")
+        .select("x,y,team,owner_id");
+      if (!active || error || !data) return;
+      const nextCells: CellVal[] = new Array(TOTAL).fill(null);
+      const nextOwned = new Set<number>();
+      for (const r of data as {
+        x: number;
+        y: number;
+        team: CellVal;
+        owner_id: string | null;
+      }[]) {
+        const i = r.y * N + r.x;
+        nextCells[i] = r.team;
+        if (uid && r.owner_id === uid) nextOwned.add(i);
+      }
+      setCells(nextCells);
+      setOwned(nextOwned);
+    })();
     return () => {
       active = false;
     };
@@ -93,12 +122,17 @@ export function useBattleground(): Battleground {
   // Realtime: apply every tile change from any player.
   useEffect(() => {
     const channel = supabase
-      .channel("tiles-live")
+      .channel(`tiles-live-${Math.random().toString(36).slice(2)}`)
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "tiles" },
         (payload) => {
-          const r = payload.new as { x: number; y: number; team: CellVal };
+          const r = payload.new as {
+            x: number;
+            y: number;
+            team: CellVal;
+            owner_id: string | null;
+          };
           if (r?.x == null || r?.y == null) return;
           const i = r.y * N + r.x;
           setCells((prev) => {
@@ -106,6 +140,14 @@ export function useBattleground(): Battleground {
             const next = [...prev];
             next[i] = r.team;
             return next;
+          });
+          setOwned((prev) => {
+            const mine = !!myIdRef.current && r.owner_id === myIdRef.current;
+            if (mine === prev.has(i)) return prev;
+            const s = new Set(prev);
+            if (mine) s.add(i);
+            else s.delete(i);
+            return s;
           });
           pop([i]);
         },
@@ -135,6 +177,7 @@ export function useBattleground(): Battleground {
         next[index] = team;
         return next;
       });
+      setOwned((prev) => new Set(prev).add(index));
       pop([index]);
       // Fresh client so we use the session the OTP verify just established.
       createClient()
@@ -150,7 +193,7 @@ export function useBattleground(): Battleground {
     [pop],
   );
 
-  return { cells, counts, popping, claimFree };
+  return { cells, counts, popping, claimFree, owned };
 }
 
 function Crosshair() {
@@ -204,29 +247,21 @@ interface BoardViewProps {
     optIn: boolean,
   ) => void;
   isOfficer?: boolean; // unlocks the $10 officer action
-  onPurchase?: (amount: number, reclaimed: number) => void; // any action; reclaimed = enemy tiles flipped
+  // Any action (paid or a banked/free-piece placement). reclaimed = enemy tiles
+  // flipped; captures = ALL tiles taken (enemy + neutral) = rank points ÷ 3.
+  // Banked placements pass amount 0 so they add captures without charging.
+  onPurchase?: (amount: number, reclaimed: number, captures: number) => void;
   insignia?: InsigniaSpec; // rank insignia
   totalSpent?: number; // cumulative $ for the statbar (overrides local session)
   record?: { captures: number }; // your-impact stat (positions taken)
   flash?: string | null; // transient briefing (threats/promotions)
+  adminPaint?: (center: number, kind: Tool, team: Team) => void; // admin god-mode: paint free
 }
 
 function HeaderMenu() {
   const [open, setOpen] = useState(false);
-  const [isAdmin, setIsAdmin] = useState(false);
+  const { isAdmin, flagOn, toggle } = useAdminFreePlay();
   const ref = useRef<HTMLDivElement | null>(null);
-
-  useEffect(() => {
-    let alive = true;
-    createClient()
-      .auth.getUser()
-      .then(({ data: { user } }) => {
-        if (alive && user) setIsAdmin(isAdminUser(user));
-      });
-    return () => {
-      alive = false;
-    };
-  }, []);
 
   useEffect(() => {
     if (!open) return;
@@ -269,18 +304,76 @@ function HeaderMenu() {
             Settings
           </Link>
           {isAdmin && (
-            <Link
-              href="/admin"
-              className="hmenu-item hmenu-admin"
-              onClick={() => setOpen(false)}
-            >
-              ★ Command
-            </Link>
+            <>
+              <button
+                type="button"
+                className="hmenu-item hmenu-admin"
+                onClick={() => toggle()}
+              >
+                ★ Free Play (skip purchases): {flagOn ? "ON" : "OFF"}
+              </button>
+              <Link
+                href="/admin"
+                className="hmenu-item hmenu-admin"
+                onClick={() => setOpen(false)}
+              >
+                ★ Command
+              </Link>
+            </>
           )}
         </nav>
       )}
     </div>
   );
+}
+
+// The signed-in player's server-side bank of banked bonus pieces, kept live.
+function useFlipBank(active: boolean) {
+  const [bank, setBank] = useState<{ singles: number; blocks: number }>({
+    singles: 0,
+    blocks: 0,
+  });
+  useEffect(() => {
+    if (!active) return;
+    const supabase = createClient();
+    let alive = true;
+    let channel: ReturnType<typeof supabase.channel> | null = null;
+    (async () => {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user || !alive) return;
+      const { data } = await supabase
+        .from("flip_bank")
+        .select("singles,blocks")
+        .eq("user_id", user.id)
+        .maybeSingle();
+      if (alive && data) {
+        setBank({ singles: data.singles ?? 0, blocks: data.blocks ?? 0 });
+      }
+      channel = supabase
+        .channel(`flip-bank-${user.id}-${Math.random().toString(36).slice(2)}`)
+        .on(
+          "postgres_changes",
+          {
+            event: "*",
+            schema: "public",
+            table: "flip_bank",
+            filter: `user_id=eq.${user.id}`,
+          },
+          (payload) => {
+            const r = payload.new as { singles?: number; blocks?: number } | null;
+            setBank({ singles: r?.singles ?? 0, blocks: r?.blocks ?? 0 });
+          },
+        )
+        .subscribe();
+    })();
+    return () => {
+      alive = false;
+      if (channel) supabase.removeChannel(channel);
+    };
+  }, [active]);
+  return bank;
 }
 
 export function BoardView({
@@ -295,19 +388,104 @@ export function BoardView({
   totalSpent,
   record,
   flash,
+  adminPaint,
 }: BoardViewProps) {
-  const { cells, counts, popping, claimFree } = board;
+  const { cells, counts, popping, claimFree, owned } = board;
   const [internalSide, setInternalSide] = useState<Team>("blue");
   const side: Team = lockedSide ?? internalSide;
   const [tool, setTool] = useState<Tool>("flip");
   const [spent, setSpent] = useState(0);
   const [hint, setHint] = useState("Tap a position to take it.");
   const [hoverIndex, setHoverIndex] = useState<number | null>(null);
+  // The tile the player has "aimed" (first tap): shows the preview + a confirm
+  // bar. A second tap on it (or the bar's Confirm) commits. Mobile-friendly and
+  // mirrors the desktop hover preview.
+  const [aim, setAim] = useState<number | null>(null);
   // A paid order awaiting the player's explicit confirm (nothing is charged or
   // flipped until they authorize it). idxs carries the exact tiles to seize.
   const [pending, setPending] = useState<PendingSpend | null>(null);
   // The free first-tile the recruit tapped, awaiting the email claim step.
   const [pendingPlace, setPendingPlace] = useState<number | null>(null);
+  // Banked bonus placements from a purchase (the "no-waste" pieces): free 2×2
+  // blocks and single tiles the player still gets to place. Drives the FREE tool
+  // labels + placement flow. (God-mode paints them via the admin route today;
+  // the paid flow will bank them server-side next.)
+  const [bank, setBank] = useState<{ singles: number; blocks: number }>({
+    singles: 0,
+    blocks: 0,
+  });
+  // Real (paid) players get their bank from the server; god-mode uses the local
+  // demo bank above. effBank is whichever applies to this view.
+  const serverBank = useFlipBank(!adminPaint);
+  const effBank = adminPaint ? bank : serverBank;
+
+  // reacts only to bank changes (grant / consume), so a manual cancel isn't
+  // instantly overridden — see the auto-aim effect below.
+  const lastBankKey = useRef("");
+  // Transient flip animation: cells mid-flip + a shockwave from the last hit.
+  const [flipping, setFlipping] = useState<Set<number>>(new Set());
+  const [blast, setBlast] = useState<{ id: number; center: number } | null>(null);
+  const blastId = useRef(0);
+  // Incoming missiles for a 2×2 / 3×3 strike — fly in, THEN the impact fires.
+  const [strike, setStrike] = useState<{
+    id: number;
+    center: number;
+    proj: Proj;
+    impactMs: number;
+    onImpact: () => void;
+  } | null>(null);
+  const strikeId = useRef(0);
+  const fxSpeed = useFxSpeed();
+  const boardRef = useRef<HTMLDivElement>(null);
+  // Full-screen celebration (shockwave for $5/$10, fireworks for $1), fired from
+  // the tapped tile's screen position.
+  const [screenFx, setScreenFx] = useState<ScreenFxState | null>(null);
+  const screenFxId = useRef(0);
+  const screenFxTimer = useRef<number | null>(null);
+
+  // How many cells in a pattern I already hold — those "wasted" tiles convert to
+  // banked singles instead (the overlap / no-waste rule).
+  const ownIn = (idxs: number[]) => idxs.filter((k) => cells[k] === side).length;
+
+  const fireScreenFx = useCallback(
+    (center: number, kind: Tool) => {
+      const el = boardRef.current;
+      if (!el) return;
+      const rect = el.getBoundingClientRect();
+      const cx = center % N;
+      const cy = Math.floor(center / N);
+      const x = rect.left + ((cx + 0.5) / N) * rect.width;
+      const y = rect.top + ((cy + 0.5) / N) * rect.height;
+      const cele: Cele = kind === "flip" ? "fireworks" : "wave";
+      const color = side === "red" ? "var(--red)" : "var(--blue)";
+      const id = ++screenFxId.current;
+      setScreenFx({ id, type: cele, color, x, y });
+      if (screenFxTimer.current) clearTimeout(screenFxTimer.current);
+      screenFxTimer.current = window.setTimeout(
+        () => setScreenFx((s) => (s && s.id === id ? null : s)),
+        CELE_MS[cele],
+      );
+    },
+    [side],
+  );
+
+  const animateHit = useCallback(
+    (idxs: number[], center: number, kind: Tool) => {
+      setFlipping((prev) => new Set([...prev, ...idxs]));
+      window.setTimeout(() => {
+        setFlipping((prev) => {
+          const s = new Set(prev);
+          idxs.forEach((k) => s.delete(k));
+          return s;
+        });
+      }, 280);
+      const id = ++blastId.current;
+      setBlast({ id, center });
+      window.setTimeout(() => setBlast((b) => (b && b.id === id ? null : b)), 620);
+      fireScreenFx(center, kind);
+    },
+    [fireScreenFx],
+  );
 
   // No neutral tiles: the board is always fully red/blue. A side at 100% has
   // nothing left to take, so that side is locked out — but the OTHER side can
@@ -319,28 +497,157 @@ export function BoardView({
   const tufts = useMemo(seedTufts, []);
 
   // Tiles a click would take, previewed on hover (X for $5, 3×3 for $10).
+  // The exact tiles the current tool would take from a focus tile — but NOT
+  // tiles already yours (you can't take your own color).
+  const patternFor = useCallback(
+    (kind: Tool, c: number) =>
+      kind === "x" ? xPattern(c) : kind === "strike" && isOfficer ? strikePattern(c) : [c],
+    [isOfficer],
+  );
+  const targetsAt = useCallback(
+    (focus: number) => patternFor(tool, focus).filter((k) => cells[k] !== side),
+    [patternFor, tool, cells, side],
+  );
+
+  // Best spot for a given piece: the center that flips the MOST enemy tiles,
+  // tie-broken toward the board center. Used to auto-place banked/free pieces.
+  const bestAim = useCallback(
+    (kind: Tool): number | null => {
+      let best: number | null = null;
+      let bestScore = 0;
+      let bestDist = Infinity;
+      for (let i = 0; i < TOTAL; i++) {
+        const score = patternFor(kind, i).filter((k) => cells[k] !== side).length;
+        if (score <= 0) continue;
+        const dist = Math.abs((i % N) - 7) + Math.abs(Math.floor(i / N) - 7);
+        if (score > bestScore || (score === bestScore && dist < bestDist)) {
+          best = i;
+          bestScore = score;
+          bestDist = dist;
+        }
+      }
+      return best;
+    },
+    [patternFor, cells, side],
+  );
+
   const previewSet = useMemo(() => {
-    if (hoverIndex == null) return null;
-    const idxs =
-      tool === "x"
-        ? xPattern(hoverIndex)
-        : tool === "strike" && isOfficer
-          ? strikePattern(hoverIndex)
-          : [hoverIndex];
-    return new Set(idxs);
-  }, [hoverIndex, tool, isOfficer]);
+    const focus = aim ?? hoverIndex;
+    if (focus == null) return null;
+    return new Set(targetsAt(focus));
+  }, [aim, hoverIndex, targetsAt]);
+
+  // Auto-arm + auto-aim banked/free pieces: biggest first (2×2 → single),
+  // pre-placed on the best spot so the player instantly sees there's something
+  // to do. Fires only when the bank changes, so a manual ✕ isn't re-forced.
+  useEffect(() => {
+    const key = `${effBank.blocks}:${effBank.singles}`;
+    if (key === lastBankKey.current) return;
+    lastBankKey.current = key;
+    if (aim != null || placementMode) return;
+    const kind: Tool | null =
+      effBank.blocks > 0 ? "x" : effBank.singles > 0 ? "flip" : null;
+    if (!kind) return;
+    setTool(kind);
+    const spot = bestAim(kind);
+    if (spot != null) setAim(spot);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [effBank.blocks, effBank.singles, bestAim, placementMode]);
 
   // How many of these tiles are currently the enemy's (i.e. reclaimed on flip).
   const enemyIn = (idxs: number[]) =>
     idxs.filter((k) => cells[k] && cells[k] !== side).length;
 
-  const onTap = useCallback(
+  // Run an action's visuals. A single tile is instant (feels great as-is). A 2×2
+  // or 3×3 fires incoming MISSILES first (staggered), and only lands the impact
+  // (flip pop + fireball + shockwave) + the paint when they hit — space to breathe.
+  const runStrike = useCallback(
+    (center: number, kind: Tool, paint: () => void) => {
+      const idxs = patternFor(kind, center);
+      // The tier's effect (and whether it uses a projectile) is defined once in
+      // flip-fx.ts — the same source the Flip Lab renders from.
+      const cfg = kind === "x" ? TIER_FX["$5"] : kind === "strike" ? TIER_FX["$10"] : TIER_FX["$1"];
+      if (!cfg.proj) {
+        animateHit(idxs, center, kind);
+        paint();
+        return;
+      }
+      const sid = ++strikeId.current;
+      setStrike({
+        id: sid,
+        center,
+        proj: cfg.proj,
+        impactMs: cfg.impactMs,
+        onImpact: () => {
+          animateHit(idxs, center, kind);
+          paint();
+        },
+      });
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [patternFor, animateHit],
+  );
+
+  const commitAt = useCallback(
     (i: number) => {
+      // God-mode: paint free + run the real bundle math (2×2 = +2 singles,
+      // 3×3 = +1 block +1 single, plus overlap → banked singles).
+      if (adminPaint) {
+        if (tool === "flip") {
+          runStrike(i, "flip", () => {
+            adminPaint(i, "flip", side);
+            if (bank.singles > 0) setBank((b) => ({ ...b, singles: b.singles - 1 }));
+          });
+        } else if (tool === "x") {
+          const overlap = ownIn(xPattern(i));
+          runStrike(i, "x", () => {
+            adminPaint(i, "x", side);
+            setBank((b) =>
+              b.blocks > 0
+                ? { singles: b.singles + overlap, blocks: b.blocks - 1 } // placing a banked block
+                : { ...b, singles: b.singles + 2 + overlap }, // new $5 buy
+            );
+          });
+        } else if (tool === "strike") {
+          const overlap = ownIn(strikePattern(i));
+          runStrike(i, "strike", () => {
+            adminPaint(i, "strike", side);
+            setBank((b) => ({ singles: b.singles + 1 + overlap, blocks: b.blocks + 1 }));
+          });
+        }
+        return;
+      }
       if (locked) return;
       if (placementMode) {
         // Don't claim yet — the recruit confirms the tile with the email
         // claim step, and only then does it flip.
         setPendingPlace(i);
+        return;
+      }
+      // Spend a banked FREE piece instead of charging. Server-authoritative:
+      // claim_banked checks the bank + derives the cells, realtime updates both.
+      if (tool === "flip" && serverBank.singles > 0) {
+        const took = cells[i] !== side ? 1 : 0; // 0 only if you tapped your own tile
+        runStrike(i, "flip", () => {
+          createClient()
+            .rpc("claim_banked", { p_center: i, p_kind: "flip", p_team: side })
+            .then(({ error }) => {
+              if (error) console.error("claim_banked:", error.message);
+            });
+        });
+        onPurchase?.(0, cells[i] ? took : 0, took); // banked single: no charge, +points
+        return;
+      }
+      if (tool === "x" && serverBank.blocks > 0) {
+        const flipped = patternFor("x", i).filter((k) => cells[k] !== side);
+        runStrike(i, "x", () => {
+          createClient()
+            .rpc("claim_banked", { p_center: i, p_kind: "x", p_team: side })
+            .then(({ error }) => {
+              if (error) console.error("claim_banked:", error.message);
+            });
+        });
+        onPurchase?.(0, flipped.filter((k) => cells[k]).length, flipped.length);
         return;
       }
       // Paid orders don't fire on the tap — they open a confirmation first.
@@ -366,8 +673,30 @@ export function BoardView({
       }
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [locked, tool, side, placementMode, onPlace, isOfficer, onPurchase, cells],
+    [locked, tool, side, placementMode, onPlace, isOfficer, onPurchase, cells, adminPaint, bank, serverBank, runStrike],
   );
+
+  // First tap aims (shows the preview); tapping the aimed tile again — or the
+  // confirm bar — commits. Tapping a different tile moves the aim.
+  const onTap = useCallback(
+    (i: number) => {
+      if (locked) return;
+      // Nothing to take if every tile in range is already yours.
+      if (targetsAt(i).length === 0) return;
+      if (aim === i) {
+        commitAt(i);
+        setAim(null);
+      } else {
+        setAim(i);
+      }
+    },
+    [locked, aim, commitAt, targetsAt],
+  );
+  const confirmAim = useCallback(() => {
+    if (aim == null) return;
+    commitAt(aim);
+    setAim(null);
+  }, [aim, commitAt]);
 
   // Payment already succeeded (server-side) by the time this runs — the flip is
   // painted server-side via the finalize route / webhook and arrives over
@@ -375,18 +704,23 @@ export function BoardView({
   const confirmSpend = useCallback(() => {
     const p = pending;
     if (!p) return;
+    // Missiles fly in (2×2/3×3), then the impact lands; paint is server-side.
+    runStrike(p.center, p.kind, () => {});
     setSpent((v) => v + p.amount);
     setHint(
       p.kind === "flip"
         ? "Position taken."
         : p.kind === "x"
-          ? "X-strike away — 5 tiles seized."
-          : "Airstrike! 3×3 block seized.",
+          ? "2×2 block seized."
+          : "3×3 block seized.",
     );
-    onPurchase?.(p.amount, 0);
+    // Credit only the tiles that actually flip now; own-tile overlap gets banked
+    // and earns its points when you place it later (a banked single).
+    const flipped = patternFor(p.kind, p.center).filter((k) => cells[k] !== side);
+    onPurchase?.(p.amount, flipped.filter((k) => cells[k]).length, flipped.length);
     addReceipt({ amount: p.amount, kind: p.kind, tiles: p.tiles, side });
     setPending(null);
-  }, [pending, side, onPurchase]);
+  }, [pending, side, onPurchase, runStrike, cells, patternFor]);
 
   // The recruit gave their email and claimed the free first tile.
   const confirmPlace = useCallback(
@@ -415,8 +749,8 @@ export function BoardView({
       t === "flip"
         ? "Tap a tile to flip it — $1."
         : t === "x"
-          ? "Tap a center tile — X-flip 5 tiles for $5."
-          : "Airstrike armed — tap a tile to seize a 3×3 block for $10.",
+          ? "Tap to seize a 2×2 block — $5."
+          : "Barrage armed — tap to seize a 3×3 block — $10.",
     );
   }
 
@@ -424,9 +758,12 @@ export function BoardView({
     <div className={"cartridge" + (lockedSide ? ` ${lockedSide}-cmd` : "")}>
       <header className="bg-header">
         <HeaderMenu />
-        <div className="wordmark">
-          <span className="coin">$</span>battleground
-        </div>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          className="wordmark-logo"
+          src={`/logo-${side}.png`}
+          alt="Battleground"
+        />
         <div className={"roundline rl-" + side}>
           <Link href="/report" className="rl-ranklink" title="Field report">
             {insignia && insignia.kind !== "none" && (
@@ -446,6 +783,12 @@ export function BoardView({
           </span>
         </div>
       </header>
+
+      {adminPaint && (
+        <div className="god-mode">
+          ★ FREE PLAY (admin) · purchases off · tap to paint free ★
+        </div>
+      )}
 
       {!lockedSide && (
         <div className="sides" role="group" aria-label="Pick your side">
@@ -486,8 +829,10 @@ export function BoardView({
 
       <div className="board-wrap">
         <div
+          ref={boardRef}
           className="board"
           data-side={side}
+          data-skin="plate"
           aria-label="15 by 15 battleground"
           onMouseLeave={() => setHoverIndex(null)}
         >
@@ -495,8 +840,11 @@ export function BoardView({
             const cls =
               "cell" +
               (c ? " " + c : tufts[i] ? " tuft" : "") +
+              (owned.has(i) ? " mine" : "") +
               (popping.has(i) ? " pop" : "") +
-              (previewSet?.has(i) ? " preview" : "");
+              (flipping.has(i) ? " flip" : "") +
+              (previewSet?.has(i) ? " preview" : "") +
+              (aim === i ? " aimed" : "");
             return (
               <button
                 key={i}
@@ -508,6 +856,37 @@ export function BoardView({
               />
             );
           })}
+          {blast && (
+            <div
+              className="board-blast"
+              style={{
+                left: `${(((blast.center % N) + 0.5) / N) * 100}%`,
+                top: `${((Math.floor(blast.center / N) + 0.5) / N) * 100}%`,
+              }}
+            />
+          )}
+          {strike && (
+            <div
+              key={strike.id}
+              className="board-fxstage"
+              style={
+                {
+                  left: `${(((strike.center % N) + 0.5) / N) * 100}%`,
+                  top: `${((Math.floor(strike.center / N) + 0.5) / N) * 100}%`,
+                  "--fxspeed": fxSpeed,
+                } as React.CSSProperties
+              }
+            >
+              <StrikeStage
+                proj={strike.proj}
+                side={side}
+                impactMs={strike.impactMs}
+                speed={fxSpeed}
+                onImpact={strike.onImpact}
+                onDone={() => setStrike((s) => (s && s.id === strike.id ? null : s))}
+              />
+            </div>
+          )}
           {locked && (
             <div className="win">
               <span>
@@ -522,6 +901,75 @@ export function BoardView({
           )}
         </div>
       </div>
+
+      {(effBank.singles > 0 || effBank.blocks > 0) && (
+        <div className="bank-tray" role="status">
+          <span className="bank-tray-title">🎁 FREE TO PLACE</span>
+          <span className="bank-tray-items">
+            {effBank.blocks > 0 && (
+              <span className="bank-chip">
+                <span className="chip-ico chip-block" aria-hidden="true" /> 2×2 block ×{effBank.blocks}
+              </span>
+            )}
+            {effBank.singles > 0 && (
+              <span className="bank-chip">
+                <span className="chip-ico chip-single" aria-hidden="true" /> tile ×{effBank.singles}
+              </span>
+            )}
+          </span>
+          <span className="bank-tray-why">from your purchase — tap the board to place</span>
+        </div>
+      )}
+
+      {aim != null &&
+        (() => {
+          const fs = effBank.singles;
+          const fb = effBank.blocks;
+          let title = "Confirm";
+          let cost = "";
+          if (placementMode) {
+            title = "Plant your flag here";
+            cost = "FREE";
+          } else if (tool === "flip") {
+            title = fs > 0 ? "Place free tile" : "Take this position";
+            cost = fs > 0 ? `FREE · ${fs} left` : "$1";
+          } else if (tool === "x") {
+            title = fb > 0 ? "Place free 2×2" : "2×2 strike here";
+            cost = fb > 0 ? `FREE · ${fb} left` : "$5";
+          } else if (tool === "strike") {
+            title = "3×3 barrage here";
+            cost = "$10";
+          }
+          // Free Play / god-mode: no charge.
+          if (adminPaint && !cost.startsWith("FREE")) cost = "FREE (admin)";
+          const enemy = previewSet ? enemyIn([...previewSet]) : 0;
+          return (
+            <div className="aim-bar">
+              <div className="aim-info">
+                <span className="aim-title">{title}</span>
+                <span className="aim-meta">
+                  <span className={"aim-cost" + (cost.startsWith("FREE") ? " free" : "")}>
+                    {cost}
+                  </span>
+                  {enemy > 0 && <span className="aim-enemy">flips {enemy} enemy</span>}
+                </span>
+              </div>
+              <div className="aim-actions">
+                <button
+                  className="aim-cancel"
+                  type="button"
+                  onClick={() => setAim(null)}
+                  aria-label="Cancel"
+                >
+                  ✕
+                </button>
+                <button className="aim-confirm" type="button" onClick={confirmAim}>
+                  Confirm ✓
+                </button>
+              </div>
+            </div>
+          );
+        })()}
 
       <FieldRadio counts={counts} side={side} rank={title} flash={flash} />
 
@@ -541,7 +989,9 @@ export function BoardView({
             }
           }}
         >
-          <span className="t-price">{placementMode ? "FREE" : "$1"}</span>
+          <span className={"t-price" + (effBank.singles > 0 ? " free" : "")}>
+            {effBank.singles > 0 ? `FREE ×${effBank.singles}` : placementMode ? "FREE" : "$1"}
+          </span>
           <Crosshair />
           <span className="t-title">TAKE POSITION</span>
           <span className="t-sub">Flip 1 tile</span>
@@ -564,10 +1014,12 @@ export function BoardView({
               <Insignia ins={{ kind: "bar", bars: 2, color: "gold" }} size={18} />
             </span>
           )}
-          <span className="t-price">$5</span>
+          <span className={"t-price" + (effBank.blocks > 0 ? " free" : "")}>
+            {effBank.blocks > 0 ? `FREE ×${effBank.blocks}` : "$5"}
+          </span>
           <CrossedSwords />
-          <span className="t-title">X-STRIKE</span>
-          <span className="t-sub">5-tile strike + bonus</span>
+          <span className="t-title">2×2 STRIKE</span>
+          <span className="t-sub">Seize a 2×2 block</span>
         </div>
         {isOfficer ? (
           <div
@@ -585,8 +1037,8 @@ export function BoardView({
           >
             <span className="t-price">$10</span>
             <Burst />
-            <span className="t-title">AIRSTRIKE</span>
-            <span className="t-sub">3×3 strike</span>
+            <span className="t-title">3×3 BARRAGE</span>
+            <span className="t-sub">Seize a 3×3 block</span>
           </div>
         ) : (
           <div
@@ -599,6 +1051,7 @@ export function BoardView({
           </div>
         )}
       </div>
+
 
       {pending && (
         <SpendConfirm
@@ -615,6 +1068,8 @@ export function BoardView({
           onReselect={() => setPendingPlace(null)}
         />
       )}
+
+      <ScreenFx fx={screenFx} />
     </div>
   );
 }
@@ -624,6 +1079,7 @@ const VIEWS: { href: string; label: string }[] = [
   { href: "/red", label: "Red" },
   { href: "/blue", label: "Blue" },
   { href: "/both", label: "Both" },
+  { href: "/admin", label: "Admin" },
 ];
 
 function startOver() {
@@ -636,6 +1092,9 @@ function startOver() {
 }
 
 export function ViewNav({ active }: { active: string }) {
+  // Perspective switcher + refresh are admin-only tools; hidden for players.
+  const { isAdmin } = useAdminFreePlay();
+  if (!isAdmin) return null;
   return (
     <nav className="view-nav" aria-label="Perspective">
       {VIEWS.map((v) => (
@@ -690,7 +1149,7 @@ export function usePlayerRank(): PlayerRank | null {
       const r = rankFor({
         placedFirst: p.placedFirst ?? true,
         logins: p.logins ?? 1,
-        spent: p.spent ?? 0,
+        captures: p.captures ?? 0,
         isOfficer: p.isOfficer ?? false,
       });
       setRank({
@@ -715,11 +1174,14 @@ export function Command({
 }) {
   const board = useBattleground();
   const pr = usePlayerRank();
+  const { freePlay } = useAdminFreePlay();
   return (
     <>
       <BoardView
         board={board}
         lockedSide={lockedSide}
+        isOfficer={freePlay || undefined}
+        adminPaint={freePlay ? postAdminPaint : undefined}
         title={pr?.abbr}
         insignia={pr?.insignia}
         record={pr ? { captures: pr.captures } : undefined}
@@ -729,17 +1191,43 @@ export function Command({
   );
 }
 
-// Split view: ONE board, seen from both command centers at once.
+// Admin Free Play god-mode: one unlocked board, all weapons, paint either side free.
+function AdminCommand() {
+  const board = useBattleground();
+  const pr = usePlayerRank();
+  return (
+    <>
+      <BoardView
+        board={board}
+        isOfficer
+        adminPaint={postAdminPaint}
+        title={pr?.abbr}
+        insignia={pr?.insignia}
+        record={pr ? { captures: pr.captures } : undefined}
+      />
+      <SocialFeeds />
+      <ViewNav active="/both" />
+    </>
+  );
+}
+
+// Split view: ONE board, seen from both command centers at once. Admins with
+// Free Play on get the full-access god-mode board instead.
 export function BothCommand() {
   const board = useBattleground();
   const pr = usePlayerRank();
+  const { freePlay, isAdmin } = useAdminFreePlay();
   const record = pr ? { captures: pr.captures } : undefined;
+
+  if (freePlay) return <AdminCommand />;
+
   return (
     <>
       <div className="split">
         <BoardView
           board={board}
           lockedSide="blue"
+          isOfficer={isAdmin || undefined}
           title={pr?.abbr}
           insignia={pr?.insignia}
           record={record}
@@ -747,11 +1235,13 @@ export function BothCommand() {
         <BoardView
           board={board}
           lockedSide="red"
+          isOfficer={isAdmin || undefined}
           title={pr?.abbr}
           insignia={pr?.insignia}
           record={record}
         />
       </div>
+      <SocialFeeds />
       <ViewNav active="/both" />
     </>
   );

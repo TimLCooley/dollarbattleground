@@ -20,8 +20,8 @@ const RKEY = "bg_receipts_v1";
 
 export const ACTION_LABEL: Record<ActionKind, string> = {
   flip: "Take Position",
-  x: "X-Strike",
-  strike: "Airstrike",
+  x: "2×2 Strike",
+  strike: "3×3 Barrage",
 };
 
 export function getReceipts(): Receipt[] {

@@ -44,3 +44,4 @@ next-env.d.ts
 
 # claude code local settings (machine-local, may contain secrets)
 .claude/settings.local.json
+public/_wr/

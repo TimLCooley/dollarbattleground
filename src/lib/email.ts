@@ -1,16 +1,13 @@
 import "server-only";
-import sgMail from "@sendgrid/mail";
 
-// Transactional email through SendGrid. Server-only: this reads the secret API
+// Transactional email through Resend. Server-only: this reads the secret API
 // key and must never be imported into client code. The key lives in env
-// (SENDGRID_API_KEY) — never hard-code it. A verified sender identity
-// (SENDGRID_FROM_EMAIL) is required by SendGrid or sends are rejected.
+// (RESEND_API_KEY) — never hard-code it. The "from" address must be on a domain
+// verified in Resend (RESEND_FROM_EMAIL), or sends are rejected.
 
-const KEY = process.env.SENDGRID_API_KEY;
-const FROM_EMAIL = process.env.SENDGRID_FROM_EMAIL;
-const FROM_NAME = process.env.SENDGRID_FROM_NAME || "Dollar Battleground";
-
-if (KEY) sgMail.setApiKey(KEY);
+const KEY = process.env.RESEND_API_KEY;
+const FROM_EMAIL = process.env.RESEND_FROM_EMAIL;
+const FROM_NAME = process.env.RESEND_FROM_NAME || "Dollar Battleground";
 
 export interface SendResult {
   ok: boolean;
@@ -30,34 +27,46 @@ export async function sendEmail(opts: {
   subject: string;
   html: string;
   text?: string;
+  replyTo?: string;
 }): Promise<SendResult> {
-  if (!KEY) return { ok: false, error: "SENDGRID_API_KEY is not set" };
+  if (!KEY) return { ok: false, error: "RESEND_API_KEY is not set" };
   if (!FROM_EMAIL)
     return {
       ok: false,
       error:
-        "SENDGRID_FROM_EMAIL is not set — verify a sender identity in SendGrid first",
+        "RESEND_FROM_EMAIL is not set — verify a sending domain in Resend first",
     };
 
   try {
-    await sgMail.send({
-      to: opts.to,
-      from: { email: FROM_EMAIL, name: FROM_NAME },
-      subject: opts.subject,
-      html: opts.html,
-      text: opts.text ?? stripHtml(opts.html),
+    const res = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        from: `${FROM_NAME} <${FROM_EMAIL}>`,
+        to: opts.to,
+        subject: opts.subject,
+        html: opts.html,
+        text: opts.text ?? stripHtml(opts.html),
+        ...(opts.replyTo ? { reply_to: opts.replyTo } : {}),
+      }),
     });
+
+    if (!res.ok) {
+      let msg = `send failed (${res.status})`;
+      try {
+        const body = (await res.json()) as { message?: string; error?: string };
+        msg = body.message ?? body.error ?? msg;
+      } catch {
+        /* non-JSON error body */
+      }
+      return { ok: false, error: msg };
+    }
     return { ok: true };
   } catch (e: unknown) {
-    let msg = "send failed";
-    if (typeof e === "object" && e !== null) {
-      const err = e as {
-        response?: { body?: { errors?: Array<{ message?: string }> } };
-        message?: string;
-      };
-      msg = err.response?.body?.errors?.[0]?.message ?? err.message ?? msg;
-    }
-    return { ok: false, error: msg };
+    return { ok: false, error: e instanceof Error ? e.message : "send failed" };
   }
 }
 

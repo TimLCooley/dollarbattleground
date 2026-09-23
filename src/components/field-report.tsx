@@ -129,7 +129,7 @@ export function FieldReport() {
   const forRank = {
     placedFirst: player.placedFirst ?? true,
     logins: player.logins ?? 1,
-    spent: player.spent ?? 0,
+    captures: player.captures ?? 0,
     isOfficer: player.isOfficer ?? false,
   };
   const rank = rankFor(forRank);
@@ -185,7 +185,7 @@ export function FieldReport() {
             label="Longest held position"
             value={longest ? durationSince(longest) : "—"}
           />
-          <Row label="X-Strikes ordered" value={player.xStrikes ?? 0} />
+          <Row label="2×2 strikes ordered" value={player.xStrikes ?? 0} />
           <Row label="Officer commands used" value={player.officerActions ?? 0} />
         </section>
 

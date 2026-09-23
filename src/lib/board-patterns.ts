@@ -27,28 +27,22 @@ export function isValidCenter(i: unknown): i is number {
   return typeof i === "number" && Number.isInteger(i) && i >= 0 && i < TOTAL;
 }
 
-// $5 X-strike: center + four diagonals.
+// $5 strike: a 2×2 block. The tapped tile anchors the block's top-left, clamped
+// so the full 2×2 always stays on the board. (The "+ banked singles / no-waste"
+// rule is a later mechanic; this is just the block geometry.)
 export function xPattern(i: number): number[] {
-  const x = i % N;
-  const y = Math.floor(i / N);
+  let x = i % N;
+  let y = Math.floor(i / N);
+  x = Math.min(x, N - 2);
+  y = Math.min(y, N - 2);
   const out: number[] = [];
-  (
-    [
-      [0, 0],
-      [-1, -1],
-      [1, -1],
-      [-1, 1],
-      [1, 1],
-    ] as const
-  ).forEach(([dx, dy]) => {
-    const nx = x + dx;
-    const ny = y + dy;
-    if (nx >= 0 && nx < N && ny >= 0 && ny < N) out.push(ny * N + nx);
-  });
+  for (let dy = 0; dy < 2; dy++) {
+    for (let dx = 0; dx < 2; dx++) out.push((y + dy) * N + (x + dx));
+  }
   return out;
 }
 
-// $10 officer airstrike: a 3×3 block.
+// $10 barrage: a 3×3 block, centered on the tapped tile.
 export function strikePattern(i: number): number[] {
   const x = i % N;
   const y = Math.floor(i / N);

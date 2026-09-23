@@ -27,7 +27,7 @@ export async function POST(req: Request) {
 
   if (!isEmailConfigured()) {
     return NextResponse.json(
-      { error: "Email not configured (set SENDGRID_FROM_EMAIL)" },
+      { error: "Email not configured (set RESEND_API_KEY + RESEND_FROM_EMAIL)" },
       { status: 500 },
     );
   }

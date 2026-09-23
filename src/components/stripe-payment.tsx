@@ -2,6 +2,7 @@
 
 import {
   Elements,
+  ExpressCheckoutElement,
   PaymentElement,
   useElements,
   useStripe,
@@ -15,8 +16,11 @@ function PayForm({ amount, onPaid }: { amount: number; onPaid: () => void }) {
   const elements = useElements();
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const [hasExpress, setHasExpress] = useState(false);
+  const [showCard, setShowCard] = useState(false);
 
-  async function pay() {
+  // One confirm path for both the express wallets and the card form.
+  async function confirm() {
     if (!stripe || !elements) return;
     setBusy(true);
     setErr(null);
@@ -31,11 +35,8 @@ function PayForm({ amount, onPaid }: { amount: number; onPaid: () => void }) {
     }
     if (
       paymentIntent &&
-      (paymentIntent.status === "succeeded" ||
-        paymentIntent.status === "processing")
+      (paymentIntent.status === "succeeded" || paymentIntent.status === "processing")
     ) {
-      // Ask the server to verify the payment and paint the tiles (the webhook
-      // is the backstop if this call is lost). Best-effort — proceed either way.
       try {
         await fetch("/api/stripe/finalize", {
           method: "POST",
@@ -54,11 +55,33 @@ function PayForm({ amount, onPaid }: { amount: number; onPaid: () => void }) {
 
   return (
     <div className="pay-form">
-      <PaymentElement options={{ layout: "tabs" }} />
-      {err && <p className="ct-error">{err}</p>}
-      <button className="ob-btn" onClick={pay} disabled={busy}>
-        {busy ? "PROCESSING…" : `PAY $${amount}`}
-      </button>
+      {/* One-tap wallets (Apple Pay / Google Pay / Link) — the fast path. */}
+      <ExpressCheckoutElement
+        onReady={(e) => setHasExpress(!!e.availablePaymentMethods)}
+        onConfirm={confirm}
+      />
+
+      {/* Card form: shown only if there are no wallets, or on request. */}
+      {hasExpress && !showCard ? (
+        <button type="button" className="pay-cardlink" onClick={() => setShowCard(true)}>
+          or pay with card
+        </button>
+      ) : (
+        <>
+          {hasExpress && <div className="pay-or">or pay with card</div>}
+          <PaymentElement
+            options={{
+              layout: "tabs",
+              fields: { billingDetails: { address: { country: "never" } } },
+            }}
+          />
+          {err && <p className="ct-error">{err}</p>}
+          <button className="ob-btn" onClick={confirm} disabled={busy}>
+            {busy ? "PROCESSING…" : `PAY $${amount}`}
+          </button>
+        </>
+      )}
+      {hasExpress && !showCard && err && <p className="ct-error">{err}</p>}
     </div>
   );
 }
@@ -70,7 +93,9 @@ const APPEARANCE: Appearance = {
     colorBackground: "#124f2b",
     colorText: "#f6efdb",
     fontFamily: "ui-rounded, system-ui, sans-serif",
-    borderRadius: "4px",
+    borderRadius: "6px",
+    spacingUnit: "3px",
+    fontSizeBase: "14px",
   },
 };
 
@@ -84,10 +109,7 @@ export function StripePayment({
   onPaid: () => void;
 }) {
   return (
-    <Elements
-      stripe={getStripeJs()}
-      options={{ clientSecret, appearance: APPEARANCE }}
-    >
+    <Elements stripe={getStripeJs()} options={{ clientSecret, appearance: APPEARANCE }}>
       <PayForm amount={amount} onPaid={onPaid} />
     </Elements>
   );
