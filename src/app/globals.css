@@ -3406,6 +3406,19 @@ body {
 .cc-mini { font-size: 11px; color: var(--parch); margin: 4px 0; }
 .cc-goals-list { margin: 4px 0 8px; padding-left: 16px; font-size: 12px; color: var(--cream); }
 .cc-linkbtn { background: none; border: 0; padding: 0; font: inherit; color: var(--gold); text-decoration: underline; cursor: pointer; }
+/* Stripe ops in the strip: live/test switch + the cart (payment simulation) */
+.cc-switch { display: inline-flex; align-items: center; gap: 8px; font-family: var(--font-pixel), monospace; font-size: 10px; padding: 5px 9px; border: 2px solid #0c3c21; background: var(--ground); color: var(--parch); cursor: pointer; }
+.cc-switch.live { border-color: var(--gold); color: var(--gold); }
+.cc-switch:disabled { opacity: .6; cursor: default; }
+.cc-switch-knob { width: 26px; height: 14px; border: 2px solid currentColor; position: relative; }
+.cc-switch-knob::after { content: ""; position: absolute; top: 1px; left: 1px; width: 8px; height: 8px; background: currentColor; transition: left .15s; }
+.cc-switch.live .cc-switch-knob::after { left: 13px; }
+.cc-cart { position: relative; }
+.cc-cart-btn { font-size: 16px; line-height: 1; padding: 4px 8px; border: 2px solid #0c3c21; background: var(--ground); cursor: pointer; }
+.cc-cart-menu { position: absolute; top: 110%; left: 0; z-index: 20; min-width: 200px; padding: 8px; background: var(--ground-2); border: 3px solid var(--gold); box-shadow: var(--shadow-pix); display: flex; flex-direction: column; gap: 6px; }
+.cc-cart-menu .cc-btn { text-align: left; }
+.cc-cart-note { font-size: 11px; color: var(--parch); }
+.cc-ops-err { font-size: 11px; color: #ffb3b3; }
 .cc-agent[data-faction="red"] { border-left: 6px solid var(--red); }
 .cc-agent[data-faction="blue"] { border-left: 6px solid var(--blue); }
 .cc-agent[data-faction="cmd"] { border-left: 6px solid var(--gold); }

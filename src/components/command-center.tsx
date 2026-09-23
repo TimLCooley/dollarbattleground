@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { CartButton, StripeToggle } from "@/components/stripe-ops";
 
 type Faction = "red" | "blue" | null;
 interface Agent {
@@ -264,6 +265,7 @@ export function CommandCenter() {
 
         {/* ops strip: are the accounts real, is money live, is the autopilot on */}
         <div className="cc-ops">
+          <CartButton />
           {(["red", "blue"] as const).map((f) => {
             const s = xs?.[f];
             return (
@@ -272,9 +274,7 @@ export function CommandCenter() {
               </span>
             );
           })}
-          <span className={"cc-pill " + (ap?.stripeMode === "live" ? "live" : "bad")}>
-            💳 STRIPE {ap ? ap.stripeMode.toUpperCase() : "…"}
-          </span>
+          <StripeToggle onChange={() => loadAp().catch(() => {})} />
           <button
             className={"cc-btn sm" + (ap?.config.enabled ? "" : " ghost")}
             disabled={!ap || busy === "ap"}
