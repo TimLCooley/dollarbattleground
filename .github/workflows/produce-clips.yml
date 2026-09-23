@@ -39,7 +39,14 @@ jobs:
       - run: npx remotion browser ensure
       - name: Red — Rowan Cross files a report
         if: ${{ github.event.inputs.faction != 'blue' }}
-        run: node scripts/produce-clip.mjs red
+        run: node scripts/produce-clip.mjs red field
       - name: Blue — Skye Bennett files a report
         if: ${{ always() && github.event.inputs.faction != 'red' }}
-        run: node scripts/produce-clip.mjs blue
+        run: node scripts/produce-clip.mjs blue field
+      # One recruiting spot per team per day (the morning slot only).
+      - name: Red — Sienna Cole recruiting spot
+        if: ${{ always() && github.event.inputs.faction != 'blue' && (github.event_name != 'schedule' || github.event.schedule == '0 13 * * *') }}
+        run: node scripts/produce-clip.mjs red recruit
+      - name: Blue — Sterling Wells recruiting spot
+        if: ${{ always() && github.event.inputs.faction != 'red' && (github.event_name != 'schedule' || github.event.schedule == '0 13 * * *') }}
+        run: node scripts/produce-clip.mjs blue recruit

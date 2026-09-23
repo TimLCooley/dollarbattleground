@@ -3419,6 +3419,21 @@ body {
 .cc-cart-menu .cc-btn { text-align: left; }
 .cc-cart-note { font-size: 11px; color: var(--parch); }
 .cc-ops-err { font-size: 11px; color: #ffb3b3; }
+/* Full-width command center: RED | COMMAND | BLUE */
+.adm:has(.cc3) { max-width: none; }
+.cc3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; align-items: start; }
+@media (max-width: 1100px) { .cc3 { grid-template-columns: 1fr; } }
+.cc-teamcol, .cc-cmdcol { display: flex; flex-direction: column; gap: 10px; min-width: 0; padding: 10px; background: var(--ground); border: 3px solid #0c3c21; border-top-width: 6px; }
+.cc-teamcol[data-faction="red"] { border-top-color: var(--red); }
+.cc-teamcol[data-faction="blue"] { border-top-color: var(--blue); }
+.cc-cmdcol { border-top-color: var(--gold); }
+.cc-h { display: flex; justify-content: space-between; align-items: center; gap: 8px; font-family: var(--font-pixel), monospace; font-size: 12px; color: var(--cream); }
+.cc-pill-x { font-family: var(--font-pixel), monospace; font-size: 9px; color: #9ff0bd; }
+.cc-select { font: inherit; font-size: 12px; background: var(--ground-2); color: var(--cream); border: 2px solid #0c3c21; padding: 4px 6px; }
+.cc-msg.agent[data-faction="red"] { border-left: 4px solid var(--red); }
+.cc-msg.agent[data-faction="blue"] { border-left: 4px solid var(--blue); }
+.cc-teamcol .cc-chat-log, .cc-cmdcol .cc-chat-log { max-height: 34vh; }
+
 /* Red | Blue queues side by side */
 .cc-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; align-items: start; }
 @media (max-width: 900px) { .cc-cols { grid-template-columns: 1fr; } }
