@@ -3450,6 +3450,9 @@ body {
 .cc-filters { display: flex; gap: 4px; }
 .cc-filters button { font-family: var(--font-pixel), monospace; font-size: 9px; padding: 5px 8px; border: 2px solid #0c3c21; background: var(--ground-2); color: var(--parch); cursor: pointer; }
 .cc-filters button.on { background: var(--gold); border-color: var(--gold-d); color: var(--ink); }
+.cc-brief { display: flex; flex-direction: column; gap: 6px; padding: 10px; background: var(--ground-2); border: 2px solid #0c3c21; font-size: 12px; line-height: 1.5; color: var(--parch); }
+.cc-brief p { margin: 0; }
+.cc-brief b { color: var(--gold); letter-spacing: 1px; margin-right: 4px; }
 .cc-metrics { margin: 6px 0 0; font-size: 12px; color: var(--cream); letter-spacing: .3px; }
 .cc-theme { font-size: 10px; letter-spacing: 1px; padding: 2px 6px; border: 1px solid var(--gold); color: var(--gold); margin-left: 6px; text-transform: uppercase; }
 

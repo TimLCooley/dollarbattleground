@@ -85,6 +85,8 @@ interface Brief {
     winbacks7d: number;
   };
   social: { posted: number; queued: number; impressions: number; engagements: number; clicks: number };
+  text: string; // the brief exactly as the agents receive it
+  at: string;
 }
 interface Gen {
   orders: Orders;
@@ -555,19 +557,30 @@ export function CommandCenter() {
             <p className="adm-loading">Loading…</p>
           )}
 
-          <h3 className="cc-goals-h">📊 INTEL</h3>
+          <h3 className="cc-goals-h">📊 INTEL — THE BRIEF</h3>
           {gen ? (
-            <p className="cc-intel">
-              Map <b>R {gen.brief.board.red} / B {gen.brief.board.blue}</b> · 24h <b>{gen.brief.board.flips24h}</b> moves ({gen.brief.board.toRed24h}→R, {gen.brief.board.toBlue24h}→B)
-              <br />
-              Waitlist <b>{gen.brief.funnel.waitlistTotal}</b> (+{gen.brief.funnel.waitlist24h} today) · Players <b>{gen.brief.funnel.players}</b> ({gen.brief.funnel.active24h} active)
-              <br />
-              Posted <b>{gen.brief.social.posted}</b> · Drafts <b>{gen.brief.social.queued}</b> · Revenue <b>${(gen.brief.funnel.spentTotalCents / 100).toFixed(2)}</b>
-              <br />
-              X so far: 👁 <b>{gen.brief.social.impressions}</b> impressions · ♥ <b>{gen.brief.social.engagements}</b> engagements · 🔗 <b>{gen.brief.social.clicks}</b> clicks to the site
-              <br />
-              This week: <b>{gen.brief.funnel.signups7d}</b> signups · <b>{gen.brief.funnel.purchases7d}</b> purchases (${(gen.brief.funnel.revenue7dCents / 100).toFixed(2)}) · win-backs <b>{gen.brief.funnel.winbacks7d}/{gen.brief.funnel.takeoverEmails7d}</b>
-            </p>
+            <>
+              <p className="cc-mini">
+                The exact brief every agent receives — the General plans from it, the Social agents draft from it, the producer scripts from it. Rebuilt on every load (as of {new Date(gen.brief.at).toLocaleTimeString()}).
+              </p>
+              <div className="cc-brief">
+                {gen.brief.text.split("\n").map((line, i) => {
+                  const idx = line.indexOf(":");
+                  const label = idx > 0 && idx < 22 ? line.slice(0, idx) : null;
+                  return (
+                    <p key={i}>
+                      {label ? <b>{label}:</b> : null}
+                      {label ? line.slice(idx + 1) : line}
+                    </p>
+                  );
+                })}
+              </div>
+              <p className="cc-intel">
+                X so far: 👁 <b>{gen.brief.social.impressions}</b> impressions · ♥ <b>{gen.brief.social.engagements}</b> engagements · 🔗 <b>{gen.brief.social.clicks}</b> clicks to the site
+                <br />
+                Revenue <b>${(gen.brief.funnel.spentTotalCents / 100).toFixed(2)}</b> · win-backs <b>{gen.brief.funnel.winbacks7d}/{gen.brief.funnel.takeoverEmails7d}</b>
+              </p>
+            </>
           ) : (
             <p className="adm-loading">Loading…</p>
           )}
