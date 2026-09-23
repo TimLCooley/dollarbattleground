@@ -1,9 +1,13 @@
 import "server-only";
-import { createAdminClient } from "@/utils/supabase/admin";
-import { decideNextPost } from "@/lib/recruiter";
+import { cfgGet, cfgSet, type Db } from "@/lib/app-config";
+import { decideNextPost, type Angle } from "@/lib/recruiter";
 import { getTweetMetrics, postTweet, postTweetWithMedia, uploadVideo, type Faction } from "@/lib/x";
 import { produceVideo } from "@/lib/producer";
 import { getStripeMode } from "@/lib/stripe-mode";
+import { intelBrief } from "@/lib/intel";
+import { getOrders, planOrders } from "@/lib/general";
+
+export type { Db };
 
 // Autopilot: the deny-only posting loop. A draft lands 'queued' with a
 // scheduled_for = now + review window. Each tick (pg_cron → /api/cron/autopilot,
@@ -11,8 +15,6 @@ import { getStripeMode } from "@/lib/stripe-mode";
 // team's queue topped up so the Commander always has something to review, and
 // refreshes X metrics hourly. Kill switch + knobs live in app_config.autopilot
 // (a text column holding JSON); the last tick's result in autopilot_state.
-
-export type Db = ReturnType<typeof createAdminClient>;
 
 export const DEFAULT_GOAL =
   "Recruit players — the war is LIVE at dollarbattleground.com. Get people to pick your side and flip tiles.";
@@ -36,26 +38,10 @@ export interface AutopilotState {
   last_run_at?: string;
   last_result?: string;
   last_metrics_at?: string;
+  last_plan_at?: string; // the General re-plans daily from the brief
   published?: number;
   drafted?: number;
   failed?: number;
-}
-
-// app_config.value is TEXT — JSON goes in and out as a string.
-async function cfgGet<T>(db: Db, key: string): Promise<T | null> {
-  const { data } = await db.from("app_config").select("value").eq("key", key).maybeSingle();
-  const raw = (data as { value?: string } | null)?.value;
-  if (raw == null) return null;
-  try {
-    return JSON.parse(raw) as T;
-  } catch {
-    return null;
-  }
-}
-async function cfgSet(db: Db, key: string, value: unknown): Promise<void> {
-  await db
-    .from("app_config")
-    .upsert({ key, value: JSON.stringify(value), updated_at: new Date().toISOString() }, { onConflict: "key" });
 }
 
 export async function getAutopilot(db: Db): Promise<{ config: AutopilotConfig; state: AutopilotState }> {
@@ -78,13 +64,15 @@ export async function setAutopilot(db: Db, patch: Partial<AutopilotConfig>): Pro
 async function recentContext(db: Db, faction: Faction) {
   const { data } = await db
     .from("agent_posts")
-    .select("copy,deny_reason,status")
+    .select("copy,deny_reason,status,angle")
     .eq("faction", faction)
     .order("created_at", { ascending: false })
     .limit(20);
-  const rows = (data ?? []) as { copy: string; deny_reason: string | null; status: string }[];
+  const rows = (data ?? []) as { copy: string; deny_reason: string | null; status: string; angle: Angle | null }[];
+  const live = rows.filter((r) => r.status !== "denied");
   return {
-    recentCopies: rows.filter((r) => r.status !== "denied").map((r) => r.copy).slice(0, 6),
+    recentCopies: live.map((r) => r.copy).slice(0, 6),
+    recentAngles: live.map((r) => r.angle).filter(Boolean).slice(0, 6) as Angle[],
     denyReasons: rows.map((r) => r.deny_reason).filter(Boolean).slice(0, 6) as string[],
   };
 }
@@ -93,20 +81,6 @@ export async function campaignDaysLeft(db: Db): Promise<number | null> {
   const camp = await cfgGet<{ ends_at?: string }>(db, "campaign");
   if (!camp?.ends_at) return null;
   return Math.max(0, Math.ceil((new Date(camp.ends_at).getTime() - Date.now()) / 86_400_000));
-}
-
-async function boardPct(db: Db): Promise<{ redPct: number; bluePct: number } | null> {
-  const { data } = await db.from("tiles").select("team");
-  let red = 0;
-  let blue = 0;
-  for (const t of (data ?? []) as { team: string | null }[]) {
-    if (t.team === "red") red++;
-    else if (t.team === "blue") blue++;
-  }
-  const total = red + blue;
-  if (!total) return null;
-  const redPct = Math.round((red / total) * 100);
-  return { redPct, bluePct: 100 - redPct };
 }
 
 // Next slot for a team: never inside the review window, spread by
@@ -138,13 +112,16 @@ export async function draftPost(
   goal: string,
   opts: { replaces?: number; slot?: string | null } = {},
 ) {
-  const [{ config }, ctx, daysLeft, board] = await Promise.all([
+  // Chain of command: the brief (Intel Ops) + standing orders (the General)
+  // go into every draft.
+  const [{ config }, ctx, daysLeft, brief, orders] = await Promise.all([
     getAutopilot(db),
     recentContext(db, faction),
     campaignDaysLeft(db),
-    boardPct(db),
+    intelBrief(db),
+    getOrders(db),
   ]);
-  const d = await decideNextPost({ faction, goal, phase: "live", daysLeft, board, ...ctx });
+  const d = await decideNextPost({ faction, goal, phase: "live", daysLeft, brief, orders, ...ctx });
   if (!d) throw new Error("The brain returned nothing (check GEMINI_API_KEY).");
   const scheduled_for = await nextSlot(db, faction, config, opts.slot);
   const { data, error } = await db
@@ -266,7 +243,22 @@ export async function runAutopilot(db: Db, opts: { force?: boolean } = {}): Prom
     return next;
   };
 
-  if (!config.enabled && !opts.force) return save("Autopilot is OFF — nothing published.");
+  // The General re-plans from the brief once a day — even while the switch is
+  // OFF, so manual drafts still follow current orders. Only publishing is gated.
+  let last_plan_at = state.last_plan_at;
+  if (!last_plan_at || Date.now() - new Date(last_plan_at).getTime() > 24 * 60 * 60_000) {
+    try {
+      await planOrders(db, await intelBrief(db), DEFAULT_GOAL, await campaignDaysLeft(db));
+      last_plan_at = started;
+      notes.push("the General issued fresh orders");
+    } catch (e) {
+      notes.push(`plan: ${e instanceof Error ? e.message : "failed"}`);
+    }
+  }
+
+  if (!config.enabled && !opts.force) {
+    return save(`Autopilot is OFF — nothing published.${notes.length ? ` (${notes.join("; ")})` : ""}`, { last_plan_at });
+  }
 
   const stripeMode = await getStripeMode();
   const canPublish = !config.require_stripe_live || stripeMode === "live";
@@ -342,5 +334,5 @@ export async function runAutopilot(db: Db, opts: { force?: boolean } = {}): Prom
     `published ${published}, drafted ${drafted}` +
     (failed ? `, ${failed} failed` : "") +
     (notes.length ? ` — ${notes.join("; ")}` : "");
-  return save(summary, { last_metrics_at });
+  return save(summary, { last_metrics_at, last_plan_at });
 }
