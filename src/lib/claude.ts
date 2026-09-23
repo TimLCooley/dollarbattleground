@@ -9,10 +9,12 @@ export function claudeConfigured(): boolean {
   return Boolean(process.env.ANTHROPIC_API_KEY);
 }
 
+// maxTokens covers thinking + answer: Sonnet 5 can spend several hundred
+// tokens thinking, and if the budget runs out there's NO text block at all.
 export async function claudeChat(
   system: string,
   messages: { role: "user" | "assistant"; content: string }[],
-  maxTokens = 900,
+  maxTokens = 2500,
 ): Promise<string | null> {
   const key = process.env.ANTHROPIC_API_KEY;
   if (!key || messages.length === 0) return null;

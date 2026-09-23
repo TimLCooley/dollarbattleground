@@ -78,15 +78,29 @@ console.log(`BOARD: RED ${redPct}% / BLUE ${bluePct}%`);
 // 2) write the field report (Claude, in persona)
 const sys = `You are ${c.name}, the ${faction.toUpperCase()} team's field reporter for Dollar Battleground (a paid red-vs-blue tile war; site dollarbattleground.com). You report from the front — urgent, present tense, pro-${faction}, playful. It's a GAME, no real-world harm.`;
 const user = `Live board: RED ${redPct}% / BLUE ${bluePct}%. Write a short field report. You are LIVE from the field; ${c.partner} is back at the desk. NEVER use the word "anchor" or "reporter" on air — always use real names. End by tossing back to ${c.partner} BY NAME (e.g. "back to you, ${c.partner.split(" ")[0]}"). Respond ONLY JSON: {"headline":"<UPPERCASE, <=6 words>","spoken":"<what you say on camera, 22-30 words, end by tossing back to ${c.partner} by name>","caption":"<tweet text <=180 chars, include dollarbattleground.com>","angle":"recruit|hype|taunt|update","locator":"GRID x,y"}`;
-const ai = await fetch("https://api.anthropic.com/v1/messages", {
-  method: "POST",
-  headers: { "x-api-key": AI, "anthropic-version": "2023-06-01", "content-type": "application/json" },
-  body: JSON.stringify({ model: "claude-sonnet-5", max_tokens: 500, system: sys, messages: [{ role: "user", content: user }] }),
-}).then((r) => r.json());
-let raw = (ai.content?.find((b) => b.type === "text")?.text) ?? "{}";
+// Sonnet 5 thinks before it answers; give it room so the JSON isn't cut off,
+// and surface exactly what came back when there's no text block.
+async function askClaude() {
+  const ai = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: { "x-api-key": AI, "anthropic-version": "2023-06-01", "content-type": "application/json" },
+    body: JSON.stringify({ model: "claude-sonnet-5", max_tokens: 1500, system: sys, messages: [{ role: "user", content: user }] }),
+  }).then((r) => r.json());
+  const text = ai.content?.find((b) => b.type === "text")?.text;
+  if (!text) console.log("CLAUDE: no text block —", JSON.stringify({ error: ai.error ?? null, stop_reason: ai.stop_reason, blocks: ai.content?.map((b) => b.type) }));
+  return text ?? "";
+}
+let raw = await askClaude();
+if (!raw) raw = await askClaude(); // one retry — the answer is nondeterministic
 raw = raw.slice(raw.indexOf("{"), raw.lastIndexOf("}") + 1);
-const plan = JSON.parse(raw);
+let plan = {};
+try { plan = JSON.parse(raw); } catch { /* handled below */ }
+if (!plan.spoken || !plan.headline || !plan.caption) {
+  console.log("PLAN FAIL — no usable field report; NOT spending on HeyGen.");
+  process.exit(1);
+}
 console.log("PLAN:", plan);
+if (process.env.PLAN_ONLY) { console.log("PLAN_ONLY — stopping before the render."); process.exit(0); }
 
 // 3) render the reporter (HeyGen)
 const H = { "X-Api-Key": HG, "Content-Type": "application/json" };
