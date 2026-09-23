@@ -26,11 +26,15 @@ export function AdminShell({
   return (
     <div className="adm">
       <header className="adm-head">
-        <div>
-          <div className="adm-kicker">◆ COMMAND CONSOLE ◆</div>
-          <h1 className="adm-title">
-            <span className="adm-coin">$</span> {title}
-          </h1>
+        <div className="adm-brand">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img className="adm-logo" src="/logo.png" alt="Battleground" />
+          <div>
+            <div className="adm-kicker">◆ COMMAND CONSOLE ◆</div>
+            <h1 className="adm-title">
+              <span className="adm-coin">$</span> {title}
+            </h1>
+          </div>
         </div>
         <Link href="/" className="adm-exit">
           ‹ BOARD

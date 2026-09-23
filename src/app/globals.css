@@ -3419,6 +3419,11 @@ body {
 .cc-cart-menu .cc-btn { text-align: left; }
 .cc-cart-note { font-size: 11px; color: var(--parch); }
 .cc-ops-err { font-size: 11px; color: #ffb3b3; }
+/* admin branding: the split wordmark next to the section title */
+.adm-brand { display: flex; align-items: center; gap: 16px; }
+.adm-logo { height: 46px; width: auto; image-rendering: auto; filter: drop-shadow(0 3px 0 #0c3c21); }
+@media (max-width: 640px) { .adm-logo { height: 34px; } }
+
 /* Full-width command center: RED | COMMAND | BLUE */
 .adm:has(.cc3) { max-width: none; }
 .cc3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; align-items: start; }
