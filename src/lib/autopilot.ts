@@ -351,7 +351,15 @@ export async function refreshMetrics(db: Db): Promise<number> {
         if (!m) continue;
         await db
           .from("agent_posts")
-          .update({ impressions: m.impressions, likes: m.likes, reposts: m.reposts, replies: m.replies, quotes: m.quotes, metrics_at: now })
+          // Our own link reply is not engagement — don't count it.
+          .update({
+            impressions: m.impressions,
+            likes: m.likes,
+            reposts: m.reposts,
+            replies: Math.max(0, m.replies - (r.ownReply ? 1 : 0)),
+            quotes: m.quotes,
+            metrics_at: now,
+          })
           .eq("id", r.id);
         updated++;
       }
