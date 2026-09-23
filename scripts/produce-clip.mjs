@@ -86,7 +86,10 @@ if (!process.env.FORCE && prev && prev.red === red && prev.blue === blue) {
 
 // 2) write the field report (Claude, in persona)
 const sys = `You are ${c.name}, the ${faction.toUpperCase()} team's field reporter for Dollar Battleground (a paid red-vs-blue tile war; site dollarbattleground.com). You report from the front — urgent, present tense, pro-${faction}, playful. It's a GAME, no real-world harm.`;
-const user = `Live board: RED ${redPct}% / BLUE ${bluePct}%. Write a short field report. You are LIVE from the field; ${c.partner} is back at the desk. NEVER use the word "anchor" or "reporter" on air — always use real names. End by tossing back to ${c.partner} BY NAME (e.g. "back to you, ${c.partner.split(" ")[0]}"). Respond ONLY JSON: {"headline":"<UPPERCASE, <=6 words>","spoken":"<what you say on camera, 22-30 words, end by tossing back to ${c.partner} by name>","caption":"<tweet text <=180 chars, include dollarbattleground.com>","angle":"recruit|hype|taunt|update","locator":"GRID x,y"}`;
+const user = `Live board: RED ${red} tiles (${redPct}%) / BLUE ${blue} tiles (${bluePct}%) on a 15×15 grid. Write a short field report. You are LIVE from the field; ${c.partner} is back at the desk. NEVER use the word "anchor" or "reporter" on air — always use real names. End by tossing back to ${c.partner} BY NAME (e.g. "back to you, ${c.partner.split(" ")[0]}").
+Never invent game mechanics, events, or deadlines — the game is a board, two sides, tiles flipped for $1/$5/$10, first tile free. Use only the numbers above.
+CAPTION rules (the tweet): ≤ 200 chars, no hashtags, at most one emoji, sounds like a person not a campaign. Pick the angle first: "recruit" = a direct ask to join with the link dollarbattleground.com; "update"/"hype"/"taunt" = NO link at all.
+Respond ONLY JSON: {"headline":"<UPPERCASE, <=6 words>","spoken":"<what you say on camera, 22-30 words, end by tossing back to ${c.partner} by name>","caption":"<the tweet>","angle":"recruit|hype|taunt|update","locator":"GRID x,y"}`;
 // Sonnet 5 thinks before it answers; give it room so the JSON isn't cut off,
 // and surface exactly what came back when there's no text block.
 async function askClaude() {

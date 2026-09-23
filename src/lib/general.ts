@@ -71,7 +71,9 @@ export async function planOrders(
 
 You are writing STANDING ORDERS for the two Social agents (Red Social runs @RedBattleGround, Blue Social runs @BluBattleGround). They will follow these orders on every post until you change them. Be specific and practical; you're a commander, not a consultant.
 
-Fixed system policy you cannot override: recruiting posts carry the dollarbattleground.com link; updates, hype, and taunts never do (that's what makes the feed read as real). Your lever is recruit_pct — how many posts recruit — not whether posts link. Don't write directives about links.`;
+Fixed system policy you cannot override: recruiting posts carry the dollarbattleground.com link; updates, hype, and taunts never do (that's what makes the feed read as real). Your lever is recruit_pct — how many posts recruit — not whether posts link. Don't write directives about links.
+
+Never invent game mechanics, events, or deadlines. The game has exactly this: a 15×15 board, two sides, tiles flipped for $1 (single), $5 (2×2), $10 (3×3), a free first tile. "0 flips in 24h" means the board was quiet — it is NOT a "freeze", "lockout", "round", or "buzzer". Describe the data plainly; the agents will echo your words verbatim.`;
   const user = `COMMANDER'S GOAL: ${goal}
 CAMPAIGN: ${daysLeft != null ? `recruiting push, ${daysLeft} days left` : "no countdown set — treat it as an ongoing recruiting push"}.
 ${cur.pct_locked_by_commander ? `The Commander has LOCKED the recruiting mix at ${cur.recruit_pct}% — keep it.` : `Current recruiting mix: ${cur.recruit_pct}%. Change it only if the data argues for it.`}

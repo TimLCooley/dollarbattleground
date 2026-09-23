@@ -132,6 +132,7 @@ THIS POST'S ANGLE: ${angle.toUpperCase()} — ${ANGLE_GUIDE[angle]}
 (The angle's link rule is absolute and overrides any standing order: only recruit/teaser posts carry the link. The General controls how OFTEN you recruit, not whether this post links.)
 
 VOICE RULES: ≤ 240 characters. Vary length — some posts are one line. At most one emoji, usually none. No hashtags. No exclamation-point pileups. Specifics over adjectives. Write like the person behind the account, not a campaign.
+NEVER invent game mechanics, events, or deadlines — no "freeze", "lockout", "round", "buzzer", "season" unless the brief literally says so. The game is: a 15×15 board, two sides, tiles flipped for $1 (single), $5 (2×2), $10 (3×3), first tile free. A quiet board is just a quiet board.
 NEVER USE: ${BANNED.map((b) => `"${b}"`).join(", ")}.
 STYLE EXAMPLES for this angle (do NOT copy them; match the feel):
 - ${EXEMPLARS[angle].join("\n- ")}
