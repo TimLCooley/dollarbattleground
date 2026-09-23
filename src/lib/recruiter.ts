@@ -70,11 +70,11 @@ export function chooseAngle(recruitPct: number, recentAngles: Angle[] = [], phas
 // who has never seen the game — the pitch comes first, the scoreboard is
 // seasoning.
 const PITCH =
-  "WHAT THE GAME IS (the reader has never heard of it): Dollar Battleground is a live map where Red and Blue fight for territory. You pick a side, your first position is free, then a dollar takes a position ($5 takes a 2×2 strike, $10 a 3×3 barrage). The map is public and every move shows up live.";
+  "WHAT THE GAME IS (the reader has never heard of it): Dollar Battleground is a live map where Red and Blue fight for territory. You pick a side, your first position is free, then you take positions, launch strikes and barrages to take ground. A strike commissions you as an officer. The map is public and every move shows up live.\nMONEY RULE: never mention spending money or prices — no dollar amounts, ever. \"First position is free\" is fine; \"$5\" is not.";
 
 const ANGLE_GUIDE: Record<Angle, string> = {
   recruit:
-    "An INVITATION to someone who has never heard of the game — NOT a score update. Lead with the pitch (pick a side, first position free, a dollar takes a position) and make it about THEM. A board fact is seasoning: one at most, never the opening line. End with the link dollarbattleground.com.",
+    "An INVITATION to someone who has never heard of the game — NOT a score update. Lead with the pitch (pick a side, first position free, join as an officer) and make it about THEM. A board fact is seasoning: one at most, never the opening line. End with the link dollarbattleground.com.",
   teaser: "A coming-soon hook that makes someone want to pick a side before launch. Include the link dollarbattleground.com.",
   update: "A war-desk update: what actually happened on the map — ground gained or lost, by direction (the east, the south, the center). NO link. Reads like an account reporting, not selling.",
   hype: "Pump your own side. Swagger with specifics. NO link.",
@@ -83,11 +83,11 @@ const ANGLE_GUIDE: Record<Angle, string> = {
 
 const EXEMPLARS: Record<Angle, string[]> = {
   recruit: [
-    "There's a map. Red vs Blue, fighting for ground. A dollar takes a position and your first one's free. Pick Red: dollarbattleground.com",
-    "You've got a dollar and an opinion. That's the whole entry fee. Take a position for Blue: dollarbattleground.com",
+    "There's a map. Red vs Blue, fighting for ground. Your first position's free. Pick Red: dollarbattleground.com",
+    "You've got an opinion and a side to pick. That's the whole entry exam. Take a position for Blue: dollarbattleground.com",
     "New here? One map, two sides, every move is live. Your first position's on us — plant a Red flag: dollarbattleground.com",
     "Red isn't taking everyone. 14 days left to enlist in the founding class — earn your rank on the line: dollarbattleground.com",
-    "$5 doesn't buy you ground. It buys you a commission. Join Blue as a Second Lieutenant: dollarbattleground.com",
+    "Don't start as a private. One strike commissions you Second Lieutenant in Blue's officer corps: dollarbattleground.com",
   ],
   teaser: ["The map opens soon. Red or Blue — decide before your neighbor does: dollarbattleground.com"],
   update: [
@@ -125,8 +125,8 @@ function recruitThemes(daysLeft?: number | null): string {
   return `RECRUITING THEMES (pick one or two per post, rotate across posts):
 - SELECTIVE: we're looking for the best. This side earns its rank on the line; not everyone makes the cut.
 - COUNTDOWN (real): ${daysLeft != null ? `${daysLeft} day${daysLeft === 1 ? "" : "s"} left in the recruiting campaign — join now and you're in the founding class of your side.` : "the recruiting campaign is open now — join and you're in the founding class of your side."}
-- OFFICER PATH (real mechanic): a $5 strike commissions you as a Second Lieutenant — you can join as an OFFICER, not a private, and earn rank from there.
-- LOW FRICTION: your first position is free; a dollar takes a position.`;
+- OFFICER PATH (real mechanic): a strike commissions you as a Second Lieutenant — you can join as an OFFICER, not a private, and earn rank from there. (Never say what it costs.)
+- LOW FRICTION: your first position is free.`;
 }
 
 function buildPrompt(input: DecideInput, angle: Angle): { system: string; user: string } {
@@ -159,7 +159,8 @@ ${angle === "recruit" ? recruitThemes(input.daysLeft) + "\n" : ""}(The angle's l
 
 VOICE RULES: ≤ 240 characters. Vary length — some posts are one line. At most one emoji, usually none. No hashtags. No exclamation-point pileups. Specifics over adjectives. Write like the person behind the account, not a campaign.
 TERRITORY LANGUAGE ONLY: this is a territory war. Say positions, ground, territory, fronts, and compass directions — "pushing in from the south", "the eastern front", "the northwest", "the center". NEVER grid coordinates (no "4,7", no "H8" — nobody knows what they mean) and NEVER "flip tiles" / "tile flipping". You "take a position", "take ground", "hold the line".
-NEVER invent game mechanics, events, or deadlines — no "freeze", "lockout", "round", "buzzer", "season" unless the brief literally says so. The game is: one map, two sides, positions taken for $1 (single), $5 (2×2 strike), $10 (3×3 barrage), first position free. A quiet map is just a quiet map.
+NEVER mention spending money or prices — no dollar amounts, ever. Say "take a position", "a strike commissions you", "first position free".
+NEVER invent game mechanics, events, or deadlines — no "freeze", "lockout", "round", "buzzer", "season" unless the brief literally says so. The game is: one map, two sides, positions, strikes (2×2), barrages (3×3), first position free, a strike commissions you as an officer. A quiet map is just a quiet map.
 NEVER USE: ${BANNED.map((b) => `"${b}"`).join(", ")}.
 STYLE EXAMPLES for this angle (do NOT copy them; match the feel):
 - ${EXEMPLARS[angle].join("\n- ")}
@@ -178,7 +179,8 @@ function parseDraft(text: string | null | undefined, input: DecideInput, angle: 
     const p = JSON.parse(raw) as Partial<PostDraft>;
     if (!p.copy?.trim()) return null;
     const copy = p.copy.trim();
-    // Guardrails the model may have ignored: link only on recruit/teaser.
+    // Guardrails the model may have ignored: no prices, ever; link only on recruit/teaser.
+    if (/\$\s?\d|\d+\s?(dollars?|bucks)\b/i.test(copy)) return null;
     const linked = /dollarbattleground\.com/i.test(copy);
     const shouldLink = angle === "recruit" || angle === "teaser";
     if (shouldLink && !linked) return null;
