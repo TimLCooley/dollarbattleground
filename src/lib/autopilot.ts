@@ -134,8 +134,17 @@ export async function draftPost(
   db: Db,
   faction: Faction,
   goal: string,
-  opts: { replaces?: number; slot?: string | null } = {},
+  opts: { replaces?: number; slot?: string | null; force?: boolean } = {},
 ) {
+  // Unless forced (the ⚡ button), only draft when this team's DRAFT column is
+  // actually short — so the page's auto-draft and the tick can't double up.
+  if (!opts.force) {
+    const [{ count }, { config: c }] = await Promise.all([
+      db.from("agent_posts").select("id", { count: "exact", head: true }).eq("faction", faction).eq("status", "queued"),
+      getAutopilot(db),
+    ]);
+    if ((count ?? 0) >= c.min_queued_per_team) return null;
+  }
   // Chain of command: the brief (Intel Ops) + standing orders (the General)
   // go into every draft.
   const [{ config }, ctx, daysLeft, brief, orders, commanderNotes] = await Promise.all([

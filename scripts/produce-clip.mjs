@@ -101,8 +101,24 @@ const camp = await cfg("campaign");
 const daysLeft = camp?.ends_at ? Math.max(0, Math.ceil((new Date(camp.ends_at).getTime() - Date.now()) / 86_400_000)) : null;
 console.log(`MAP: RED ${redPct}% / BLUE ${bluePct}% (${lead}) — ${daysLeft ?? "?"} days left — ${kind} clip, ${who.name}, look ${look.slice(0, 6)}`);
 
-// Field reports skip when the map hasn't moved since the last one. Recruiting
-// spots don't depend on the map, so they always run. FORCE=1 overrides.
+// Respect the General's mix: at (near) 100% recruiting, field reports are
+// paused — every clip should recruit. FORCE=1 overrides.
+const orders = (await cfg("general_orders")) ?? {};
+if (kind === "field" && !process.env.FORCE && Number(orders.recruit_pct ?? 60) >= 90) {
+  console.log(`SKIP ${SIDE} field report — recruiting mix is ${orders.recruit_pct}%, field reports are paused.`);
+  process.exit(0);
+}
+// One recruiting spot per team per day: skip if one was already queued or
+// posted today (a late cron run must not make a duplicate).
+if (kind === "recruit" && !process.env.FORCE) {
+  const since = `${today}T00:00:00Z`;
+  const dup = await fetch(`${SB}/rest/v1/agent_posts?faction=eq.${faction}&format=eq.video&status=in.(queued,posted)&created_at=gte.${since}&select=id,video_spec`, { headers: sbh }).then((r) => r.json());
+  if ((dup ?? []).some((p) => p.video_spec?.kind === "recruit")) {
+    console.log(`SKIP ${SIDE} recruiting spot — one already went out today.`);
+    process.exit(0);
+  }
+}
+// Field reports skip when the map hasn't moved since the last one.
 if (kind === "field" && !process.env.FORCE) {
   const lastClip = await fetch(`${SB}/rest/v1/agent_posts?faction=eq.${faction}&video_kind=eq.social_clip&status=neq.denied&select=video_spec&order=created_at.desc&limit=1`, { headers: sbh }).then((r) => r.json());
   const prev = lastClip?.[0]?.video_spec;
