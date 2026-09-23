@@ -30,7 +30,7 @@ export interface AutopilotConfig {
 const DEFAULTS: AutopilotConfig = {
   enabled: false,
   review_minutes: 60,
-  min_queued_per_team: 2,
+  min_queued_per_team: 1,
   posts_per_day_per_team: 3,
   require_stripe_live: true,
 };
@@ -344,7 +344,8 @@ export async function runAutopilot(db: Db, opts: { force?: boolean } = {}): Prom
       .select("id", { count: "exact", head: true })
       .eq("faction", f)
       .eq("status", "queued");
-    const need = Math.min(2, Math.max(0, config.min_queued_per_team - (count ?? 0)));
+    // One new draft per team per tick — a queue you can actually read.
+    const need = Math.min(1, Math.max(0, config.min_queued_per_team - (count ?? 0)));
     for (let i = 0; i < need; i++) {
       try {
         await draftPost(db, f, DEFAULT_GOAL);
