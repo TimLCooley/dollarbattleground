@@ -1,20 +1,24 @@
-# Field-report producer: twice a day, each team's field correspondent files a
-# clip on the live board (skipped when the board hasn't moved since the last
-# one). Runs here because Remotion needs Chromium, which Vercel can't provide.
+# Video producer. Drafts are timing placeholders: the autopilot queues a video
+# card per team per day, and this job renders each one from live data shortly
+# before its slot (checked every 30 minutes; GitHub's cron can run late, and
+# the autopilot waits up to 90 minutes for a clip before posting as text).
+# Runs here because Remotion needs Chromium, which Vercel can't provide.
 # Spend is capped by the HeyGen wallet guard inside scripts/produce-clip.mjs.
 name: Produce field-report clips
 
 on:
   schedule:
-    - cron: "0 13 * * *" # morning slot (13:00 UTC)
-    - cron: "0 22 * * *" # evening slot (22:00 UTC)
+    - cron: "*/30 * * * *"
   workflow_dispatch:
     inputs:
-      faction:
-        description: "red | blue | both"
-        default: "both"
+      mode:
+        description: "due (render placeholders) | red | blue"
+        default: "due"
+      kind:
+        description: "for red/blue: field | recruit"
+        default: "recruit"
       force:
-        description: "Render even if the board hasn't changed (1 = yes)"
+        description: "Ignore the mix / dedupe / unchanged-map skips (1 = yes)"
         default: ""
 
 concurrency: produce-clips
@@ -22,7 +26,7 @@ concurrency: produce-clips
 jobs:
   produce:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 45
     env:
       HEYGEN_API_KEY: ${{ secrets.HEYGEN_API_KEY }}
       ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
@@ -37,16 +41,9 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npx remotion browser ensure
-      - name: Red — Rowan Cross files a report
-        if: ${{ github.event.inputs.faction != 'blue' }}
-        run: node scripts/produce-clip.mjs red field
-      - name: Blue — Skye Bennett files a report
-        if: ${{ always() && github.event.inputs.faction != 'red' }}
-        run: node scripts/produce-clip.mjs blue field
-      # One recruiting spot per team per day (the morning slot only).
-      - name: Red — Sienna Cole recruiting spot
-        if: ${{ always() && github.event.inputs.faction != 'blue' && (github.event_name != 'schedule' || github.event.schedule == '0 13 * * *') }}
-        run: node scripts/produce-clip.mjs red recruit
-      - name: Blue — Sterling Wells recruiting spot
-        if: ${{ always() && github.event.inputs.faction != 'red' && (github.event_name != 'schedule' || github.event.schedule == '0 13 * * *') }}
-        run: node scripts/produce-clip.mjs blue recruit
+      - name: Render video placeholders due in the next 2 hours
+        if: ${{ github.event_name == 'schedule' || github.event.inputs.mode == 'due' || github.event.inputs.mode == '' }}
+        run: node scripts/produce-clip.mjs due
+      - name: Manual clip
+        if: ${{ github.event_name == 'workflow_dispatch' && (github.event.inputs.mode == 'red' || github.event.inputs.mode == 'blue') }}
+        run: node scripts/produce-clip.mjs ${{ github.event.inputs.mode }} ${{ github.event.inputs.kind }}

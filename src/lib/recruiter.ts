@@ -39,6 +39,8 @@ export interface DecideInput {
   orders?: GeneralOrders | null;
   commanderNotes?: string; // standing feedback from the Commander — applies to every agent, outranks orders
   forceAngle?: Angle;
+  forceTheme?: Theme; // refresh-at-post keeps the placeholder's theme
+  forceFormat?: "text" | "video"; // video placeholders are decided by the schedule, not the model
 }
 
 // ── angle scheduling ────────────────────────────────────────────────────────
@@ -248,19 +250,23 @@ async function gemini(system: string, user: string): Promise<string | null> {
 
 export async function decideNextPost(input: DecideInput): Promise<PostDraft | null> {
   const angle = input.forceAngle ?? chooseAngle(input.orders?.recruit_pct ?? 60, input.recentAngles ?? [], input.phase);
-  const theme = chooseTheme(input.recentThemes ?? []);
+  const theme = input.forceTheme ?? chooseTheme(input.recentThemes ?? []);
   const { system, user } = buildPrompt(input, angle, theme);
+  const finish = (d: PostDraft | null): PostDraft | null => {
+    if (!d || !input.forceFormat) return d;
+    return { ...d, format: input.forceFormat, videoKind: input.forceFormat === "video" ? "social_clip" : null };
+  };
 
   // Claude first (two tries — the guardrails can reject a draft), then Gemini.
   if (claudeConfigured()) {
     for (let i = 0; i < 2; i++) {
       const d = parseDraft(await claudeChat(system, [{ role: "user", content: user }], 2000), input, angle, theme);
-      if (d) return d;
+      if (d) return finish(d);
     }
   }
   for (let i = 0; i < 2; i++) {
     const d = parseDraft(await gemini(system, user), input, angle, theme);
-    if (d) return d;
+    if (d) return finish(d);
   }
   return null;
 }

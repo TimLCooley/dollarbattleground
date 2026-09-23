@@ -23,17 +23,23 @@ export const DEFAULT_GOAL =
 export interface AutopilotConfig {
   enabled: boolean;
   review_minutes: number; // how long the Commander has to deny before it posts
-  min_queued_per_team: number; // top the queue up to this many drafts
+  min_queued_per_team: number; // keep this many drafts (placeholders) per team — a day's slots
   posts_per_day_per_team: number; // slot spacing = 24h / this
+  video_per_day_per_team: number; // how many of the day's placeholders are video cards
+  refresh_on_publish: boolean; // rewrite the post with live data at post time (drafts are placeholders)
   require_stripe_live: boolean; // never drive traffic to a test-mode checkout
 }
 const DEFAULTS: AutopilotConfig = {
   enabled: false,
   review_minutes: 60,
-  min_queued_per_team: 1,
+  min_queued_per_team: 3,
   posts_per_day_per_team: 3,
+  video_per_day_per_team: 1,
+  refresh_on_publish: true,
   require_stripe_live: true,
 };
+// A video placeholder that hasn't rendered by post time waits this long, then goes out as text.
+const VIDEO_GRACE_MS = 90 * 60_000;
 
 export interface AutopilotState {
   last_run_at?: string;
@@ -134,7 +140,7 @@ export async function draftPost(
   db: Db,
   faction: Faction,
   goal: string,
-  opts: { replaces?: number; slot?: string | null; force?: boolean } = {},
+  opts: { replaces?: number; slot?: string | null; force?: boolean; video?: boolean } = {},
 ) {
   // Unless forced (the ⚡ button), only draft when this team's DRAFT column is
   // actually short — so the page's auto-draft and the tick can't double up.
@@ -155,9 +161,22 @@ export async function draftPost(
     getOrders(db),
     getCommanderNotes(db),
   ]);
-  const d = await decideNextPost({ faction, goal, phase: "live", daysLeft, brief, orders, commanderNotes, ...ctx });
+  const d = await decideNextPost({
+    faction,
+    goal,
+    phase: "live",
+    daysLeft,
+    brief,
+    orders,
+    commanderNotes,
+    ...ctx,
+    forceFormat: opts.video ? "video" : "text",
+  });
   if (!d) throw new Error("The brain returned nothing (check GEMINI_API_KEY).");
   const scheduled_for = await nextSlot(db, faction, config, opts.slot);
+  // A video placeholder: the producer renders it (script, clip, caption — all
+  // from live data) shortly before its slot. Which kind follows the mix.
+  const videoSpec = opts.video ? { kind: orders.recruit_pct >= 90 ? "recruit" : "field", placeholder: true } : null;
   const { data, error } = await db
     .from("agent_posts")
     .insert({
@@ -171,6 +190,7 @@ export async function draftPost(
       x_account: faction,
       copy: d.copy,
       video_kind: d.videoKind,
+      video_spec: videoSpec,
       reason: d.reason,
       scheduled_for,
       replaces: opts.replaces ?? null,
@@ -187,9 +207,14 @@ interface PostRow {
   x_account: string | null;
   faction: string | null;
   format: string;
+  angle: Angle | null;
+  reason: string | null;
   video_kind: string | null;
   media_url: string | null;
+  scheduled_for: string | null;
 }
+
+export class NotReady extends Error {}
 
 // X throttles posts that carry an external link, so the link never goes in
 // the post body: strip it, publish, then reply to ourselves with the CTA +
@@ -213,8 +238,55 @@ export async function publishPost(db: Db, id: number): Promise<{ id: string; vid
   const p = row as PostRow | null;
   if (!p) throw new Error("not found");
   const f = (p.faction === "blue" || p.x_account === "blue" ? "blue" : "red") as Faction;
-  const hasLink = /dollarbattleground\.com/i.test(p.copy);
-  const text = hasLink ? stripLink(p.copy) : p.copy;
+  const { config } = await getAutopilot(db);
+
+  // A video placeholder whose clip hasn't rendered yet: wait (the producer
+  // checks every 30 min), and only after the grace period go out as text.
+  const unrendered = p.format === "video" && p.video_kind === "social_clip" && !p.media_url;
+  if (unrendered) {
+    const overdue = p.scheduled_for ? Date.now() - new Date(p.scheduled_for).getTime() : 0;
+    if (overdue < VIDEO_GRACE_MS) throw new NotReady("clip renders before posting — waiting");
+  }
+
+  // Drafts are placeholders: at post time the agent rewrites the copy from
+  // live data, keeping the angle and theme the Commander saw on the card.
+  // (A rendered clip already had its caption written at render time.)
+  let copy = p.copy;
+  if (config.refresh_on_publish && !(p.format === "video" && p.media_url)) {
+    try {
+      const [ctx, daysLeft, brief, orders, commanderNotes] = await Promise.all([
+        recentContext(db, f),
+        campaignDaysLeft(db),
+        intelBrief(db),
+        getOrders(db),
+        getCommanderNotes(db),
+      ]);
+      const fresh = await decideNextPost({
+        faction: f,
+        goal: DEFAULT_GOAL,
+        phase: "live",
+        daysLeft,
+        brief,
+        orders,
+        commanderNotes,
+        ...ctx,
+        forceAngle: p.angle ?? undefined,
+        forceTheme: themeOf(p.reason) ?? undefined,
+        forceFormat: "text",
+      });
+      if (fresh?.copy) {
+        copy = fresh.copy;
+        await db
+          .from("agent_posts")
+          .update({ copy, reason: `${fresh.reason} · refreshed at post time` })
+          .eq("id", id);
+      }
+    } catch (e) {
+      console.error(`refresh-at-post failed for #${p.id}, using the draft:`, e instanceof Error ? e.message : e);
+    }
+  }
+  const hasLink = /dollarbattleground\.com/i.test(copy);
+  const text = hasLink ? stripLink(copy) : copy;
 
   let tweet: { id: string };
   let mediaUrl: string | null = p.media_url;
@@ -336,23 +408,35 @@ export async function runAutopilot(db: Db, opts: { force?: boolean } = {}): Prom
     }
   }
 
-  // Drafting is free and safe, so the queue is topped up EVERY tick — one new
-  // draft per team when its DRAFT column is empty — whether the switch is on
+  // Drafting is free and safe, so the queue is filled EVERY tick — up to a
+  // day's worth of placeholders per team (one per slot), one of them a video
+  // card when the day's video allowance isn't used — whether the switch is on
   // or off. Only publishing is gated below.
+  const dayStart = new Date(started.slice(0, 10) + "T00:00:00Z").toISOString();
   for (const f of ["red", "blue"] as Faction[]) {
-    const { count } = await db
-      .from("agent_posts")
-      .select("id", { count: "exact", head: true })
-      .eq("faction", f)
-      .eq("status", "queued");
-    const need = Math.min(1, Math.max(0, config.min_queued_per_team - (count ?? 0)));
+    const [{ count }, { count: videos }] = await Promise.all([
+      db.from("agent_posts").select("id", { count: "exact", head: true }).eq("faction", f).eq("status", "queued"),
+      db
+        .from("agent_posts")
+        .select("id", { count: "exact", head: true })
+        .eq("faction", f)
+        .eq("format", "video")
+        .in("status", ["queued", "posted"])
+        .gte("created_at", dayStart),
+    ]);
+    const need = Math.max(0, config.min_queued_per_team - (count ?? 0));
+    let videoLeft = Math.max(0, config.video_per_day_per_team - (videos ?? 0));
     for (let i = 0; i < need; i++) {
+      const video = videoLeft > 0;
       try {
-        await draftPost(db, f, DEFAULT_GOAL);
+        const d = await draftPost(db, f, DEFAULT_GOAL, { video });
+        if (!d) break;
         drafted++;
+        if (video) videoLeft--;
       } catch (e) {
         failed++;
         notes.push(`draft ${f}: ${e instanceof Error ? e.message : "failed"}`);
+        break;
       }
     }
   }
@@ -390,14 +474,20 @@ export async function runAutopilot(db: Db, opts: { force?: boolean } = {}): Prom
             await publishPost(db, d.id);
             published++;
           } catch (e) {
-            failed++;
             const msg = e instanceof Error ? e.message : "failed";
-            notes.push(`#${d.id}: ${msg}`);
-            // back off 30 min and keep the error where the Commander can see it
-            await db
-              .from("agent_posts")
-              .update({ last_error: msg, scheduled_for: new Date(Date.now() + 30 * 60_000).toISOString() })
-              .eq("id", d.id);
+            if (e instanceof NotReady) {
+              // not an error: the clip is still rendering; try again next tick
+              notes.push(`#${d.id} waiting for its clip`);
+              await db.from("agent_posts").update({ last_error: `⏳ ${msg}` }).eq("id", d.id);
+            } else {
+              failed++;
+              notes.push(`#${d.id}: ${msg}`);
+              // back off 30 min and keep the error where the Commander can see it
+              await db
+                .from("agent_posts")
+                .update({ last_error: msg, scheduled_for: new Date(Date.now() + 30 * 60_000).toISOString() })
+                .eq("id", d.id);
+            }
           }
         }
       }
