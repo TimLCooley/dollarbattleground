@@ -40,6 +40,7 @@ const CAST = {
 };
 
 const DEF_BUDGET = { per_team_daily_usd: 0.5, per_team_month_usd: 15, wallet_floor_usd: 0.25 };
+const ENGINE = process.env.HEYGEN_ENGINE || "avatar_iii"; // see the render step
 const today = new Date().toISOString().slice(0, 10);
 const monthStart = today.slice(0, 8) + "01";
 
@@ -173,21 +174,33 @@ Respond ONLY JSON: {"headline":"<UPPERCASE, <=6 words>","spoken":"<what you say 
   console.log("PLAN:", plan);
   if (process.env.PLAN_ONLY) { console.log("PLAN_ONLY — stopping before the render."); return false; }
 
-  // Render the correspondent (HeyGen).
-  const H = { "X-Api-Key": HG, "Content-Type": "application/json" };
-  const cr = await fetch("https://api.heygen.com/v2/video/generate", {
-    method: "POST", headers: H,
-    body: JSON.stringify({ video_inputs: [{ character: { type: "talking_photo", talking_photo_id: look }, voice: { type: "text", input_text: plan.spoken, voice_id: who.voice }, background: { type: "color", value: "#0a0f1e" } }], dimension: { width: 720, height: 1280 } }),
-  }).then((r) => r.json());
-  const vid = cr.data?.video_id;
+  // Render the correspondent (HeyGen v3 — v1/v2 retire 2026-10-31).
+  // ENGINE: avatar_iii = the talking-head look we launched with (cheapest);
+  // avatar_iv = upper body + hand gestures from the same look ids (~2.5× the
+  // price) — flip HEYGEN_ENGINE when the numbers justify it.
+  const H = { "x-api-key": HG, "Content-Type": "application/json" };
+  const body = {
+    type: "avatar", avatar_id: look, script: plan.spoken, voice_id: who.voice,
+    title: `${SIDE} ${kind} ${today}`, aspect_ratio: "9:16", resolution: "720p",
+    background: { type: "color", value: "#0a0f1e" }, engine: { type: ENGINE },
+  };
+  if (ENGINE === "avatar_iv") {
+    body.expressiveness = "medium";
+    body.motion_prompt = kind === "recruit"
+      ? "A news anchor at the desk: natural presenter hand gestures, leans in on the key line, counts on fingers when listing, steady eye contact."
+      : "A field correspondent reporting from the front: points off-camera toward the action, small emphatic hand gestures, alert posture.";
+  }
+  const cr = await fetch("https://api.heygen.com/v3/videos", { method: "POST", headers: H, body: JSON.stringify(body) }).then((r) => r.json());
+  const vid = cr.data?.video_id ?? cr.video_id;
   if (!vid) { console.log("HEYGEN FAIL:", JSON.stringify(cr)); return false; }
-  console.log("HEYGEN rendering", vid);
+  console.log(`HEYGEN rendering ${vid} (${ENGINE})`);
   let url;
   for (let i = 0; i < 200; i++) {
     await new Promise((r) => setTimeout(r, 8000));
-    const s = await fetch("https://api.heygen.com/v1/video_status.get?video_id=" + vid, { headers: { "X-Api-Key": HG } }).then((r) => r.json());
-    if (s.data?.status === "completed") { url = s.data.video_url; break; }
-    if (s.data?.status === "failed") { console.log("HEYGEN failed"); return false; }
+    const s = await fetch("https://api.heygen.com/v3/videos/" + vid, { headers: { "x-api-key": HG } }).then((r) => r.json());
+    const d = s.data ?? s;
+    if (d.status === "completed") { url = d.video_url; break; }
+    if (d.status === "failed") { console.log("HEYGEN failed:", d.failure_code, d.failure_message); return false; }
   }
   if (!url) { console.log("HEYGEN timeout"); return false; }
   // HeyGen settles the wallet a little after the render; wait for it to move
