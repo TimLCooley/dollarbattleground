@@ -334,6 +334,9 @@ export function CommandCenter() {
           <span className={"cc-status " + p.status}>{p.status === "queued" ? "draft" : p.status}</span>
         </div>
         <p className="cc-copy">{p.copy}</p>
+        {p.format === "video" && !p.media_url && p.status === "queued" && (
+          <p className="cc-why">🎬 video placeholder — the clip (and its caption) render from live data shortly before this slot</p>
+        )}
         {p.reason && <p className="cc-why">🧪 {cleanReason(p.reason)}</p>}
         {p.deny_reason && <p className="cc-denied">✕ {p.deny_reason}</p>}
         {p.status === "queued" && p.scheduled_for && (
@@ -395,6 +398,9 @@ export function CommandCenter() {
             {busy === `draft-${f}` ? "Thinking…" : "⚡ Draft"}
           </button>
         </div>
+        {filter[f] === "queued" && (
+          <p className="cc-mini">Drafts are the day&apos;s placeholders — each is rewritten from live data at post time; video cards render just before their slot.</p>
+        )}
         {!posts ? (
           <p className="adm-loading">Loading…</p>
         ) : shown.length === 0 ? (
