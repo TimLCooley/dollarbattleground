@@ -74,7 +74,7 @@ const PITCH =
 
 const ANGLE_GUIDE: Record<Angle, string> = {
   recruit:
-    "An INVITATION to someone who has never heard of the game — NOT a score update. Lead with the pitch (pick a side, first position free, join as an officer) and make it about THEM. A board fact is seasoning: one at most, never the opening line. End with the link dollarbattleground.com.",
+    "THIS IS AN AD. Match the SHAPE of the first style example exactly: (1) the real countdown — 'N days left to join <Side>'s founding class' (or 'to claim your spot'); (2) the offer — pick your side, first position's free, or join as an officer; (3) where we need boots, by front/direction; (4) the link dollarbattleground.com. Three or four short sentences. No scoreboard. No cleverness. No story. Say it straight.",
   teaser: "A coming-soon hook that makes someone want to pick a side before launch. Include the link dollarbattleground.com.",
   update: "A war-desk update: what actually happened on the map — ground gained or lost, by direction (the east, the south, the center). NO link. Reads like an account reporting, not selling.",
   hype: "Pump your own side. Swagger with specifics. NO link.",
@@ -83,11 +83,11 @@ const ANGLE_GUIDE: Record<Angle, string> = {
 
 const EXEMPLARS: Record<Angle, string[]> = {
   recruit: [
-    "There's a map. Red vs Blue, fighting for ground. Your first position's free. Pick Red: dollarbattleground.com",
-    "You've got an opinion and a side to pick. That's the whole entry exam. Take a position for Blue: dollarbattleground.com",
-    "New here? One map, two sides, every move is live. Your first position's on us — plant a Red flag: dollarbattleground.com",
-    "Red isn't taking everyone. 14 days left to enlist in the founding class — earn your rank on the line: dollarbattleground.com",
-    "Don't start as a private. One strike commissions you Second Lieutenant in Blue's officer corps: dollarbattleground.com",
+    // The Commander's gold standard — match this SHAPE: countdown → pick your side + first position's free → where we need boots (by front) → link.
+    "15 days left to join Blue's founding class. Pick your side, first position's free, a dollar holds the line after that. We need boots on the western and center fronts. dollarbattleground.com",
+    "14 days left to join Red's founding class. Claim your spot — first position's free. We need officers on the eastern front. dollarbattleground.com",
+    "Join as an officer: one strike commissions you Second Lieutenant. 13 days left in Blue's recruiting window. We need boots in the south. dollarbattleground.com",
+    "We're looking for the best. 12 days left to claim your spot in Red's founding class — first position's free. Hold the center with us. dollarbattleground.com",
   ],
   teaser: ["The map opens soon. Red or Blue — decide before your neighbor does: dollarbattleground.com"],
   update: [
@@ -149,15 +149,14 @@ STANDING ORDERS FROM THE GENERAL (recruiting mix ${o?.recruit_pct ?? 60}%):
 - ${(o?.directives ?? []).join("\n- ") || "Use real numbers. Sound like a person."}
 ${focus ? `YOUR TEAM'S FOCUS: ${focus}` : ""}
 
-INTEL BRIEF (live):
-${input.brief?.text ?? "No brief available — keep it general and honest."}
+${angle === "recruit" ? `MAP RIGHT NOW (background only — do NOT put the score in an ad): ${input.brief?.text.split("\n")[0] ?? "quiet."}` : `INTEL BRIEF (live):\n${input.brief?.text ?? "No brief available — keep it general and honest."}`}
 
 ${PITCH}
 ${input.commanderNotes?.trim() ? `\nCOMMANDER'S STANDING FEEDBACK — applies to every agent and every post, and outranks the General's orders:\n${input.commanderNotes.trim()}\n` : ""}
 THIS POST'S ANGLE: ${angle.toUpperCase()} — ${ANGLE_GUIDE[angle]}
 ${angle === "recruit" ? recruitThemes(input.daysLeft) + "\n" : ""}(The angle's link rule is absolute and overrides any standing order: only recruit/teaser posts carry the link. The General controls how OFTEN you recruit, not whether this post links.)
 
-VOICE RULES: ≤ 240 characters. Vary length — some posts are one line. At most one emoji, usually none. No hashtags. No exclamation-point pileups. Specifics over adjectives. Write like the person behind the account, not a campaign.
+VOICE RULES: ≤ 200 characters. At most one emoji, usually none. No hashtags. No exclamation-point pileups. ${angle === "recruit" ? "Recruiting posts are ADS: plain, confident, direct — offer, urgency, call to action. Do not try to be clever or tell a story." : "Specifics over adjectives. Write like the person behind the account."}
 TERRITORY LANGUAGE ONLY: this is a territory war. Say positions, ground, territory, fronts, and compass directions — "pushing in from the south", "the eastern front", "the northwest", "the center". NEVER grid coordinates (no "4,7", no "H8" — nobody knows what they mean) and NEVER "flip tiles" / "tile flipping". You "take a position", "take ground", "hold the line".
 NEVER mention spending money or prices — no dollar amounts, ever. Say "take a position", "a strike commissions you", "first position free".
 NEVER invent game mechanics, events, or deadlines — no "freeze", "lockout", "round", "buzzer", "season" unless the brief literally says so. The game is: one map, two sides, positions, strikes (2×2), barrages (3×3), first position free, a strike commissions you as an officer. A quiet map is just a quiet map.
