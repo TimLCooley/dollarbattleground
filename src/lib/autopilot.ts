@@ -297,8 +297,32 @@ export async function runAutopilot(db: Db, opts: { force?: boolean } = {}): Prom
     }
   }
 
+  // Drafting is free and safe, so the queue is topped up EVERY tick — one new
+  // draft per team when its DRAFT column is empty — whether the switch is on
+  // or off. Only publishing is gated below.
+  for (const f of ["red", "blue"] as Faction[]) {
+    const { count } = await db
+      .from("agent_posts")
+      .select("id", { count: "exact", head: true })
+      .eq("faction", f)
+      .eq("status", "queued");
+    const need = Math.min(1, Math.max(0, config.min_queued_per_team - (count ?? 0)));
+    for (let i = 0; i < need; i++) {
+      try {
+        await draftPost(db, f, DEFAULT_GOAL);
+        drafted++;
+      } catch (e) {
+        failed++;
+        notes.push(`draft ${f}: ${e instanceof Error ? e.message : "failed"}`);
+      }
+    }
+  }
+
   if (!config.enabled && !opts.force) {
-    return save(`Autopilot is OFF — nothing published.${notes.length ? ` (${notes.join("; ")})` : ""}`, { last_plan_at });
+    return save(
+      `Autopilot is OFF — nothing published${drafted ? `, ${drafted} drafted for review` : ""}.${notes.length ? ` (${notes.join("; ")})` : ""}`,
+      { last_plan_at },
+    );
   }
 
   const stripeMode = await getStripeMode();
@@ -340,24 +364,6 @@ export async function runAutopilot(db: Db, opts: { force?: boolean } = {}): Prom
       }
     }
 
-    // 2) top the queue up so there's always something to review
-    const { count } = await db
-      .from("agent_posts")
-      .select("id", { count: "exact", head: true })
-      .eq("faction", f)
-      .eq("status", "queued");
-    // One new draft per team per tick — a queue you can actually read.
-    const need = Math.min(1, Math.max(0, config.min_queued_per_team - (count ?? 0)));
-    for (let i = 0; i < need; i++) {
-      try {
-        await draftPost(db, f, DEFAULT_GOAL);
-        drafted++;
-      } catch (e) {
-        failed++;
-        notes.push(`draft ${f}: ${e instanceof Error ? e.message : "failed"}`);
-        break;
-      }
-    }
   }
 
   // 3) metrics, hourly
