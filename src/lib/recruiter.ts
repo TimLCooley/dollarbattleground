@@ -129,6 +129,7 @@ INTEL BRIEF (live):
 ${input.brief?.text ?? "No brief available — keep it general and honest."}
 
 THIS POST'S ANGLE: ${angle.toUpperCase()} — ${ANGLE_GUIDE[angle]}
+(The angle's link rule is absolute and overrides any standing order: only recruit/teaser posts carry the link. The General controls how OFTEN you recruit, not whether this post links.)
 
 VOICE RULES: ≤ 240 characters. Vary length — some posts are one line. At most one emoji, usually none. No hashtags. No exclamation-point pileups. Specifics over adjectives. Write like the person behind the account, not a campaign.
 NEVER USE: ${BANNED.map((b) => `"${b}"`).join(", ")}.
