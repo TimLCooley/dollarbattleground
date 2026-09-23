@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useState, type ReactNode } from "react";
-import { SpendConfirm, type PendingSpend } from "./spend-confirm";
 
 interface RosterRow {
   id: string;
@@ -161,20 +160,6 @@ export function AdminPanel() {
   const [order, setOrder] = useState<string[]>(COLUMNS.map((c) => c.key));
   const [dragKey, setDragKey] = useState<string | null>(null);
 
-  // Stripe mode toggle
-  const [mode, setMode] = useState<"test" | "live" | null>(null);
-  const [liveOk, setLiveOk] = useState(false);
-  const [modeMsg, setModeMsg] = useState<string | null>(null);
-
-  // Test checkout — opens the real SpendConfirm/Stripe flow (test mode)
-  const [testPay, setTestPay] = useState<PendingSpend | null>(null);
-  const [payMsg, setPayMsg] = useState<string | null>(null);
-  const TEST_ORDERS: { label: string; order: PendingSpend }[] = [
-    { label: "$1 · single", order: { kind: "flip", amount: 1, tiles: 1, side: "red", center: 112 } },
-    { label: "$5 · 2×2", order: { kind: "x", amount: 5, tiles: 4, side: "red", center: 112 } },
-    { label: "$10 · 3×3", order: { kind: "strike", amount: 10, tiles: 9, side: "red", center: 112 } },
-  ];
-
   useEffect(() => {
     (async () => {
       try {
@@ -185,13 +170,6 @@ export function AdminPanel() {
         setSummary(data.summary);
       } catch (e) {
         setError(e instanceof Error ? e.message : "Failed to load roster");
-      }
-      try {
-        const m = await fetch("/api/admin/stripe-mode").then((r) => r.json());
-        setMode(m.mode);
-        setLiveOk(m.liveConfigured);
-      } catch {
-        /* ignore */
       }
     })();
   }, []);
@@ -244,92 +222,8 @@ export function AdminPanel() {
     setDragKey(null);
   }
 
-  async function switchMode(next: "test" | "live") {
-    setModeMsg(null);
-    const res = await fetch("/api/admin/stripe-mode", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ mode: next }),
-    });
-    const data = await res.json();
-    if (!res.ok) {
-      setModeMsg(data.error ?? "Couldn't switch mode");
-      return;
-    }
-    setMode(data.mode);
-  }
-
   return (
     <>
-      {/* Stripe mode */}
-      <section className="adm-mode">
-        <span className="adm-mode-label">STRIPE</span>
-        <div className="adm-toggle" role="group" aria-label="Stripe mode">
-          <button
-            className={"adm-toggle-opt" + (mode === "test" ? " on" : "")}
-            onClick={() => switchMode("test")}
-            disabled={mode === null}
-          >
-            TEST
-          </button>
-          <button
-            className={
-              "adm-toggle-opt live" + (mode === "live" ? " on" : "")
-            }
-            onClick={() => switchMode("live")}
-            disabled={mode === null || !liveOk}
-            title={liveOk ? "" : "Live keys not configured"}
-          >
-            LIVE
-          </button>
-        </div>
-        <span className={"adm-mode-state " + (mode ?? "")}>
-          {mode === "live" ? "● LIVE — real charges" : mode === "test" ? "● test mode" : "…"}
-        </span>
-        {!liveOk && (
-          <span className="adm-mode-note">
-            Live disabled — add STRIPE_SECRET_KEY_LIVE + publishable
-          </span>
-        )}
-        {modeMsg && <span className="adm-mode-err">{modeMsg}</span>}
-      </section>
-
-      {/* Test checkout — feel the real payment flow (uses the current Stripe mode) */}
-      <section className="adm-mode">
-        <span className="adm-mode-label">TEST CHECKOUT</span>
-        <div className="adm-toggle" role="group" aria-label="Test checkout">
-          {TEST_ORDERS.map((t) => (
-            <button
-              key={t.label}
-              className="adm-toggle-opt"
-              onClick={() => {
-                setPayMsg(null);
-                setTestPay(t.order);
-              }}
-            >
-              {t.label}
-            </button>
-          ))}
-        </div>
-        <span className="adm-mode-note">
-          {mode === "live"
-            ? "⚠ LIVE mode — a real charge. Switch to TEST for card 4242…"
-            : "Opens the live checkout in test mode (use card 4242 4242 4242 4242)."}
-        </span>
-        {payMsg && <span className="adm-mode-state test">{payMsg}</span>}
-      </section>
-
-      {testPay && (
-        <SpendConfirm
-          pending={testPay}
-          onConfirm={() => {
-            setTestPay(null);
-            setPayMsg("✓ Test purchase completed.");
-          }}
-          onCancel={() => setTestPay(null)}
-        />
-      )}
-
       {/* Summary */}
       {summary && (
         <section className="adm-stats">

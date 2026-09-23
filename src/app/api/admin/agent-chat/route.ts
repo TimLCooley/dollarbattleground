@@ -3,6 +3,8 @@ import { requireAdmin } from "@/lib/admin-auth";
 import { createAdminClient } from "@/utils/supabase/admin";
 import { agentByKey } from "@/lib/agents";
 import { claudeChat, claudeConfigured } from "@/lib/claude";
+import { intelBrief } from "@/lib/intel";
+import { getCommanderNotes, getOrders } from "@/lib/general";
 
 // Chat directly with an agent (Grok-style coaching). History is stored so the
 // agent remembers the conversation. Uses Gemini in the agent's persona.
@@ -37,40 +39,17 @@ export async function POST(req: Request) {
   // Save the commander's message.
   await db.from("agent_messages").insert({ agent_key: agentKey, role: "commander", content: message.trim() });
 
-  // Intel Ops / analysts get the live posting data folded into their prompt.
-  let dataBrief = "";
-  if (agent.role === "analyst") {
-    const { data: rows } = await db
-      .from("agent_posts")
-      .select("faction,angle,format,impressions,likes,reposts,replies,clicks,copy,posted_at")
-      .eq("status", "posted")
-      .order("posted_at", { ascending: false })
-      .limit(200);
-    const posts = rows ?? [];
-    if (posts.length === 0) {
-      dataBrief = "\n\nDATA: nothing has been posted yet — say so and suggest a first move.";
-    } else {
-      const agg = new Map<string, { n: number; imp: number; eng: number; clk: number }>();
-      for (const p of posts) {
-        for (const k of [`team:${p.faction ?? "?"}`, `angle:${p.angle ?? "?"}`, `format:${p.format}`]) {
-          const a = agg.get(k) ?? { n: 0, imp: 0, eng: 0, clk: 0 };
-          a.n++;
-          a.imp += p.impressions ?? 0;
-          a.eng += (p.likes ?? 0) + (p.reposts ?? 0) + (p.replies ?? 0);
-          a.clk += p.clicks ?? 0;
-          agg.set(k, a);
-        }
-      }
-      const lines = [...agg.entries()].map(
-        ([k, a]) => `${k}: ${a.n} posts, ${a.imp} impressions (avg ${Math.round(a.imp / a.n)}), ${a.eng} engagements, ${a.clk} link clicks`,
-      );
-      const top = [...posts]
-        .sort((x, y) => (y.clicks ?? 0) - (x.clicks ?? 0) || (y.impressions ?? 0) - (x.impressions ?? 0))
-        .slice(0, 3)
-        .map((p) => `[${p.clicks ?? 0} clicks, ${p.impressions ?? 0} imp] ${p.faction}/${p.angle}: "${p.copy}"`);
-      dataBrief = `\n\nLIVE DATA (${posts.length} posts) — clicks = actual site visits driven (the metric that matters for revenue):\n${lines.join("\n")}\nTop by clicks:\n${top.join("\n")}`;
-    }
+  // Every agent works from the same Intel brief (real numbers). The command
+  // roles also see the General's standing orders so they can discuss them.
+  const brief = await intelBrief(db);
+  let dataBrief = `\n\nINTEL BRIEF (live, ${new Date(brief.at).toUTCString()}) — link clicks are real site visits, the metric that matters for revenue:\n${brief.text}`;
+  if (agent.role === "general" || agent.role === "analyst") {
+    const orders = await getOrders(db);
+    dataBrief += `\n\nSTANDING ORDERS (recruiting mix ${orders.recruit_pct}%${orders.pct_locked_by_commander ? ", locked by the Commander" : ""}, last set by ${orders.by}):\n- ${orders.directives.join("\n- ")}\nRed focus: ${orders.red_focus || "—"}\nBlue focus: ${orders.blue_focus || "—"}`;
   }
+  if (agent.goals?.length) dataBrief += `\n\nYOUR GOALS:\n- ${agent.goals.join("\n- ")}`;
+  const notes = await getCommanderNotes(db);
+  if (notes) dataBrief += `\n\nCOMMANDER'S STANDING FEEDBACK (applies to every agent, outranks orders):\n${notes}`;
 
   // Recent history for context.
   const { data: hist } = await db

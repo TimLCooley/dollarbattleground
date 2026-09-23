@@ -11,6 +11,7 @@ const TABS = [
   { href: "/admin/tiles", label: "TILE LOG" },
   { href: "/admin/agents", label: "AGENTS" },
   { href: "/admin/calendar", label: "CALENDAR" },
+  { href: "/admin/activity", label: "ACTIVITY" },
   { href: "/admin/fx", label: "FX" },
 ];
 
