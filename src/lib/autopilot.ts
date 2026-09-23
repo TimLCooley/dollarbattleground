@@ -187,7 +187,12 @@ interface PostRow {
 // the attributed /r/<id> link as the first comment.
 const LINK_RE = /\s*(?:at|→|:|—|–|-)?\s*(?:https?:\/\/)?(?:www\.)?dollarbattleground\.com(?:\/r\/\d+)?\/?[.!]?/gi;
 export function stripLink(copy: string): string {
-  return copy.replace(LINK_RE, "").replace(/\s{2,}/g, " ").replace(/\s+([.!?,])/g, "$1").trim();
+  return copy
+    .replace(LINK_RE, "")
+    .replace(/\s{2,}/g, " ")
+    .replace(/\s+([.!?,])/g, "$1")
+    .trim()
+    .replace(/([A-Za-z0-9)])$/, "$1."); // the link often carried the sentence's period
 }
 const REPLY_CTA: Record<Faction, string> = {
   red: "Claim your spot for Red →",
