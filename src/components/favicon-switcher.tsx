@@ -1,10 +1,12 @@
 "use client";
 
 import { useEffect } from "react";
+import { usePathname } from "next/navigation";
 
 // Swaps the browser-tab favicon to the player's faction color once they pick a
 // side or return signed-in. Defaults to the split red/blue badge. Faction icons
-// live at /icon-blue.png and /icon-red.png (in public/).
+// live at /icon-blue.png and /icon-red.png (in public/). The admin console
+// always shows the split badge — the Commander has no side.
 
 type Side = "red" | "blue" | null;
 
@@ -41,19 +43,22 @@ function readSide(): Side {
 }
 
 export function FaviconSwitcher() {
+  const pathname = usePathname();
+  const isAdmin = pathname?.startsWith("/admin") ?? false;
   useEffect(() => {
-    setFavicon(readSide());
+    const current = () => (isAdmin ? null : readSide());
+    setFavicon(current());
     const onSide = (e: Event) => {
       const d = (e as CustomEvent<Side>).detail;
-      setFavicon(d === "red" || d === "blue" ? d : readSide());
+      setFavicon(isAdmin ? null : d === "red" || d === "blue" ? d : readSide());
     };
-    const onFocus = () => setFavicon(readSide());
+    const onFocus = () => setFavicon(current());
     window.addEventListener("bg:sidechange", onSide as EventListener);
     window.addEventListener("focus", onFocus);
     return () => {
       window.removeEventListener("bg:sidechange", onSide as EventListener);
       window.removeEventListener("focus", onFocus);
     };
-  }, []);
+  }, [isAdmin]);
   return null;
 }
