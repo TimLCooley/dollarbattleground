@@ -3419,6 +3419,10 @@ body {
 .cc-cart-menu .cc-btn { text-align: left; }
 .cc-cart-note { font-size: 11px; color: var(--parch); }
 .cc-ops-err { font-size: 11px; color: #ffb3b3; }
+/* recruiting countdown on the claim / sign-in cards */
+.ob-countdown { margin: 4px 0 10px; font-family: var(--font-pixel), monospace; font-size: 11px; letter-spacing: 1px; color: var(--gold); }
+.ob-countdown b { font-size: 15px; }
+
 /* admin branding: the split wordmark next to the section title */
 .adm-brand { display: flex; align-items: center; gap: 16px; }
 .adm-logo { height: 46px; width: auto; image-rendering: auto; filter: drop-shadow(0 3px 0 #0c3c21); }

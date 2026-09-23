@@ -66,6 +66,15 @@ async function emailsFor(db: Db, ids: string[]): Promise<Map<string, string>> {
   return out;
 }
 
+// The recruiting countdown, for every dispatch's footer.
+async function countdownLine(db: Db): Promise<string> {
+  const camp = await cfgGet<{ ends_at?: string }>(db, "campaign");
+  if (!camp?.ends_at) return "";
+  const days = Math.max(0, Math.ceil((new Date(camp.ends_at).getTime() - Date.now()) / 86_400_000));
+  if (days <= 0) return "";
+  return `<p style="margin:12px 0 0;font-size:12px;color:#f2c14e;letter-spacing:1px">⏳ ${days} day${days === 1 ? "" : "s"} left to join the founding class</p>`;
+}
+
 async function boardNow(db: Db): Promise<{ red: number; blue: number }> {
   const { data } = await db.from("tiles").select("team");
   let red = 0;
@@ -144,6 +153,7 @@ export async function sendPendingTakeovers(db: Db): Promise<number> {
   for (const r of rows) byOwner.set(r.prev_owner, [...(byOwner.get(r.prev_owner) ?? []), r]);
   const emails = await emailsFor(db, [...byOwner.keys()]);
   const board = await boardNow(db);
+  const countdown = await countdownLine(db);
   let sent = 0;
 
   for (const [owner, lost] of byOwner) {
@@ -216,7 +226,7 @@ export async function sendPendingTakeovers(db: Db): Promise<number> {
           `<p style="margin:0 0 10px;font-size:17px;font-weight:700;color:${COLOR[enemy]}">${NAME[enemy]} just took ${many ? `${uniq.length} of your positions in ${where}` : `your position in ${where}`}.</p>
            ${line ? `<p style="margin:0 0 6px;font-size:15px">“${line}”</p>` : ""}
            <p style="margin:0 0 6px;font-size:14px;color:#efe4c4">${nudge || `A dollar takes it back. The map stands Red ${board.red} · Blue ${board.blue}.`}</p>
-           ${cta(url, many ? "TAKE THEM BACK →" : "TAKE IT BACK →", side)}`,
+           ${cta(url, many ? "TAKE THEM BACK →" : "TAKE IT BACK →", side)}${countdown}`,
           unsubFooter(prefs.unsub_token, "takeover"),
         ),
     });
@@ -246,6 +256,7 @@ export async function sendReminders(db: Db): Promise<number> {
   if (dormant.length === 0) return 0;
   const emails = await emailsFor(db, dormant.map((d) => d.user_id));
   const board = await boardNow(db);
+  const countdown = await countdownLine(db);
   let sent = 0;
 
   for (const d of dormant) {
@@ -304,7 +315,7 @@ export async function sendReminders(db: Db): Promise<number> {
            <p style="margin:0 0 10px;font-size:14px;color:#efe4c4">${days} day${days === 1 ? "" : "s"} away. You hold <b>${held ?? 0}</b> tile${held === 1 ? "" : "s"}${(lost ?? 0) > 0 ? ` — and ${NAME[enemy]} took <b>${lost}</b> from you` : ""}. Board: Red ${board.red} · Blue ${board.blue}.</p>
            ${line ? `<p style="margin:0 0 6px;font-size:15px">“${line}”</p>` : ""}
            <p style="margin:0 0 6px;font-size:14px;color:#efe4c4">${nudge || "One flip puts you back in it."}</p>
-           ${cta(url, "BACK TO THE BOARD →", side)}`,
+           ${cta(url, "BACK TO THE BOARD →", side)}${countdown}`,
           unsubFooter(prefs.unsub_token, "reminders"),
         ),
     });

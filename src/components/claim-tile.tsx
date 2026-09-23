@@ -5,6 +5,8 @@ import type { Team } from "./board";
 import { resolveTestEmail } from "@/lib/test-email";
 import { createClient } from "@/utils/supabase/client";
 
+import { CampaignCountdown } from "./campaign-countdown";
+
 type Step = "email" | "code";
 
 export function ClaimTile({
@@ -122,6 +124,7 @@ export function ClaimTile({
           <>
             <div className="ob-kicker">◆ CLAIM YOUR POSITION ◆</div>
             <h2 className="ob-title">LOCK IT IN</h2>
+            <CampaignCountdown side={side} />
             <p className="ob-body">
               This position is yours — free. Enter your email and we&apos;ll send
               a quick 6-digit code to confirm it&apos;s really you.
@@ -173,6 +176,7 @@ export function ClaimTile({
           <>
             <div className="ob-kicker">◆ CONFIRM IT&apos;S YOU ◆</div>
             <h2 className="ob-title">ENTER YOUR CODE</h2>
+            <CampaignCountdown side={side} />
             <p className="ob-body">
               We sent a 6-digit code to <b>{email.trim()}</b>. Enter it to lock in
               your tile.

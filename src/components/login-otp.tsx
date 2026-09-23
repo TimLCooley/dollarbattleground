@@ -4,6 +4,8 @@ import { useState } from "react";
 import { createClient } from "@/utils/supabase/client";
 import { resolveTestEmail } from "@/lib/test-email";
 
+import { CampaignCountdown } from "./campaign-countdown";
+
 type Step = "email" | "code";
 
 // Inline OTP login — the alternative to a magic link. The player enters their
@@ -89,6 +91,7 @@ export function LoginOtp({
       <>
         <div className="ob-kicker">◆ WELCOME BACK ◆</div>
         <h2 className="ob-title">RE-JOIN THE WAR</h2>
+        <CampaignCountdown />
         <p className="ob-body">
           Enter your email and we&apos;ll send a 6-digit code to get you back to
           your unit. No password, no leaving the game.
