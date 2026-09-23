@@ -80,8 +80,8 @@ ${brief.text}
 Write the orders. Respond ONLY as JSON:
 {"recruit_pct": <0-100, share of posts that are recruiting CTAs with the link>,
  "directives": ["<3-6 short standing orders, concrete, about content and tone>"],
- "red_focus": "<one sentence: what Red should push this period>",
- "blue_focus": "<one sentence: what Blue should push this period>",
+ "red_focus": "<one sentence: what Red should push this period — must be true to who is actually ahead>",
+ "blue_focus": "<one sentence: what Blue should push this period — different from Red's, true to the board>",
  "rationale": "<2-3 sentences to the Commander: why these orders, citing the numbers>"}`;
   const text = await claudeChat(system, [{ role: "user", content: user }], 2500);
   if (!text) throw new Error("The General didn't answer (check ANTHROPIC_API_KEY).");

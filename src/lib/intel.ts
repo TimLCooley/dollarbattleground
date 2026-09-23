@@ -158,8 +158,10 @@ export async function intelBrief(db: Db): Promise<IntelBrief> {
 
 function renderBrief(b: IntelBrief): string {
   const { board, funnel, social } = b;
+  const diff = board.red - board.blue;
+  const lead = diff === 0 ? "DEAD EVEN" : `${diff > 0 ? "RED" : "BLUE"} LEADS by ${Math.abs(diff)} tile${Math.abs(diff) === 1 ? "" : "s"}`;
   const lines = [
-    `BOARD: RED ${board.red} tiles (${board.redPct}%) vs BLUE ${board.blue} (${board.bluePct}%) on a 15×15 grid.` +
+    `BOARD: RED ${board.red} tiles (${board.redPct}%) vs BLUE ${board.blue} (${board.bluePct}%) on a 15×15 grid — ${lead}.` +
       ` Last 24h: ${board.flips24h} flips (${board.toRed24h} to Red, ${board.toBlue24h} to Blue).` +
       (board.hot.length ? ` Hottest cells this week: ${board.hot.map((h) => `${h.x},${h.y} (${h.flips} flips)`).join(", ")}.` : " No contested cells this week yet."),
     `FUNNEL: waitlist ${funnel.waitlistTotal} total (+${funnel.waitlist24h} today, +${funnel.waitlist7d} this week). Players ${funnel.players} (${funnel.active24h} active today). Paid flips this week: ${funnel.paidFlips7d}. Total spent by players: $${(funnel.spentTotalCents / 100).toFixed(2)}.`,
