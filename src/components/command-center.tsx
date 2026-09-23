@@ -29,6 +29,12 @@ interface Post {
   scheduled_for: string | null;
   last_error: string | null;
   created_at: string;
+  impressions: number | null;
+  likes: number | null;
+  reposts: number | null;
+  replies: number | null;
+  clicks: number | null;
+  metrics_at: string | null;
 }
 interface Msg {
   id?: number;
@@ -78,7 +84,7 @@ interface Brief {
     takeoverEmails7d: number;
     winbacks7d: number;
   };
-  social: { posted: number; queued: number };
+  social: { posted: number; queued: number; impressions: number; engagements: number; clicks: number };
 }
 interface Gen {
   orders: Orders;
@@ -348,6 +354,11 @@ export function CommandCenter() {
             ▶ Watch clip
           </a>
         )}
+        {p.status === "posted" && (
+          <p className="cc-metrics" title={p.metrics_at ? `X metrics as of ${new Date(p.metrics_at).toLocaleTimeString()}` : "metrics refresh hourly"}>
+            👁 {p.impressions ?? 0} · ♥ {p.likes ?? 0} · 🔁 {p.reposts ?? 0} · 💬 {p.replies ?? 0} · 🔗 {p.clicks ?? 0} clicks
+          </p>
+        )}
         {p.external_id && (
           <a className="xlink" href={`https://x.com/i/status/${p.external_id}`} target="_blank" rel="noreferrer">
             ↗ View on X
@@ -551,7 +562,9 @@ export function CommandCenter() {
               <br />
               Waitlist <b>{gen.brief.funnel.waitlistTotal}</b> (+{gen.brief.funnel.waitlist24h} today) · Players <b>{gen.brief.funnel.players}</b> ({gen.brief.funnel.active24h} active)
               <br />
-              Posted <b>{gen.brief.social.posted}</b> · Drafts <b>{gen.brief.social.queued}</b> · Spent <b>${(gen.brief.funnel.spentTotalCents / 100).toFixed(2)}</b>
+              Posted <b>{gen.brief.social.posted}</b> · Drafts <b>{gen.brief.social.queued}</b> · Revenue <b>${(gen.brief.funnel.spentTotalCents / 100).toFixed(2)}</b>
+              <br />
+              X so far: 👁 <b>{gen.brief.social.impressions}</b> impressions · ♥ <b>{gen.brief.social.engagements}</b> engagements · 🔗 <b>{gen.brief.social.clicks}</b> clicks to the site
               <br />
               This week: <b>{gen.brief.funnel.signups7d}</b> signups · <b>{gen.brief.funnel.purchases7d}</b> purchases (${(gen.brief.funnel.revenue7dCents / 100).toFixed(2)}) · win-backs <b>{gen.brief.funnel.winbacks7d}/{gen.brief.funnel.takeoverEmails7d}</b>
             </p>

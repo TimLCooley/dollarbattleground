@@ -43,6 +43,9 @@ export interface IntelBrief {
   social: {
     posted: number;
     queued: number;
+    impressions: number;
+    engagements: number;
+    clicks: number;
     byAngle: { key: string; n: number; imp: number; eng: number; clk: number }[];
     top: { faction: string | null; angle: string | null; copy: string; clicks: number; impressions: number }[];
   };
@@ -216,6 +219,14 @@ export async function intelBrief(db: Db): Promise<IntelBrief> {
     }
   }
   const byAngle = [...agg.entries()].map(([key, a]) => ({ key, ...a }));
+  let impressions = 0;
+  let engagements = 0;
+  let clicks = 0;
+  for (const p of posted) {
+    impressions += p.impressions ?? 0;
+    engagements += (p.likes ?? 0) + (p.reposts ?? 0) + (p.replies ?? 0);
+    clicks += p.clicks ?? 0;
+  }
   const top = [...posted]
     .sort((x, y) => (y.clicks ?? 0) - (x.clicks ?? 0) || (y.impressions ?? 0) - (x.impressions ?? 0))
     .slice(0, 3)
@@ -269,7 +280,7 @@ export async function intelBrief(db: Db): Promise<IntelBrief> {
       takeoverEmails7d,
       winbacks7d,
     },
-    social: { posted: posted.length, queued, byAngle, top },
+    social: { posted: posted.length, queued, impressions, engagements, clicks, byAngle, top },
     text: "",
   };
   brief.text = renderBrief(brief);
@@ -296,7 +307,7 @@ function renderBrief(b: IntelBrief): string {
       (funnel.takeoverEmails7d ? ` (${Math.round((100 * funnel.winbacks7d) / funnel.takeoverEmails7d)}% win-back rate).` : "."),
     social.posted === 0
       ? `SOCIAL: nothing has been posted yet (${social.queued} queued). No performance data — this is day zero.`
-      : `SOCIAL: ${social.posted} posted, ${social.queued} queued. ` +
+      : `SOCIAL: ${social.posted} posted, ${social.queued} queued — ${social.impressions} impressions, ${social.engagements} engagements, ${social.clicks} link clicks (site visits) in total. ` +
         social.byAngle.map((a) => `${a.key}: ${a.n} posts, ${a.imp} imp, ${a.eng} eng, ${a.clk} clicks`).join("; ") +
         (social.top.length ? ` Top by clicks: ${social.top.map((t) => `[${t.clicks}] ${t.faction}/${t.angle} "${t.copy.slice(0, 80)}"`).join(" | ")}` : ""),
   ];
