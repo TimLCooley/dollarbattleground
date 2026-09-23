@@ -18,7 +18,7 @@ export type { Db };
 // (a text column holding JSON); the last tick's result in autopilot_state.
 
 export const DEFAULT_GOAL =
-  "Recruit players — the war is LIVE at dollarbattleground.com. Get people to pick your side and flip tiles.";
+  "Recruit 1,000 contacts in the 15-day campaign — 500 for each side. The war is LIVE at dollarbattleground.com: get people to pick your side and take their first position.";
 
 export interface AutopilotConfig {
   enabled: boolean;
@@ -182,13 +182,25 @@ interface PostRow {
   media_url: string | null;
 }
 
-export async function publishPost(db: Db, id: number): Promise<{ id: string; video: boolean }> {
+// X throttles posts that carry an external link, so the link never goes in
+// the post body: strip it, publish, then reply to ourselves with the CTA +
+// the attributed /r/<id> link as the first comment.
+const LINK_RE = /\s*(?:at|→|:|—|–|-)?\s*(?:https?:\/\/)?(?:www\.)?dollarbattleground\.com(?:\/r\/\d+)?\/?[.!]?/gi;
+export function stripLink(copy: string): string {
+  return copy.replace(LINK_RE, "").replace(/\s{2,}/g, " ").replace(/\s+([.!?,])/g, "$1").trim();
+}
+const REPLY_CTA: Record<Faction, string> = {
+  red: "Claim your spot for Red →",
+  blue: "Claim your spot for Blue →",
+};
+
+export async function publishPost(db: Db, id: number): Promise<{ id: string; video: boolean; replyId: string | null }> {
   const { data: row } = await db.from("agent_posts").select("*").eq("id", id).single();
   const p = row as PostRow | null;
   if (!p) throw new Error("not found");
   const f = (p.faction === "blue" || p.x_account === "blue" ? "blue" : "red") as Faction;
-  // Route the CTA link through /r/<id> so clicks are attributed to this post.
-  const text = p.copy.replace(/dollarbattleground\.com(?!\/r\/)/i, `dollarbattleground.com/r/${p.id}`);
+  const hasLink = /dollarbattleground\.com/i.test(p.copy);
+  const text = hasLink ? stripLink(p.copy) : p.copy;
 
   let tweet: { id: string };
   let mediaUrl: string | null = p.media_url;
@@ -202,17 +214,30 @@ export async function publishPost(db: Db, id: number): Promise<{ id: string; vid
   } else {
     tweet = await postTweet(f, text);
   }
+
+  // The link, attributed to this post, as the first comment.
+  let replyId: string | null = null;
+  if (hasLink) {
+    try {
+      const r = await postTweet(f, `${REPLY_CTA[f]} https://dollarbattleground.com/r/${p.id}`, tweet.id);
+      replyId = r.id;
+    } catch (e) {
+      console.error(`link reply failed for #${p.id}:`, e instanceof Error ? e.message : e);
+    }
+  }
+
   await db
     .from("agent_posts")
     .update({
       status: "posted",
       external_id: tweet.id,
+      reply_external_id: replyId,
       media_url: mediaUrl,
       posted_at: new Date().toISOString(),
-      last_error: null,
+      last_error: replyId || !hasLink ? null : "posted, but the link reply failed",
     })
     .eq("id", id);
-  return { id: tweet.id, video: !!produced };
+  return { id: tweet.id, video: !!produced, replyId };
 }
 
 // Pull fresh public metrics from X for everything posted. Returns rows updated.

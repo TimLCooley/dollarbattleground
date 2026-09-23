@@ -3,16 +3,55 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { CartButton, StripeToggle } from "@/components/stripe-ops";
 
-type Faction = "red" | "blue" | null;
-interface Agent {
-  key: string;
-  name: string;
-  emoji: string;
-  faction: Faction;
+// The command center, full width: RED on the left, BLUE on the right, COMMAND
+// in the middle. Each team column is that side's queue (draft / posted /
+// denied) plus a chat with its agents; the middle holds the Commander's notes,
+// the General's orders, Intel, and a chat with the General, Intel Ops, or
+// BOTH Social agents at once. An empty DRAFT column drafts itself.
+
+type Faction = "red" | "blue";
+type Status = "queued" | "posted" | "denied";
+
+interface Post {
+  id: number;
+  faction: Faction | null;
+  status: string;
+  format: string;
+  angle: string | null;
+  x_account: string | null;
+  copy: string;
+  video_kind: string | null;
+  media_url: string | null;
+  reason: string | null;
+  deny_reason: string | null;
+  external_id: string | null;
+  replaces: number | null;
+  scheduled_for: string | null;
+  last_error: string | null;
+  created_at: string;
+}
+interface Msg {
+  id?: number;
   role: string;
-  hasQueue: boolean;
-  mission: string;
-  goals: string[];
+  content: string;
+  created_at?: string;
+  faction?: Faction; // set in the BOTH view
+}
+interface Campaign {
+  endsAt: string | null;
+  daysLeft: number | null;
+  goalUsd: number;
+}
+interface XStatus {
+  ok: boolean;
+  handle?: string;
+  name?: string;
+  error?: string;
+}
+interface Autopilot {
+  config: { enabled: boolean; review_minutes: number; posts_per_day_per_team: number };
+  state: { last_run_at?: string; last_result?: string };
+  stripeMode: "test" | "live";
 }
 interface Orders {
   recruit_pct: number;
@@ -25,6 +64,7 @@ interface Orders {
   pct_locked_by_commander: boolean;
 }
 interface Brief {
+  campaign: { goal: number; perTeam: number; redRecruits: number; blueRecruits: number; daysLeft: number } | null;
   board: { red: number; blue: number; flips24h: number; toRed24h: number; toBlue24h: number };
   funnel: {
     waitlistTotal: number;
@@ -45,94 +85,132 @@ interface Gen {
   brief: Brief;
   notes: string;
 }
-interface Post {
-  id: number;
-  faction: "red" | "blue" | null;
-  status: string;
-  format: string;
-  angle: string | null;
-  x_account: string | null;
-  copy: string;
-  video_kind: string | null;
-  reason: string | null;
-  deny_reason: string | null;
-  external_id: string | null;
-  replaces: number | null;
-  scheduled_for: string | null;
-  last_error: string | null;
-}
-interface XStatus {
-  ok: boolean;
-  handle?: string;
-  name?: string;
-  error?: string;
-}
-interface Autopilot {
-  config: { enabled: boolean; review_minutes: number; posts_per_day_per_team: number };
-  state: { last_run_at?: string; last_result?: string };
-  stripeMode: "test" | "live";
-}
-interface Msg {
-  id?: number;
-  role: string;
-  content: string;
-}
-interface Campaign {
-  endsAt: string | null;
-  daysLeft: number | null;
-  goalUsd: number;
-}
 
-const ROSTER: Agent[] = [
-  { key: "general", name: "The General", emoji: "🎖️", faction: null, role: "general", hasQueue: false, mission: "Sets standing orders for both teams from Intel's brief; runs the funnel toward $200K.", goals: ["Turn X attention into visits, signups, and paid flips — $200K.", "Keep both feeds on strategy: the right recruiting mix for the moment.", "Report to you with numbers, not vibes."] },
-  { key: "intel", name: "Intel Ops", emoji: "📊", faction: null, role: "analyst", hasQueue: false, mission: "Maintains the brief every agent works from; reports what's working.", goals: ["Keep the brief accurate: board, funnel, post performance.", "Find what drives clicks → visits → revenue and say so plainly.", "Hand the General 1-3 prioritized actions every report."] },
-  { key: "red_recruiter", name: "Red Social", emoji: "📣", faction: "red", role: "@RedBattleGround", hasQueue: true, mission: "Runs @RedBattleGround under the General's orders — each post's angle is scheduled from the recruiting mix.", goals: ["Bring recruits to Red — measured in link clicks and signups.", "Recruiting posts are ads: offer, urgency, call to action, link.", "Grow @RedBattleGround into a feed people follow for the war itself."] },
-  { key: "red_anchor", name: "Sienna Cole", emoji: "🎙️", faction: "red", role: "desk", hasQueue: false, mission: "Red Team News, from the desk.", goals: ["Make every board swing feel like breaking news."] },
-  { key: "red_field", name: "Rowan Cross", emoji: "📡", faction: "red", role: "field", hasQueue: false, mission: "Red field correspondent, on the front.", goals: ["File field reports on the live board.", "Toss back to Sienna by name."] },
-  { key: "blue_recruiter", name: "Blue Social", emoji: "📣", faction: "blue", role: "@BluBattleGround", hasQueue: true, mission: "Runs @BluBattleGround under the General's orders — each post's angle is scheduled from the recruiting mix.", goals: ["Bring recruits to Blue — measured in link clicks and signups.", "Recruiting posts are ads: offer, urgency, call to action, link.", "Grow @BluBattleGround into a feed people follow for the war itself."] },
-  { key: "blue_anchor", name: "Sterling Wells", emoji: "🎙️", faction: "blue", role: "desk", hasQueue: false, mission: "Blue Team News, from the desk.", goals: ["Make every board swing feel like breaking news."] },
-  { key: "blue_field", name: "Skye Bennett", emoji: "📡", faction: "blue", role: "field", hasQueue: false, mission: "Blue field correspondent, on the front.", goals: ["File field reports on the live board.", "Toss back to Sterling by name."] },
-];
+const TEAM_AGENTS: Record<Faction, { key: string; label: string }[]> = {
+  red: [
+    { key: "red_recruiter", label: "📣 Red Social" },
+    { key: "red_anchor", label: "🎙️ Sienna Cole" },
+    { key: "red_field", label: "📡 Rowan Cross" },
+  ],
+  blue: [
+    { key: "blue_recruiter", label: "📣 Blue Social" },
+    { key: "blue_anchor", label: "🎙️ Sterling Wells" },
+    { key: "blue_field", label: "📡 Skye Bennett" },
+  ],
+};
+const NAME: Record<Faction, string> = { red: "RED", blue: "BLUE" };
+const DOT: Record<Faction, string> = { red: "🔴", blue: "🔵" };
 
-const GROUPS: { label: string; keys: string[] }[] = [
-  { label: "COMMAND", keys: ["general", "intel"] },
-  { label: "🔴 RED TEAM", keys: ["red_recruiter", "red_anchor", "red_field"] },
-  { label: "🔵 BLUE TEAM", keys: ["blue_recruiter", "blue_anchor", "blue_field"] },
-];
+const themeOf = (r: string | null) => r?.match(/\[theme:(\w+)\]/)?.[1] ?? null;
+const cleanReason = (r: string | null) => (r ?? "").replace(/\[theme:\w+\]\s*/, "");
 
-const DEFAULT_GOAL =
-  "Recruit players — the war is LIVE at dollarbattleground.com. Get people to pick your side and flip tiles.";
-
-export function CommandCenter() {
-  const [sel, setSel] = useState("red_recruiter");
-  const [tab, setTab] = useState<"chat" | "queue">("queue");
-  const [posts, setPosts] = useState<Post[] | null>(null);
+// ── chat ────────────────────────────────────────────────────────────────────
+// One box, three modes: a single agent, or BOTH Social agents (same message to
+// each, replies tagged by side).
+function ChatBox({ target, placeholder }: { target: string | "both"; placeholder: string }) {
   const [msgs, setMsgs] = useState<Msg[]>([]);
   const [input, setInput] = useState("");
-  const [goal, setGoal] = useState(DEFAULT_GOAL);
+  const [busy, setBusy] = useState(false);
+  const end = useRef<HTMLDivElement>(null);
+
+  const load = useCallback(async () => {
+    if (target === "both") {
+      const [r, b] = await Promise.all([fetch("/api/admin/agent-chat?agent=red_recruiter"), fetch("/api/admin/agent-chat?agent=blue_recruiter")]);
+      const rm = (r.ok ? (await r.json()).messages : []) as Msg[];
+      const bm = (b.ok ? (await b.json()).messages : []) as Msg[];
+      const all = [...rm.map((m) => ({ ...m, faction: "red" as Faction })), ...bm.map((m) => ({ ...m, faction: "blue" as Faction }))];
+      all.sort((x, y) => (x.created_at ?? "").localeCompare(y.created_at ?? ""));
+      setMsgs(all);
+    } else {
+      const r = await fetch(`/api/admin/agent-chat?agent=${target}`);
+      setMsgs(r.ok ? (await r.json()).messages : []);
+    }
+  }, [target]);
+  useEffect(() => {
+    load().catch(() => {});
+  }, [load]);
+  useEffect(() => {
+    end.current?.scrollIntoView({ behavior: "smooth" });
+  }, [msgs]);
+
+  async function send() {
+    const text = input.trim();
+    if (!text || busy) return;
+    setInput("");
+    setBusy(true);
+    const keys = target === "both" ? ["red_recruiter", "blue_recruiter"] : [target];
+    setMsgs((m) => [...m, { role: "commander", content: text }]);
+    try {
+      for (const k of keys) {
+        const res = await fetch("/api/admin/agent-chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ agentKey: k, message: text }),
+        });
+        const d = await res.json();
+        setMsgs((m) => [...m, { role: "agent", content: d.reply ?? d.error ?? "…", faction: k.startsWith("blue") ? "blue" : "red" }]);
+      }
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="cc-chat">
+      <div className="cc-chat-log">
+        {msgs.length === 0 && <p className="cc-empty">Coach them, ask for a plan, give an order.</p>}
+        {msgs.map((m, i) => (
+          <div key={m.id ?? `${i}-${m.role}`} className={"cc-msg " + m.role} data-faction={m.faction ?? ""}>
+            {target === "both" && m.role === "agent" && m.faction ? `${DOT[m.faction]} ` : ""}
+            {m.content}
+          </div>
+        ))}
+        {busy && <div className="cc-msg agent cc-typing">…</div>}
+        <div ref={end} />
+      </div>
+      <div className="cc-chat-in">
+        <textarea
+          rows={2}
+          value={input}
+          placeholder={placeholder}
+          onChange={(e) => setInput(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && !e.shiftKey) {
+              e.preventDefault();
+              send();
+            }
+          }}
+        />
+        <button className="cc-btn" onClick={send} disabled={busy || !input.trim()}>
+          Send
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ── the page ────────────────────────────────────────────────────────────────
+export function CommandCenter() {
+  const [posts, setPosts] = useState<Post[] | null>(null);
+  const [filter, setFilter] = useState<Record<Faction, Status>>({ red: "queued", blue: "queued" });
+  const [chatTarget, setChatTarget] = useState<Record<Faction, string>>({ red: "red_recruiter", blue: "blue_recruiter" });
+  const [cmdTarget, setCmdTarget] = useState<"general" | "intel" | "both">("both");
   const [busy, setBusy] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [camp, setCamp] = useState<Campaign | null>(null);
-  const [xs, setXs] = useState<Record<"red" | "blue", XStatus> | null>(null);
+  const [xs, setXs] = useState<Record<Faction, XStatus> | null>(null);
   const [ap, setAp] = useState<Autopilot | null>(null);
   const [gen, setGen] = useState<Gen | null>(null);
-  const [pct, setPct] = useState<number | null>(null); // slider position (saved on release)
-  const [notes, setNotes] = useState(""); // Commander's standing feedback (saved on blur)
-  const [filter, setFilter] = useState<Record<"red" | "blue", "queued" | "posted" | "denied">>({ red: "queued", blue: "queued" });
-  const chatEnd = useRef<HTMLDivElement>(null);
+  const [pct, setPct] = useState<number | null>(null);
+  const [notes, setNotes] = useState("");
+  const autoDrafting = useRef<Record<Faction, boolean>>({ red: false, blue: false });
 
-  const agent = ROSTER.find((a) => a.key === sel)!;
-
-  // Both teams' queues, side by side.
+  // ── loaders ──
   const loadPosts = useCallback(async () => {
     const [r, b] = await Promise.all([fetch("/api/admin/recruiter?faction=red"), fetch("/api/admin/recruiter?faction=blue")]);
     const rp = r.ok ? ((await r.json()).posts as Post[]) : [];
     const bp = b.ok ? ((await b.json()).posts as Post[]) : [];
     setPosts([...rp, ...bp]);
-  }, []);
-  const loadChat = useCallback(async (key: string) => {
-    const r = await fetch(`/api/admin/agent-chat?agent=${key}`);
-    setMsgs(r.ok ? (await r.json()).messages : []);
   }, []);
   const loadAp = useCallback(async () => {
     const r = await fetch("/api/admin/autopilot");
@@ -152,18 +230,53 @@ export function CommandCenter() {
     fetch("/api/admin/x/status").then((r) => (r.ok ? r.json() : null)).then((d) => d && setXs(d.accounts)).catch(() => {});
     loadAp().catch(() => {});
     loadGen().catch(() => {});
-  }, [loadAp, loadGen]);
+    loadPosts().catch(() => {});
+    const t = setInterval(() => loadPosts().catch(() => {}), 60_000);
+    return () => clearInterval(t);
+  }, [loadAp, loadGen, loadPosts]);
 
-  // The General's orders: slider / re-plan / unlock.
+  // ── actions ──
+  const post = useCallback(
+    async (action: string, extra: Record<string, unknown>, tag: string, faction: Faction) => {
+      setBusy(tag);
+      setErr(null);
+      try {
+        const res = await fetch("/api/admin/recruiter", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action, faction, ...extra }),
+        });
+        const d = await res.json();
+        if (!res.ok) setErr(d.error ?? "Failed");
+        await loadPosts();
+      } finally {
+        setBusy(null);
+      }
+    },
+    [loadPosts],
+  );
+  function deny(id: number, faction: Faction) {
+    const reason = window.prompt("Why deny this? (your reason trains BOTH agents)");
+    if (reason?.trim()) post("deny", { id, reason: reason.trim() }, `deny-${id}`, faction);
+  }
+  async function apPost(body: Record<string, unknown>) {
+    setBusy("ap");
+    setErr(null);
+    try {
+      const r = await fetch("/api/admin/autopilot", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+      const d = await r.json();
+      if (!r.ok) setErr(d.error ?? "Failed");
+      await loadAp();
+      await loadPosts();
+    } finally {
+      setBusy(null);
+    }
+  }
   async function genPost(body: Record<string, unknown>) {
     setBusy("gen");
     setErr(null);
     try {
-      const r = await fetch("/api/admin/general", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      });
+      const r = await fetch("/api/admin/general", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
       const d = await r.json();
       if (!r.ok) setErr(d.error ?? "Failed");
       await loadGen();
@@ -174,50 +287,40 @@ export function CommandCenter() {
   function savePct() {
     if (pct != null && gen && pct !== gen.orders.recruit_pct) genPost({ action: "set", patch: { recruit_pct: pct } });
   }
-  useEffect(() => {
-    loadChat(agent.key);
-  }, [agent, loadChat]);
-  useEffect(() => {
-    loadPosts().catch(() => {});
-  }, [loadPosts]);
-  useEffect(() => {
-    chatEnd.current?.scrollIntoView({ behavior: "smooth" });
-  }, [msgs, tab]);
+  async function startCampaign() {
+    const r = await fetch("/api/admin/campaign", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "start", days: 15 }) });
+    if (r.ok) setCamp(await r.json());
+  }
 
-  const kpis = useMemo(() => {
-    const p = (posts ?? []).filter((x) => x.faction === agent.faction);
-    return {
-      queued: p.filter((x) => x.status === "queued").length,
-      posted: p.filter((x) => x.status === "posted").length,
-      denied: p.filter((x) => x.status === "denied").length,
+  // An empty DRAFT column drafts itself — once per emptiness, never twice at once.
+  useEffect(() => {
+    if (!posts) return;
+    for (const f of ["red", "blue"] as Faction[]) {
+      const queued = posts.filter((p) => p.faction === f && p.status === "queued").length;
+      if (queued > 0) {
+        autoDrafting.current[f] = false;
+      } else if (!autoDrafting.current[f]) {
+        autoDrafting.current[f] = true;
+        post("draft", {}, `draft-${f}`, f).catch(() => {});
+      }
+    }
+  }, [posts, post]);
+
+  const byTeam = useMemo(() => {
+    const out: Record<Faction, { all: Post[]; n: Record<Status, number> }> = {
+      red: { all: [], n: { queued: 0, posted: 0, denied: 0 } },
+      blue: { all: [], n: { queued: 0, posted: 0, denied: 0 } },
     };
+    for (const p of posts ?? []) {
+      if (p.faction !== "red" && p.faction !== "blue") continue;
+      out[p.faction].all.push(p);
+      if (p.status === "queued" || p.status === "posted" || p.status === "denied") out[p.faction].n[p.status]++;
+    }
+    return out;
   }, [posts]);
 
-  async function post(action: string, extra: Record<string, unknown>, tag: string, faction: "red" | "blue") {
-    setBusy(tag);
-    setErr(null);
-    try {
-      const res = await fetch("/api/admin/recruiter", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action, faction, ...extra }),
-      });
-      const d = await res.json();
-      if (!res.ok) setErr(d.error ?? "Failed");
-      await loadPosts();
-    } finally {
-      setBusy(null);
-    }
-  }
-  function deny(id: number, faction: "red" | "blue") {
-    const reason = window.prompt("Why deny this? (your reason trains BOTH agents)");
-    if (reason?.trim()) post("deny", { id, reason: reason.trim() }, `deny-${id}`, faction);
-  }
-
-  // One post card. The lead theme is tagged into `reason` by the brain; show it as a chip.
-  const themeOf = (r: string | null) => r?.match(/\[theme:(\w+)\]/)?.[1] ?? null;
-  const cleanReason = (r: string | null) => (r ?? "").replace(/\[theme:\w+\]\s*/, "");
-  function card(p: Post, f: "red" | "blue") {
+  // ── one post card ──
+  function card(p: Post, f: Faction) {
     const theme = themeOf(p.reason);
     return (
       <div key={p.id} className={"cc-card " + p.status}>
@@ -237,6 +340,11 @@ export function CommandCenter() {
           <p className="cc-why">⏱ posts {new Date(p.scheduled_for).toLocaleString()} unless denied</p>
         )}
         {p.last_error && <p className="cc-denied">⚠ {p.last_error}</p>}
+        {p.media_url && p.status !== "denied" && (
+          <a className="xlink" href={p.media_url} target="_blank" rel="noreferrer">
+            ▶ Watch clip
+          </a>
+        )}
         {p.external_id && (
           <a className="xlink" href={`https://x.com/i/status/${p.external_id}`} target="_blank" rel="noreferrer">
             ↗ View on X
@@ -256,51 +364,58 @@ export function CommandCenter() {
     );
   }
 
-  async function send() {
-    const text = input.trim();
-    if (!text) return;
-    setInput("");
-    setMsgs((m) => [...m, { role: "commander", content: text }]);
-    setBusy("chat");
-    try {
-      const res = await fetch("/api/admin/agent-chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ agentKey: agent.key, message: text }),
-      });
-      const d = await res.json();
-      setMsgs((m) => [...m, { role: "agent", content: d.reply ?? d.error ?? "…" }]);
-    } finally {
-      setBusy(null);
-    }
-  }
+  // ── a team column: queue + chat ──
+  function teamColumn(f: Faction) {
+    const t = byTeam[f];
+    const shown = t.all.filter((p) => p.status === filter[f]);
+    const focus = gen ? gen.orders[f === "red" ? "red_focus" : "blue_focus"] : "";
+    const recruits = gen?.brief.campaign ? (f === "red" ? gen.brief.campaign.redRecruits : gen.brief.campaign.blueRecruits) : null;
+    return (
+      <section className="cc-teamcol" data-faction={f}>
+        <div className="cc-h">
+          <span>
+            {DOT[f]} {NAME[f]} TEAM
+            {recruits != null && gen?.brief.campaign && (
+              <span className="cc-dim"> · {recruits}/{gen.brief.campaign.perTeam} recruits</span>
+            )}
+          </span>
+          <span className="cc-pill-x">{xs?.[f] ? `${xs[f].handle ?? "X"} ${xs[f].ok ? "✓" : "✗"}` : "…"}</span>
+        </div>
+        {focus && <p className="cc-mini">🎖️ {focus}</p>}
 
-  async function startCampaign() {
-    const r = await fetch("/api/admin/campaign", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "start", days: 15 }),
-    });
-    if (r.ok) setCamp(await r.json());
-  }
+        <div className="cc-col-head">
+          <div className="cc-filters">
+            {(["queued", "posted", "denied"] as const).map((s) => (
+              <button key={s} className={filter[f] === s ? "on" : ""} onClick={() => setFilter({ ...filter, [f]: s })}>
+                {s === "queued" ? "DRAFT" : s.toUpperCase()} {t.n[s]}
+              </button>
+            ))}
+          </div>
+          <button className="cc-btn sm" onClick={() => post("draft", {}, `draft-${f}`, f)} disabled={busy === `draft-${f}`}>
+            {busy === `draft-${f}` ? "Thinking…" : "⚡ Draft"}
+          </button>
+        </div>
+        {!posts ? (
+          <p className="adm-loading">Loading…</p>
+        ) : shown.length === 0 ? (
+          <p className="cc-empty">{filter[f] === "queued" && busy === `draft-${f}` ? "Drafting…" : `Nothing ${filter[f] === "queued" ? "in draft" : filter[f]}.`}</p>
+        ) : (
+          <div className="cc-queue">{shown.map((p) => card(p, f))}</div>
+        )}
 
-  // Autopilot switch / forced tick — then refresh what it changed.
-  async function apPost(body: Record<string, unknown>) {
-    setBusy("ap");
-    setErr(null);
-    try {
-      const r = await fetch("/api/admin/autopilot", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      });
-      const d = await r.json();
-      if (!r.ok) setErr(d.error ?? "Failed");
-      await loadAp();
-      await loadPosts();
-    } finally {
-      setBusy(null);
-    }
+        <div className="cc-h">
+          <span>💬 CHAT</span>
+          <select className="cc-select" value={chatTarget[f]} onChange={(e) => setChatTarget({ ...chatTarget, [f]: e.target.value })}>
+            {TEAM_AGENTS[f].map((a) => (
+              <option key={a.key} value={a.key}>
+                {a.label}
+              </option>
+            ))}
+          </select>
+        </div>
+        <ChatBox target={chatTarget[f]} placeholder={`Message ${TEAM_AGENTS[f].find((a) => a.key === chatTarget[f])?.label.replace(/^\S+\s/, "") ?? ""}…`} />
+      </section>
+    );
   }
 
   return (
@@ -310,6 +425,15 @@ export function CommandCenter() {
         <div className="cc-banner-goal">
           <span className="cc-banner-l">THE MISSION</span>
           <span className="cc-banner-v">${(camp?.goalUsd ?? 200000).toLocaleString()} in revenue</span>
+        </div>
+        <div className="cc-banner-goal">
+          <span className="cc-banner-l">RECRUITING GOAL</span>
+          <span className="cc-banner-v">
+            1,000 · 500 per team
+            {gen?.brief.campaign && (
+              <span className="cc-dim"> — 🔴 {gen.brief.campaign.redRecruits} · 🔵 {gen.brief.campaign.blueRecruits}</span>
+            )}
+          </span>
         </div>
         <div className="cc-banner-camp">
           {camp?.daysLeft != null ? (
@@ -324,17 +448,9 @@ export function CommandCenter() {
           )}
         </div>
 
-        {/* ops strip: are the accounts real, is money live, is the autopilot on */}
+        {/* ops strip: money live?, autopilot, last tick */}
         <div className="cc-ops">
           <CartButton />
-          {(["red", "blue"] as const).map((f) => {
-            const s = xs?.[f];
-            return (
-              <span key={f} className={"cc-pill " + (s ? (s.ok ? "ok" : "bad") : "")} title={s?.error ?? s?.name ?? ""}>
-                {f === "red" ? "🔴" : "🔵"} {s ? `${s.handle ?? "X"} ${s.ok ? "✓" : "✗"}` : "…"}
-              </span>
-            );
-          })}
           <StripeToggle onChange={() => loadAp().catch(() => {})} />
           <button
             className={"cc-btn sm" + (ap?.config.enabled ? "" : " ghost")}
@@ -348,171 +464,33 @@ export function CommandCenter() {
           </button>
           <span className="cc-ops-note">
             {ap?.state.last_result ? `Last tick: ${ap.state.last_result}` : "Autopilot hasn't run yet."}
-            {ap ? ` · ${ap.config.review_minutes}m review window · ${ap.config.posts_per_day_per_team}/day/team` : ""}
+            {ap ? ` · ${ap.config.review_minutes}m review window · ${ap.config.posts_per_day_per_team} text posts/day/team · 1 recruiting video + field reports daily` : ""}
           </span>
+          {err && <span className="cc-ops-err">{err}</span>}
         </div>
       </div>
 
-      <div className="cc">
-        {/* roster grouped by team */}
-        <aside className="cc-roster">
-          {GROUPS.map((g) => (
-            <div key={g.label}>
-              <h3 className="cc-roster-h">{g.label}</h3>
-              {g.keys.map((k) => {
-                const a = ROSTER.find((x) => x.key === k)!;
-                return (
-                  <button
-                    key={a.key}
-                    className={"cc-agent" + (sel === a.key ? " on" : "")}
-                    data-faction={a.faction ?? "cmd"}
-                    onClick={() => setSel(a.key)}
-                  >
-                    <span className="cc-ava">{a.emoji}</span>
-                    <span className="cc-agent-id">
-                      <span className="cc-agent-name">{a.name}</span>
-                      <span className="cc-agent-status">{a.role}</span>
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-          ))}
-        </aside>
+      <div className="cc3">
+        {teamColumn("red")}
 
-        {/* center: chat + (recruiter) queue */}
-        <main className="cc-main">
-          <header className="cc-main-head">
-            <span className="cc-ava lg" data-faction={agent.faction ?? "cmd"}>{agent.emoji}</span>
-            <div>
-              <h2 className="cc-main-name">{agent.name}</h2>
-              <p className="cc-main-mission">{agent.mission}</p>
-            </div>
-          </header>
-
-          <div className="cc-tabs">
-            <button className={tab === "queue" ? "on" : ""} onClick={() => setTab("queue")}>📋 Queues — Red | Blue</button>
-            <button className={tab === "chat" ? "on" : ""} onClick={() => setTab("chat")}>💬 Chat with {agent.name.split(" ")[0]}</button>
+        {/* COMMAND: notes, orders, intel, and the General / Intel / BOTH chat */}
+        <section className="cc-cmdcol">
+          <div className="cc-h">
+            <span>🎖️ COMMAND</span>
           </div>
-
-          {tab === "chat" ? (
-            <div className="cc-chat">
-              <div className="cc-chat-log">
-                {msgs.length === 0 && (
-                  <p className="cc-empty">Say hi to {agent.name.split(" ")[0]} — coach them, ask for a plan.</p>
-                )}
-                {msgs.map((m, i) => (
-                  <div key={i} className={"cc-msg " + m.role}>
-                    {m.content}
-                  </div>
-                ))}
-                {busy === "chat" && <div className="cc-msg agent cc-typing">…</div>}
-                <div ref={chatEnd} />
-              </div>
-              <div className="cc-chat-in">
-                <textarea
-                  rows={2}
-                  value={input}
-                  placeholder={`Message ${agent.name.split(" ")[0]}…`}
-                  onChange={(e) => setInput(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" && !e.shiftKey) {
-                      e.preventDefault();
-                      send();
-                    }
-                  }}
-                />
-                <button className="cc-btn" onClick={send} disabled={busy === "chat" || !input.trim()}>
-                  Send
-                </button>
-              </div>
-            </div>
-          ) : (
-            <>
-              {err && <p className="ct-error">{err}</p>}
-              <div className="cc-cols">
-                {(["red", "blue"] as const).map((f) => {
-                  const all = (posts ?? []).filter((p) => p.faction === f);
-                  const n = {
-                    queued: all.filter((p) => p.status === "queued").length,
-                    posted: all.filter((p) => p.status === "posted").length,
-                    denied: all.filter((p) => p.status === "denied").length,
-                  };
-                  const shown = all.filter((p) => p.status === filter[f]);
-                  return (
-                    <section key={f} className="cc-col" data-faction={f}>
-                      <div className="cc-col-head">
-                        <span className="cc-col-name">{f === "red" ? "🔴 RED SOCIAL" : "🔵 BLUE SOCIAL"}</span>
-                        <button className="cc-btn sm" onClick={() => post("draft", { goal }, `draft-${f}`, f)} disabled={busy === `draft-${f}`}>
-                          {busy === `draft-${f}` ? "Thinking…" : "⚡ Draft"}
-                        </button>
-                      </div>
-                      <div className="cc-filters">
-                        {(["queued", "posted", "denied"] as const).map((s) => (
-                          <button key={s} className={filter[f] === s ? "on" : ""} onClick={() => setFilter({ ...filter, [f]: s })}>
-                            {s === "queued" ? "DRAFT" : s.toUpperCase()} {n[s]}
-                          </button>
-                        ))}
-                      </div>
-                      {!posts ? (
-                        <p className="adm-loading">Loading…</p>
-                      ) : shown.length === 0 ? (
-                        <p className="cc-empty">Nothing {filter[f] === "queued" ? "in draft" : filter[f]}.</p>
-                      ) : (
-                        <div className="cc-queue">{shown.map((p) => card(p, f))}</div>
-                      )}
-                    </section>
-                  );
-                })}
-              </div>
-            </>
-          )}
-        </main>
-
-        {/* right: goal + numbers */}
-        <aside className="cc-goals">
-          {agent.hasQueue ? (
-            <>
-              <h3 className="cc-goals-h">GOAL</h3>
-              <textarea className="cc-goal" value={goal} onChange={(e) => setGoal(e.target.value)} rows={4} />
-              <p className="cc-note">Give the goal — {agent.name.split(" ")[0]} figures out how. Deny a post and your reason trains it.</p>
-              <h3 className="cc-goals-h">ACTIVITY</h3>
-              <div className="cc-kpis">
-                <div className="cc-kpi"><span className="cc-kpi-n">{kpis.queued}</span><span className="cc-kpi-l">queued</span></div>
-                <div className="cc-kpi"><span className="cc-kpi-n good">{kpis.posted}</span><span className="cc-kpi-l">posted</span></div>
-                <div className="cc-kpi"><span className="cc-kpi-n bad">{kpis.denied}</span><span className="cc-kpi-l">denied</span></div>
-              </div>
-            </>
-          ) : (
-            <>
-              <h3 className="cc-goals-h">ROLE</h3>
-              <p className="cc-note">{agent.mission}</p>
-              <p className="cc-note">
-                Chat to coach {agent.name.split(" ")[0]} or ask for ideas. {agent.faction ? `Their clips post from ${agent.faction === "red" ? "@RedBattleGround" : "@BluBattleGround"}.` : "They command both teams toward the $200K goal."}
-              </p>
-            </>
-          )}
-
-          {/* chain of command: this agent's goals, the General's orders, Intel's numbers */}
-          <h3 className="cc-goals-h">{agent.name.split(" ")[0].toUpperCase()}&apos;S GOALS</h3>
-          <ul className="cc-goals-list">
-            {agent.goals.map((g) => (
-              <li key={g}>{g}</li>
-            ))}
-          </ul>
 
           <h3 className="cc-goals-h">📌 COMMANDER&apos;S NOTES</h3>
           <textarea
             className="cc-goal"
             rows={4}
             value={notes}
-            placeholder="Standing feedback for ALL agents — e.g. “Recruiting posts must explain the game to a newcomer, not report the score.”"
+            placeholder="Standing feedback for ALL agents — outranks the orders."
             onChange={(e) => setNotes(e.target.value)}
             onBlur={() => {
               if (gen && notes.trim() !== (gen.notes ?? "").trim()) genPost({ action: "notes", text: notes });
             }}
           />
-          <p className="cc-mini">Goes into every prompt — both Social agents, the General, and chat — and outranks the orders. Deny reasons from either team train both.</p>
+          <p className="cc-mini">Goes into every prompt — both Social agents, the General, and chat. Deny reasons from either team train both.</p>
 
           <h3 className="cc-goals-h">🎖️ GENERAL&apos;S ORDERS</h3>
           {gen ? (
@@ -540,7 +518,9 @@ export function CommandCenter() {
                 {gen.orders.pct_locked_by_commander && (
                   <>
                     {" · "}
-                    <button type="button" className="cc-linkbtn" onClick={() => genPost({ action: "unlock" })}>let the General decide</button>
+                    <button type="button" className="cc-linkbtn" onClick={() => genPost({ action: "unlock" })}>
+                      let the General decide
+                    </button>
                   </>
                 )}
               </p>
@@ -549,11 +529,6 @@ export function CommandCenter() {
                   <li key={d}>{d}</li>
                 ))}
               </ul>
-              {agent.faction && (gen.orders[agent.faction === "red" ? "red_focus" : "blue_focus"] || "") && (
-                <p className="cc-mini">
-                  <b>{agent.faction === "red" ? "Red" : "Blue"} focus:</b> {gen.orders[agent.faction === "red" ? "red_focus" : "blue_focus"]}
-                </p>
-              )}
               {gen.orders.rationale && <p className="cc-mini">💬 {gen.orders.rationale}</p>}
               <button className="cc-btn sm ghost" onClick={() => genPost({ action: "plan" })} disabled={busy === "gen"}>
                 {busy === "gen" ? "Planning…" : "🎖️ Ask the General to re-plan"}
@@ -566,19 +541,36 @@ export function CommandCenter() {
           <h3 className="cc-goals-h">📊 INTEL</h3>
           {gen ? (
             <p className="cc-intel">
-              Board <b>R {gen.brief.board.red} / B {gen.brief.board.blue}</b> · 24h <b>{gen.brief.board.flips24h}</b> flips ({gen.brief.board.toRed24h}→R, {gen.brief.board.toBlue24h}→B)
+              Map <b>R {gen.brief.board.red} / B {gen.brief.board.blue}</b> · 24h <b>{gen.brief.board.flips24h}</b> moves ({gen.brief.board.toRed24h}→R, {gen.brief.board.toBlue24h}→B)
               <br />
               Waitlist <b>{gen.brief.funnel.waitlistTotal}</b> (+{gen.brief.funnel.waitlist24h} today) · Players <b>{gen.brief.funnel.players}</b> ({gen.brief.funnel.active24h} active)
               <br />
-              Posted <b>{gen.brief.social.posted}</b> · Queued <b>{gen.brief.social.queued}</b> · Spent <b>${(gen.brief.funnel.spentTotalCents / 100).toFixed(2)}</b>
+              Posted <b>{gen.brief.social.posted}</b> · Drafts <b>{gen.brief.social.queued}</b> · Spent <b>${(gen.brief.funnel.spentTotalCents / 100).toFixed(2)}</b>
               <br />
               This week: <b>{gen.brief.funnel.signups7d}</b> signups · <b>{gen.brief.funnel.purchases7d}</b> purchases (${(gen.brief.funnel.revenue7dCents / 100).toFixed(2)}) · win-backs <b>{gen.brief.funnel.winbacks7d}/{gen.brief.funnel.takeoverEmails7d}</b>
             </p>
           ) : (
             <p className="adm-loading">Loading…</p>
           )}
-          <p className="cc-mini">Every agent drafts from this brief. Ask Intel Ops for the full report in chat.</p>
-        </aside>
+
+          <div className="cc-h">
+            <span>💬 CHAT</span>
+            <div className="cc-filters">
+              {(["both", "general", "intel"] as const).map((k) => (
+                <button key={k} className={cmdTarget === k ? "on" : ""} onClick={() => setCmdTarget(k)}>
+                  {k === "both" ? "🔴🔵 BOTH" : k === "general" ? "🎖️ GENERAL" : "📊 INTEL"}
+                </button>
+              ))}
+            </div>
+          </div>
+          <ChatBox
+            key={cmdTarget}
+            target={cmdTarget}
+            placeholder={cmdTarget === "both" ? "Say it once — both Social agents hear it…" : cmdTarget === "general" ? "Message the General…" : "Ask Intel Ops for a report…"}
+          />
+        </section>
+
+        {teamColumn("blue")}
       </div>
     </>
   );

@@ -79,10 +79,12 @@ function baseOauth(apiKey: string, token: string): Record<string, string> {
   };
 }
 
-// Post a tweet as a faction account.
+// Post a tweet as a faction account — or, with `replyTo`, a reply to one of
+// its own posts (how the link goes in the first comment, not the post).
 export async function postTweet(
   faction: Faction,
   text: string,
+  replyTo?: string,
 ): Promise<{ id: string; text: string }> {
   const c = credsFor(faction);
   if (!c) {
@@ -98,7 +100,7 @@ export async function postTweet(
       Authorization: authHeader("POST", url, params, c.apiSecret, c.secret),
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ text }),
+    body: JSON.stringify({ text, ...(replyTo ? { reply: { in_reply_to_tweet_id: replyTo } } : {}) }),
   });
   const data = (await res.json().catch(() => ({}))) as {
     data?: { id: string; text: string };

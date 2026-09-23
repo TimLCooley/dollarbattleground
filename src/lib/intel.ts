@@ -10,6 +10,7 @@ import { themeOf } from "@/lib/recruiter";
 
 export interface IntelBrief {
   at: string;
+  campaign: { goal: number; perTeam: number; redRecruits: number; blueRecruits: number; daysLeft: number } | null;
   board: {
     red: number;
     blue: number;
@@ -220,7 +221,34 @@ export async function intelBrief(db: Db): Promise<IntelBrief> {
     .slice(0, 3)
     .map((p) => ({ faction: p.faction, angle: p.angle, copy: p.copy, clicks: p.clicks ?? 0, impressions: p.impressions ?? 0 }));
 
+  // Campaign goal: 1,000 recruits in 15 days, 500 per side. Progress = new
+  // players per side since the campaign started.
+  const campRow = await db.from("app_config").select("value").eq("key", "campaign").maybeSingle();
+  let campaign: IntelBrief["campaign"] = null;
+  try {
+    const camp = JSON.parse((campRow.data as { value?: string } | null)?.value ?? "null") as { started_at?: string; ends_at?: string } | null;
+    if (camp?.started_at && camp.ends_at) {
+      const { data: rec } = await db.from("activity").select("faction").eq("kind", "player_new").gte("created_at", camp.started_at).limit(5000);
+      let redRecruits = 0;
+      let blueRecruits = 0;
+      for (const r of (rec ?? []) as { faction: string | null }[]) {
+        if (r.faction === "red") redRecruits++;
+        else if (r.faction === "blue") blueRecruits++;
+      }
+      campaign = {
+        goal: 1000,
+        perTeam: 500,
+        redRecruits,
+        blueRecruits,
+        daysLeft: Math.max(0, Math.ceil((new Date(camp.ends_at).getTime() - now) / 86_400_000)),
+      };
+    }
+  } catch {
+    /* no campaign yet */
+  }
+
   const brief: IntelBrief = {
+    campaign,
     at: new Date(now).toISOString(),
     board: { red, blue, redPct, bluePct: 100 - redPct, flips24h, toRed24h, toBlue24h, hot, hotRegions },
     funnel: {
@@ -253,6 +281,9 @@ function renderBrief(b: IntelBrief): string {
   const diff = board.red - board.blue;
   const lead = diff === 0 ? "DEAD EVEN" : `${diff > 0 ? "RED" : "BLUE"} LEADS by ${Math.abs(diff)} tile${Math.abs(diff) === 1 ? "" : "s"}`;
   const lines = [
+    b.campaign
+      ? `CAMPAIGN GOAL: ${b.campaign.goal.toLocaleString()} recruits in 15 days — ${b.campaign.perTeam} per side. ${b.campaign.daysLeft} days left. So far: Red ${b.campaign.redRecruits}, Blue ${b.campaign.blueRecruits}. Needed per day from here: ~${Math.ceil(Math.max(0, b.campaign.goal - b.campaign.redRecruits - b.campaign.blueRecruits) / Math.max(1, b.campaign.daysLeft))}.`
+      : "CAMPAIGN: not started.",
     `MAP: RED holds ${board.red} positions (${board.redPct}%) vs BLUE ${board.blue} (${board.bluePct}%) — ${lead}.` +
       ` Last 24h: ${board.flips24h} moves (${board.toRed24h} taken by Red, ${board.toBlue24h} by Blue).` +
       (board.hotRegions.length
