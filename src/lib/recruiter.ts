@@ -86,6 +86,8 @@ const EXEMPLARS: Record<Angle, string[]> = {
     "There's a map. Red vs Blue, fighting for ground. A dollar takes a position and your first one's free. Pick Red: dollarbattleground.com",
     "You've got a dollar and an opinion. That's the whole entry fee. Take a position for Blue: dollarbattleground.com",
     "New here? One map, two sides, every move is live. Your first position's on us — plant a Red flag: dollarbattleground.com",
+    "Red isn't taking everyone. 14 days left to enlist in the founding class — earn your rank on the line: dollarbattleground.com",
+    "$5 doesn't buy you ground. It buys you a commission. Join Blue as a Second Lieutenant: dollarbattleground.com",
   ],
   teaser: ["The map opens soon. Red or Blue — decide before your neighbor does: dollarbattleground.com"],
   update: [
@@ -117,6 +119,16 @@ const BANNED = [
   "flipping tiles",
 ];
 
+// What recruiting posts are actually about. All four are true — rotate them,
+// don't stack them.
+function recruitThemes(daysLeft?: number | null): string {
+  return `RECRUITING THEMES (pick one or two per post, rotate across posts):
+- SELECTIVE: we're looking for the best. This side earns its rank on the line; not everyone makes the cut.
+- COUNTDOWN (real): ${daysLeft != null ? `${daysLeft} day${daysLeft === 1 ? "" : "s"} left in the recruiting campaign — join now and you're in the founding class of your side.` : "the recruiting campaign is open now — join and you're in the founding class of your side."}
+- OFFICER PATH (real mechanic): a $5 strike commissions you as a Second Lieutenant — you can join as an OFFICER, not a private, and earn rank from there.
+- LOW FRICTION: your first position is free; a dollar takes a position.`;
+}
+
 function buildPrompt(input: DecideInput, angle: Angle): { system: string; user: string } {
   const rec = agentByKey(`${input.faction}_recruiter`);
   const handle = input.faction === "red" ? "@RedBattleGround" : "@BluBattleGround";
@@ -143,7 +155,7 @@ ${input.brief?.text ?? "No brief available — keep it general and honest."}
 ${PITCH}
 ${input.commanderNotes?.trim() ? `\nCOMMANDER'S STANDING FEEDBACK — applies to every agent and every post, and outranks the General's orders:\n${input.commanderNotes.trim()}\n` : ""}
 THIS POST'S ANGLE: ${angle.toUpperCase()} — ${ANGLE_GUIDE[angle]}
-(The angle's link rule is absolute and overrides any standing order: only recruit/teaser posts carry the link. The General controls how OFTEN you recruit, not whether this post links.)
+${angle === "recruit" ? recruitThemes(input.daysLeft) + "\n" : ""}(The angle's link rule is absolute and overrides any standing order: only recruit/teaser posts carry the link. The General controls how OFTEN you recruit, not whether this post links.)
 
 VOICE RULES: ≤ 240 characters. Vary length — some posts are one line. At most one emoji, usually none. No hashtags. No exclamation-point pileups. Specifics over adjectives. Write like the person behind the account, not a campaign.
 TERRITORY LANGUAGE ONLY: this is a territory war. Say positions, ground, territory, fronts, and compass directions — "pushing in from the south", "the eastern front", "the northwest", "the center". NEVER grid coordinates (no "4,7", no "H8" — nobody knows what they mean) and NEVER "flip tiles" / "tile flipping". You "take a position", "take ground", "hold the line".
