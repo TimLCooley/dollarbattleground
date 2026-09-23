@@ -401,6 +401,17 @@ export function BoardView({
   // bar. A second tap on it (or the bar's Confirm) commits. Mobile-friendly and
   // mirrors the desktop hover preview.
   const [aim, setAim] = useState<number | null>(null);
+  // Deep link from email dispatches: /red?tile=x,y lands with the lost tile
+  // already aimed, so "take it back" is one tap.
+  useEffect(() => {
+    const m = new URLSearchParams(window.location.search).get("tile")?.match(/^(\d+),(\d+)$/);
+    if (!m) return;
+    const x = Number(m[1]);
+    const y = Number(m[2]);
+    if (x > 14 || y > 14) return;
+    setAim(y * 15 + x);
+    setHint("Take it back.");
+  }, []);
   // A paid order awaiting the player's explicit confirm (nothing is charged or
   // flipped until they authorize it). idxs carries the exact tiles to seize.
   const [pending, setPending] = useState<PendingSpend | null>(null);

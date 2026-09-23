@@ -6,6 +6,7 @@ import { produceVideo } from "@/lib/producer";
 import { getStripeMode } from "@/lib/stripe-mode";
 import { intelBrief } from "@/lib/intel";
 import { getOrders, planOrders } from "@/lib/general";
+import { runDispatches } from "@/lib/dispatch";
 
 export type { Db };
 
@@ -242,6 +243,18 @@ export async function runAutopilot(db: Db, opts: { force?: boolean } = {}): Prom
     await cfgSet(db, "autopilot_state", next);
     return next;
   };
+
+  // Email dispatches (takeover alerts, reminders) are game mechanics, not
+  // posting — they run every tick regardless of the switch (their own kill
+  // switches live in app_config.dispatch).
+  try {
+    const d = await runDispatches(db);
+    if (d.takeovers || d.reminders || d.waitlist) {
+      notes.push(`email: ${d.takeovers} takeover, ${d.reminders} reminder, ${d.waitlist} waitlist`);
+    }
+  } catch (e) {
+    notes.push(`email: ${e instanceof Error ? e.message : "failed"}`);
+  }
 
   // The General re-plans from the brief once a day — even while the switch is
   // OFF, so manual drafts still follow current orders. Only publishing is gated.

@@ -1,6 +1,8 @@
 import "server-only";
+import { after } from "next/server";
 import { getModeStripe } from "./stripe-mode";
 import { createAdminClient } from "@/utils/supabase/admin";
+import { sendPendingTakeovers } from "./dispatch";
 import {
   cellsFor,
   isValidCenter,
@@ -98,6 +100,17 @@ export async function fulfillPayment(
   // Mark fulfilled so a second call (webhook/finalize race) is a no-op.
   await stripe.paymentIntents.update(paymentIntentId, {
     metadata: { ...pi.metadata, fulfilled_at: new Date().toISOString() },
+  });
+
+  // Anyone this purchase displaced gets their "get it back" alert now (the
+  // tiles trigger already logged the takeovers). After the response so the
+  // buyer isn't kept waiting; the cron sweep catches anything that slips.
+  after(async () => {
+    try {
+      await sendPendingTakeovers(admin);
+    } catch (e) {
+      console.error("takeover dispatch failed:", e instanceof Error ? e.message : e);
+    }
   });
 
   return { ok: true };

@@ -27,6 +27,8 @@ export interface IntelBrief {
     active24h: number;
     paidFlips7d: number;
     spentTotalCents: number;
+    emails7d: number;
+    emailClicks7d: number;
   };
   social: {
     posted: number;
@@ -100,6 +102,10 @@ export async function intelBrief(db: Db): Promise<IntelBrief> {
     count(db, "waitlist", gte("created_at", since24)),
     count(db, "waitlist", gte("created_at", since7d)),
   ]);
+  const { data: em } = await db.from("email_log").select("clicks").is("error", null).gte("sent_at", since7d).limit(2000);
+  const emailRows = (em ?? []) as { clicks: number }[];
+  const emails7d = emailRows.length;
+  const emailClicks7d = emailRows.reduce((s, r) => s + (r.clicks ?? 0), 0);
   const { data: ps } = await db.from("player_stats").select("spent_cents,last_action_at");
   const stats = (ps ?? []) as { spent_cents: number | null; last_action_at: string | null }[];
   const players = stats.length;
@@ -148,7 +154,7 @@ export async function intelBrief(db: Db): Promise<IntelBrief> {
   const brief: IntelBrief = {
     at: new Date(now).toISOString(),
     board: { red, blue, redPct, bluePct: 100 - redPct, flips24h, toRed24h, toBlue24h, hot },
-    funnel: { waitlistTotal, waitlist24h, waitlist7d, players, active24h, paidFlips7d, spentTotalCents },
+    funnel: { waitlistTotal, waitlist24h, waitlist7d, players, active24h, paidFlips7d, spentTotalCents, emails7d, emailClicks7d },
     social: { posted: posted.length, queued, byAngle, top },
     text: "",
   };
@@ -164,7 +170,7 @@ function renderBrief(b: IntelBrief): string {
     `BOARD: RED ${board.red} tiles (${board.redPct}%) vs BLUE ${board.blue} (${board.bluePct}%) on a 15×15 grid — ${lead}.` +
       ` Last 24h: ${board.flips24h} flips (${board.toRed24h} to Red, ${board.toBlue24h} to Blue).` +
       (board.hot.length ? ` Hottest cells this week: ${board.hot.map((h) => `${h.x},${h.y} (${h.flips} flips)`).join(", ")}.` : " No contested cells this week yet."),
-    `FUNNEL: waitlist ${funnel.waitlistTotal} total (+${funnel.waitlist24h} today, +${funnel.waitlist7d} this week). Players ${funnel.players} (${funnel.active24h} active today). Paid flips this week: ${funnel.paidFlips7d}. Total spent by players: $${(funnel.spentTotalCents / 100).toFixed(2)}.`,
+    `FUNNEL: waitlist ${funnel.waitlistTotal} total (+${funnel.waitlist24h} today, +${funnel.waitlist7d} this week). Players ${funnel.players} (${funnel.active24h} active today). Paid flips this week: ${funnel.paidFlips7d}. Total spent by players: $${(funnel.spentTotalCents / 100).toFixed(2)}. Email dispatches this week: ${funnel.emails7d} sent, ${funnel.emailClicks7d} clicked through.`,
     social.posted === 0
       ? `SOCIAL: nothing has been posted yet (${social.queued} queued). No performance data — this is day zero.`
       : `SOCIAL: ${social.posted} posted, ${social.queued} queued. ` +
