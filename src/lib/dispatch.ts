@@ -225,7 +225,7 @@ export async function sendPendingTakeovers(db: Db): Promise<number> {
         wrap(
           `<p style="margin:0 0 10px;font-size:17px;font-weight:700;color:${COLOR[enemy]}">${NAME[enemy]} just took ${many ? `${uniq.length} of your positions in ${where}` : `your position in ${where}`}.</p>
            ${line ? `<p style="margin:0 0 6px;font-size:15px">“${line}”</p>` : ""}
-           <p style="margin:0 0 6px;font-size:14px;color:#efe4c4">${nudge || `A dollar takes it back. The map stands Red ${board.red} · Blue ${board.blue}.`}</p>
+           <p style="margin:0 0 6px;font-size:14px;color:#efe4c4">${nudge || `One move takes it back. The map stands Red ${board.red} · Blue ${board.blue}.`}</p>
            ${cta(url, many ? "TAKE THEM BACK →" : "TAKE IT BACK →", side)}${countdown}`,
           unsubFooter(prefs.unsub_token, "takeover"),
         ),
@@ -301,7 +301,7 @@ export async function sendReminders(db: Db): Promise<number> {
       }
     }
     const days = Math.max(1, Math.round((Date.now() - new Date(d.last_action_at).getTime()) / 86_400_000));
-    const subject = (lost ?? 0) > 0 ? `${NAME[enemy]} took ${lost} of your tiles while you were gone` : `The line moved while you were gone`;
+    const subject = (lost ?? 0) > 0 ? `${NAME[enemy]} took ${lost} of your positions while you were gone` : `The line moved while you were gone`;
     const id = await logAndSend(db, {
       userId: d.user_id,
       email,
@@ -312,9 +312,9 @@ export async function sendReminders(db: Db): Promise<number> {
       html: (url) =>
         wrap(
           `<p style="margin:0 0 10px;font-size:17px;font-weight:700;color:${COLOR[side]}">${NAME[side]} needs you back on the line.</p>
-           <p style="margin:0 0 10px;font-size:14px;color:#efe4c4">${days} day${days === 1 ? "" : "s"} away. You hold <b>${held ?? 0}</b> tile${held === 1 ? "" : "s"}${(lost ?? 0) > 0 ? ` — and ${NAME[enemy]} took <b>${lost}</b> from you` : ""}. Board: Red ${board.red} · Blue ${board.blue}.</p>
+           <p style="margin:0 0 10px;font-size:14px;color:#efe4c4">${days} day${days === 1 ? "" : "s"} away. You hold <b>${held ?? 0}</b> position${held === 1 ? "" : "s"}${(lost ?? 0) > 0 ? ` — and ${NAME[enemy]} took <b>${lost}</b> from you` : ""}. The map stands Red ${board.red} · Blue ${board.blue}.</p>
            ${line ? `<p style="margin:0 0 6px;font-size:15px">“${line}”</p>` : ""}
-           <p style="margin:0 0 6px;font-size:14px;color:#efe4c4">${nudge || "One flip puts you back in it."}</p>
+           <p style="margin:0 0 6px;font-size:14px;color:#efe4c4">${nudge || "One position puts you back in it."}</p>
            ${cta(url, "BACK TO THE BOARD →", side)}${countdown}`,
           unsubFooter(prefs.unsub_token, "reminders"),
         ),
@@ -365,15 +365,43 @@ export async function sendWaitlistNudges(db: Db): Promise<number> {
   return sent;
 }
 
+// Waitlist welcome: sent the moment someone enlists on the Coming Soon wall.
+// Carries the countdown so the "15… 14…" they saw on screen lands in their inbox.
+export async function sendWaitlistWelcome(db: Db, email: string, side: Side | null): Promise<number | null> {
+  if (!isEmailConfigured()) return null;
+  const s: Side = side ?? "red";
+  const camp = await cfgGet<{ ends_at?: string }>(db, "campaign");
+  const days = camp?.ends_at ? Math.max(0, Math.ceil((new Date(camp.ends_at).getTime() - Date.now()) / 86_400_000)) : 0;
+  const who = side ? `${NAME[side]} soldier` : "soldier";
+  const subject = days > 0 ? `You're on the list — ${days} day${days === 1 ? "" : "s"} until the gates close` : `You're on the list`;
+  return logAndSend(db, {
+    userId: null,
+    email,
+    kind: "waitlist_welcome",
+    subject,
+    target: `${SITE}/${s}`,
+    meta: { days, side },
+    html: (url) =>
+      wrap(
+        `<p style="margin:0 0 10px;font-size:17px;font-weight:700;color:${COLOR[s]}">You're on the list, ${who}.</p>
+         ${days > 0 ? `<p style="margin:0 0 10px;font-size:14px;color:#efe4c4">Gates close in <b>${days}</b> day${days === 1 ? "" : "s"}. When they open you get first call — pick your position before the other side does.</p>` : ""}
+         <p style="margin:0 0 6px;font-size:14px;color:#efe4c4">Until then, bring a friend. The side with more boots holds more ground.</p>
+         ${cta(url, "SHARE THE FRONT →", s)}`,
+        `You're getting this because you enlisted at dollarbattleground.com. You'll get one signal when mobilization begins.`,
+      ),
+  });
+}
+
 // ── Commander notifications ─────────────────────────────────────────────────
 // One digest per tick listing what happened since the last one: signups,
 // purchases, takeovers, dispatches that went out, posts that published.
 // Batched by design — a hot hour is one email, not forty.
 
-const NOTIFY_KINDS = ["player_new", "waitlist_new", "purchase", "takeover", "email_takeover", "email_reminder", "email_waitlist", "post_published"];
+const NOTIFY_KINDS = ["player_new", "waitlist_new", "purchase", "takeover", "email_takeover", "email_reminder", "email_waitlist", "email_waitlist_welcome", "post_published"];
 const KIND_LABEL: Record<string, string> = {
   player_new: "signup",
   waitlist_new: "waitlist signup",
+  email_waitlist_welcome: "welcome sent",
   purchase: "purchase",
   takeover: "takeover",
   email_takeover: "takeover alert sent",

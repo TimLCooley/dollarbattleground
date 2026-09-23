@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getStripe } from "@/lib/stripe";
 import { fulfillPayment } from "@/lib/fulfill";
+import { getStripeMode } from "@/lib/stripe-mode";
 import type Stripe from "stripe";
 
 // Stripe's source of truth. Verifies the signature, then fulfills paid flips
@@ -23,6 +24,12 @@ export async function POST(req: Request) {
   } catch (e) {
     const msg = e instanceof Error ? e.message : "bad signature";
     return NextResponse.json({ error: `Webhook error: ${msg}` }, { status: 400 });
+  }
+
+  // Only fulfill events from the mode we're actually running in.
+  const mode = await getStripeMode().catch(() => null);
+  if (mode && event.livemode !== (mode === "live")) {
+    return NextResponse.json({ received: true, ignored: `${event.livemode ? "live" : "test"} event while in ${mode} mode` });
   }
 
   if (event.type === "payment_intent.succeeded") {

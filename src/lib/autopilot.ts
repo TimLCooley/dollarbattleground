@@ -456,9 +456,14 @@ export async function runAutopilot(db: Db, opts: { force?: boolean } = {}): Prom
     );
   }
 
-  const stripeMode = await getStripeMode();
+  let stripeMode: "test" | "live" | "unknown" = "unknown";
+  try {
+    stripeMode = await getStripeMode();
+  } catch (e) {
+    notes.push(`Stripe mode unreadable (${e instanceof Error ? e.message : "?"}) — publishing held`);
+  }
   const canPublish = !config.require_stripe_live || stripeMode === "live";
-  if (!canPublish) notes.push("Stripe is TEST — publishing held until you go live");
+  if (!canPublish && stripeMode === "test") notes.push("Stripe is TEST — publishing held until you go live");
 
   for (const f of ["red", "blue"] as Faction[]) {
     // 1) publish the oldest due post for this team (one per team per tick)

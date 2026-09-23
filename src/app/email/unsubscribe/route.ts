@@ -11,7 +11,7 @@ export async function GET(req: Request) {
   const ok = token ? await unsubscribe(createAdminClient(), token, kind) : false;
   const what = kind === "takeover" ? "takeover alerts" : kind === "reminders" ? "reminders" : "all dispatches";
   const body = ok
-    ? `<h1>Stood down.</h1><p>You won't get ${what} anymore. Your tiles are still yours.</p>`
+    ? `<h1>Stood down.</h1><p>You won't get ${what} anymore. Your positions are still yours.</p>`
     : `<h1>That link didn't work.</h1><p>It may have already been used. Reply to any dispatch and we'll sort it.</p>`;
   return new Response(
     `<!doctype html><meta name="viewport" content="width=device-width,initial-scale=1"><title>Dollar Battleground</title>

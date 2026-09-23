@@ -97,6 +97,12 @@ export function ClaimTile({
         setBusy(false);
         return;
       }
+      // Record the dispatch opt-in server-side (the email sweep reads it).
+      fetch("/api/email/prefs", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ takeover_alerts: optIn, reminders: optIn }),
+      }).catch(() => {});
       onConfirm(mail, optIn);
     } catch {
       setError("Couldn't verify. Try again.");

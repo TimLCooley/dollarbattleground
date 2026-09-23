@@ -107,6 +107,15 @@ export function Settings() {
     } catch {
       /* ignore */
     }
+    // The server's copy is the one the email sweep honours — it wins.
+    fetch("/api/email/prefs")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (d && typeof d.takeover_alerts === "boolean") {
+          setPrefs((cur) => ({ ...cur, email: Boolean(d.takeover_alerts || d.reminders) }));
+        }
+      })
+      .catch(() => {});
   }, []);
 
   function save(next: Prefs) {
@@ -117,7 +126,18 @@ export function Settings() {
       /* ignore */
     }
   }
-  const toggle = (k: keyof Prefs) => save({ ...prefs, [k]: !prefs[k] });
+  const toggle = (k: keyof Prefs) => {
+    const next = { ...prefs, [k]: !prefs[k] };
+    save(next);
+    if (k === "email") {
+      // Persist server-side so takeover alerts and reminders actually stop.
+      fetch("/api/email/prefs", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ takeover_alerts: next.email, reminders: next.email }),
+      }).catch(() => {});
+    }
+  };
 
   function saveEmail() {
     try {
@@ -145,13 +165,24 @@ export function Settings() {
     window.location.href = "/";
   }
 
-  function deleteAccount() {
+  async function deleteAccount() {
     if (
       !window.confirm(
-        "Delete your account and service record? This can't be undone.",
+        "Delete your account and service record? Your positions become unowned and your stats are erased. This can't be undone.",
       )
     )
       return;
+    try {
+      const r = await fetch("/api/account/delete", { method: "POST" });
+      if (!r.ok) {
+        const d = await r.json().catch(() => ({}));
+        window.alert(d.error ?? "Couldn't delete your account. Try again or reply to any dispatch.");
+        return;
+      }
+    } catch {
+      window.alert("Couldn't reach the server. Try again.");
+      return;
+    }
     try {
       localStorage.removeItem("bg_player_v1");
       localStorage.removeItem(SKEY);

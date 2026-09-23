@@ -59,11 +59,10 @@ export const RED_FIELD: Correspondent = {
   ],
   voiceId: "19ef3da29d1b474ba9225e58b64b5023", // "Warrior Rohan - Broadcaster"
   voiceName: "Warrior Rohan",
-  // DRAFT persona — replace with your own like you did for the anchors.
   persona:
-    "Red's field reporter, embedded on the front line. Urgent, punchy, and physical — he reports like he's in the middle of it, narrating the action tile-by-tile in the present tense. High energy, short sentences. He hypes Red's pushes and calls the chaos live. Where Sienna anchors from the desk, Rowan is IN the fight and throws back to her.",
+    "Red's field correspondent, embedded on the front line. Urgent, punchy, and physical — he reports like he's in the middle of it, narrating the action front by front in the present tense. High energy, short sentences. He hypes Red's pushes and calls the chaos live. Where Sienna runs the desk, Rowan is IN the fight and tosses back to her by name.",
   sampleLine:
-    "Sienna, I'm at grid seven-four and it is CHAOS — Red just punched through the line and Blue is falling back. They were not ready for this.",
+    "Sienna, I'm on the eastern front and it is CHAOS — Red just punched through the line and Blue is falling back. They were not ready for this.",
 };
 
 // 🔵 BLUE TEAM NEWS -----------------------------------------------------------
@@ -103,11 +102,10 @@ export const BLUE_FIELD: Correspondent = {
   ],
   voiceId: "ad257b0545cc4892b5400e1cd8efdd9a", // "Radiant Raven"
   voiceName: "Radiant Raven",
-  // DRAFT persona — replace with your own.
   persona:
-    "Blue's field reporter, embedded with Blue forces. Composed but energized — she reports the human side of Blue's push in the present tense, from the ground. Where Sterling analyzes from the desk, Skye shows the fight and the comeback: optimistic, steady, quick to spotlight a Blue rally. A calm counter to Red's Rowan.",
+    "Blue's field correspondent, embedded with Blue forces. Composed but energized — she reports the human side of Blue's push in the present tense, from the ground. Where Sterling analyzes from the desk, Skye shows the fight and the comeback: optimistic, steady, quick to spotlight a Blue rally. A calm counter to Red's Rowan.",
   sampleLine:
-    "Sterling, I'm on the eastern flank and Blue is not backing down — we just retook three tiles and the line is holding. This isn't over.",
+    "Sterling, I'm on the eastern flank and Blue is not backing down — we just retook three positions and the line is holding. This isn't over.",
 };
 
 export const NEWSROOM = {

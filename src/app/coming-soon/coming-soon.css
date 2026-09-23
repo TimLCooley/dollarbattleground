@@ -72,3 +72,11 @@
 .cs-side.red.on { background: var(--red, #d23b3b); border-color: var(--red, #d23b3b); }
 .cs-side.blue.on { background: var(--blue, #356fd0); border-color: var(--blue, #356fd0); }
 .cs-thanks { color: #46d17a; font-size: 16px; }
+
+.cs-countdown {
+  margin: 4px 0 14px;
+  font-size: 13px;
+  letter-spacing: 1px;
+  color: #f2c14e;
+}
+.cs-countdown b { font-size: 18px; }
