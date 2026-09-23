@@ -1,0 +1,45 @@
+# Field-report producer: twice a day, each team's field correspondent files a
+# clip on the live board (skipped when the board hasn't moved since the last
+# one). Runs here because Remotion needs Chromium, which Vercel can't provide.
+# Spend is capped by the HeyGen wallet guard inside scripts/produce-clip.mjs.
+name: Produce field-report clips
+
+on:
+  schedule:
+    - cron: "0 13 * * *" # morning slot (13:00 UTC)
+    - cron: "0 22 * * *" # evening slot (22:00 UTC)
+  workflow_dispatch:
+    inputs:
+      faction:
+        description: "red | blue | both"
+        default: "both"
+      force:
+        description: "Render even if the board hasn't changed (1 = yes)"
+        default: ""
+
+concurrency: produce-clips
+
+jobs:
+  produce:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      HEYGEN_API_KEY: ${{ secrets.HEYGEN_API_KEY }}
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+      FORCE: ${{ github.event.inputs.force }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx remotion browser ensure
+      - name: Red — Rowan Cross files a report
+        if: ${{ github.event.inputs.faction != 'blue' }}
+        run: node scripts/produce-clip.mjs red
+      - name: Blue — Skye Bennett files a report
+        if: ${{ always() && github.event.inputs.faction != 'red' }}
+        run: node scripts/produce-clip.mjs blue

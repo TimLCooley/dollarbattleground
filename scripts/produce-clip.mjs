@@ -75,6 +75,15 @@ const redPct = Math.round((red / total) * 100);
 const bluePct = 100 - redPct;
 console.log(`BOARD: RED ${redPct}% / BLUE ${bluePct}%`);
 
+// Board-unchanged skip: don't pay for a report that says the same thing as the
+// last one. The last clip remembers its board in video_spec. FORCE=1 overrides.
+const lastClip = await fetch(`${SB}/rest/v1/agent_posts?faction=eq.${faction}&video_kind=eq.social_clip&status=neq.denied&select=video_spec&order=created_at.desc&limit=1`, { headers: sbh }).then((r) => r.json());
+const prev = lastClip?.[0]?.video_spec;
+if (!process.env.FORCE && prev && prev.red === red && prev.blue === blue) {
+  console.log(`SKIP ${faction.toUpperCase()} — board unchanged since the last clip (RED ${red} / BLUE ${blue} tiles).`);
+  process.exit(0);
+}
+
 // 2) write the field report (Claude, in persona)
 const sys = `You are ${c.name}, the ${faction.toUpperCase()} team's field reporter for Dollar Battleground (a paid red-vs-blue tile war; site dollarbattleground.com). You report from the front — urgent, present tense, pro-${faction}, playful. It's a GAME, no real-world harm.`;
 const user = `Live board: RED ${redPct}% / BLUE ${bluePct}%. Write a short field report. You are LIVE from the field; ${c.partner} is back at the desk. NEVER use the word "anchor" or "reporter" on air — always use real names. End by tossing back to ${c.partner} BY NAME (e.g. "back to you, ${c.partner.split(" ")[0]}"). Respond ONLY JSON: {"headline":"<UPPERCASE, <=6 words>","spoken":"<what you say on camera, 22-30 words, end by tossing back to ${c.partner} by name>","caption":"<tweet text <=180 chars, include dollarbattleground.com>","angle":"recruit|hype|taunt|update","locator":"GRID x,y"}`;
@@ -140,10 +149,22 @@ await fetch(`${SB}/storage/v1/object/media/${kkey}`, { method: "POST", headers: 
 const mediaUrl = `${SB}/storage/v1/object/public/media/${kkey}`;
 console.log("HOSTED:", mediaUrl);
 
-// 6) queue the deny-only post
+// 6) queue it into the deny-only flow: the autopilot posts it after the review
+// window unless the Commander denies it. video_spec remembers the board so the
+// next run can skip if nothing moved.
+const apRows = await fetch(`${SB}/rest/v1/app_config?key=eq.autopilot&select=value`, { headers: sbh }).then((r) => r.json());
+let reviewMin = 60;
+try { reviewMin = Number(JSON.parse(apRows?.[0]?.value ?? "{}").review_minutes) || 60; } catch { /* default */ }
+const scheduledFor = new Date(Date.now() + reviewMin * 60_000).toISOString();
 await fetch(`${SB}/rest/v1/agent_posts`, {
   method: "POST",
   headers: { ...sbh, "Content-Type": "application/json", Prefer: "return=minimal" },
-  body: JSON.stringify({ agent: `${faction}_recruiter`, faction, status: "queued", format: "video", angle: plan.angle || "update", network: faction, x_account: faction, video_kind: "social_clip", media_url: mediaUrl, copy: plan.caption, reason: `Auto-produced field report on the ${redPct}/${bluePct} board` }),
+  body: JSON.stringify({
+    agent: `${faction}_recruiter`, faction, status: "queued", format: "video", angle: plan.angle || "update",
+    network: faction, x_account: faction, video_kind: "social_clip", media_url: mediaUrl, copy: plan.caption,
+    reason: `Auto-produced field report on the ${redPct}/${bluePct} board`,
+    scheduled_for: scheduledFor,
+    video_spec: { red, blue, redPct, bluePct },
+  }),
 });
 console.log(`QUEUED social_clip for ${faction.toUpperCase()} — review it in /admin/agents`);
