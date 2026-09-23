@@ -395,7 +395,19 @@ export function CommandCenter() {
               <span className="cc-dim"> · {recruits}/{gen.brief.campaign.perTeam} recruits</span>
             )}
           </span>
-          <span className="cc-pill-x">{xs?.[f] ? `${xs[f].handle ?? "X"} ${xs[f].ok ? "✓" : "✗"}` : "…"}</span>
+          {xs?.[f]?.handle ? (
+            <a
+              className="cc-pill-x"
+              href={`https://x.com/${xs[f].handle.replace(/^@/, "")}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              title={`Open ${xs[f].handle} on X`}
+            >
+              {xs[f].handle} {xs[f].ok ? "✓" : "✗"}
+            </a>
+          ) : (
+            <span className="cc-pill-x">{xs?.[f] ? `X ${xs[f].ok ? "✓" : "✗"}` : "…"}</span>
+          )}
         </div>
         {focus && <p className="cc-mini">🎖️ {focus}</p>}
 

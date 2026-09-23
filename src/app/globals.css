@@ -3437,7 +3437,8 @@ body {
 .cc-teamcol[data-faction="blue"] { border-top-color: var(--blue); }
 .cc-cmdcol { border-top-color: var(--gold); }
 .cc-h { display: flex; justify-content: space-between; align-items: center; gap: 8px; font-family: var(--font-pixel), monospace; font-size: 12px; color: var(--cream); }
-.cc-pill-x { font-family: var(--font-pixel), monospace; font-size: 9px; color: #9ff0bd; }
+.cc-pill-x { font-family: var(--font-pixel), monospace; font-size: 9px; color: #9ff0bd; text-decoration: none; }
+a.cc-pill-x:hover { color: #f2c14e; text-decoration: underline; }
 .cc-select { font: inherit; font-size: 12px; background: var(--ground-2); color: var(--cream); border: 2px solid #0c3c21; padding: 4px 6px; }
 .cc-msg.agent[data-faction="red"] { border-left: 4px solid var(--red); }
 .cc-msg.agent[data-faction="blue"] { border-left: 4px solid var(--blue); }
