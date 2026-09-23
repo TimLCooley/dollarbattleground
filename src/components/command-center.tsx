@@ -1,0 +1,401 @@
+"use client";
+
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+
+type Faction = "red" | "blue" | null;
+interface Agent {
+  key: string;
+  name: string;
+  emoji: string;
+  faction: Faction;
+  role: string;
+  hasQueue: boolean;
+  mission: string;
+}
+interface Post {
+  id: number;
+  status: string;
+  format: string;
+  angle: string | null;
+  x_account: string | null;
+  copy: string;
+  video_kind: string | null;
+  reason: string | null;
+  deny_reason: string | null;
+  external_id: string | null;
+  replaces: number | null;
+  scheduled_for: string | null;
+  last_error: string | null;
+}
+interface XStatus {
+  ok: boolean;
+  handle?: string;
+  name?: string;
+  error?: string;
+}
+interface Autopilot {
+  config: { enabled: boolean; review_minutes: number; posts_per_day_per_team: number };
+  state: { last_run_at?: string; last_result?: string };
+  stripeMode: "test" | "live";
+}
+interface Msg {
+  id?: number;
+  role: string;
+  content: string;
+}
+interface Campaign {
+  endsAt: string | null;
+  daysLeft: number | null;
+  goalUsd: number;
+}
+
+const ROSTER: Agent[] = [
+  { key: "general", name: "The General", emoji: "🎖️", faction: null, role: "general", hasQueue: false, mission: "Runs the whole funnel toward $200K." },
+  { key: "intel", name: "Intel Ops", emoji: "📊", faction: null, role: "analyst", hasQueue: false, mission: "Reviews the data, reports what's working, suggests improvements." },
+  { key: "red_recruiter", name: "Red Social", emoji: "📣", faction: "red", role: "@RedBattleGround", hasQueue: true, mission: "Runs @RedBattleGround. Recruiting campaign for 15 days — but decides its own mix of posts." },
+  { key: "red_anchor", name: "Sienna Cole", emoji: "🎙️", faction: "red", role: "anchor", hasQueue: false, mission: "Red Team News anchor." },
+  { key: "red_field", name: "Rowan Cross", emoji: "📡", faction: "red", role: "field", hasQueue: false, mission: "Red field reporter, on the front." },
+  { key: "blue_recruiter", name: "Blue Social", emoji: "📣", faction: "blue", role: "@BluBattleGround", hasQueue: true, mission: "Runs @BluBattleGround. Recruiting campaign for 15 days — but decides its own mix of posts." },
+  { key: "blue_anchor", name: "Sterling Wells", emoji: "🎙️", faction: "blue", role: "anchor", hasQueue: false, mission: "Blue Team News anchor." },
+  { key: "blue_field", name: "Skye Bennett", emoji: "📡", faction: "blue", role: "field", hasQueue: false, mission: "Blue field reporter, on the front." },
+];
+
+const GROUPS: { label: string; keys: string[] }[] = [
+  { label: "COMMAND", keys: ["general", "intel"] },
+  { label: "🔴 RED TEAM", keys: ["red_recruiter", "red_anchor", "red_field"] },
+  { label: "🔵 BLUE TEAM", keys: ["blue_recruiter", "blue_anchor", "blue_field"] },
+];
+
+const DEFAULT_GOAL =
+  "Recruit players — the war is LIVE at dollarbattleground.com. Get people to pick your side and flip tiles.";
+
+export function CommandCenter() {
+  const [sel, setSel] = useState("red_recruiter");
+  const [tab, setTab] = useState<"chat" | "queue">("queue");
+  const [posts, setPosts] = useState<Post[] | null>(null);
+  const [msgs, setMsgs] = useState<Msg[]>([]);
+  const [input, setInput] = useState("");
+  const [goal, setGoal] = useState(DEFAULT_GOAL);
+  const [busy, setBusy] = useState<string | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+  const [camp, setCamp] = useState<Campaign | null>(null);
+  const [xs, setXs] = useState<Record<"red" | "blue", XStatus> | null>(null);
+  const [ap, setAp] = useState<Autopilot | null>(null);
+  const chatEnd = useRef<HTMLDivElement>(null);
+
+  const agent = ROSTER.find((a) => a.key === sel)!;
+
+  const loadPosts = useCallback(async (faction: string) => {
+    const r = await fetch(`/api/admin/recruiter?faction=${faction}`);
+    setPosts(r.ok ? (await r.json()).posts : []);
+  }, []);
+  const loadChat = useCallback(async (key: string) => {
+    const r = await fetch(`/api/admin/agent-chat?agent=${key}`);
+    setMsgs(r.ok ? (await r.json()).messages : []);
+  }, []);
+  const loadAp = useCallback(async () => {
+    const r = await fetch("/api/admin/autopilot");
+    if (r.ok) setAp(await r.json());
+  }, []);
+  useEffect(() => {
+    fetch("/api/admin/campaign").then((r) => (r.ok ? r.json() : null)).then(setCamp).catch(() => {});
+    fetch("/api/admin/x/status").then((r) => (r.ok ? r.json() : null)).then((d) => d && setXs(d.accounts)).catch(() => {});
+    loadAp().catch(() => {});
+  }, [loadAp]);
+  useEffect(() => {
+    setTab(agent.hasQueue ? "queue" : "chat");
+    loadChat(agent.key);
+    if (agent.faction) loadPosts(agent.faction);
+    else setPosts(null);
+  }, [agent, loadChat, loadPosts]);
+  useEffect(() => {
+    chatEnd.current?.scrollIntoView({ behavior: "smooth" });
+  }, [msgs, tab]);
+
+  const kpis = useMemo(() => {
+    const p = posts ?? [];
+    return {
+      queued: p.filter((x) => x.status === "queued").length,
+      posted: p.filter((x) => x.status === "posted").length,
+      denied: p.filter((x) => x.status === "denied").length,
+    };
+  }, [posts]);
+
+  async function post(action: string, extra: Record<string, unknown>, tag: string) {
+    setBusy(tag);
+    setErr(null);
+    try {
+      const res = await fetch("/api/admin/recruiter", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action, faction: agent.faction, ...extra }),
+      });
+      const d = await res.json();
+      if (!res.ok) setErr(d.error ?? "Failed");
+      if (agent.faction) await loadPosts(agent.faction);
+    } finally {
+      setBusy(null);
+    }
+  }
+  function deny(id: number) {
+    const reason = window.prompt("Why deny this? (your reason trains the agent)");
+    if (reason?.trim()) post("deny", { id, reason: reason.trim() }, `deny-${id}`);
+  }
+
+  async function send() {
+    const text = input.trim();
+    if (!text) return;
+    setInput("");
+    setMsgs((m) => [...m, { role: "commander", content: text }]);
+    setBusy("chat");
+    try {
+      const res = await fetch("/api/admin/agent-chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ agentKey: agent.key, message: text }),
+      });
+      const d = await res.json();
+      setMsgs((m) => [...m, { role: "agent", content: d.reply ?? d.error ?? "…" }]);
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function startCampaign() {
+    const r = await fetch("/api/admin/campaign", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "start", days: 15 }),
+    });
+    if (r.ok) setCamp(await r.json());
+  }
+
+  // Autopilot switch / forced tick — then refresh what it changed.
+  async function apPost(body: Record<string, unknown>) {
+    setBusy("ap");
+    setErr(null);
+    try {
+      const r = await fetch("/api/admin/autopilot", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      const d = await r.json();
+      if (!r.ok) setErr(d.error ?? "Failed");
+      await loadAp();
+      if (agent.faction) await loadPosts(agent.faction);
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  return (
+    <>
+      {/* mission banner: the real goal + the countdown */}
+      <div className="cc-banner">
+        <div className="cc-banner-goal">
+          <span className="cc-banner-l">THE MISSION</span>
+          <span className="cc-banner-v">${(camp?.goalUsd ?? 200000).toLocaleString()} in revenue</span>
+        </div>
+        <div className="cc-banner-camp">
+          {camp?.daysLeft != null ? (
+            <>
+              <span className="cc-banner-days">{camp.daysLeft}</span>
+              <span className="cc-banner-l">days left in the campaign</span>
+            </>
+          ) : (
+            <button className="cc-btn sm" onClick={startCampaign}>
+              ▶ Start 15-day campaign
+            </button>
+          )}
+        </div>
+
+        {/* ops strip: are the accounts real, is money live, is the autopilot on */}
+        <div className="cc-ops">
+          {(["red", "blue"] as const).map((f) => {
+            const s = xs?.[f];
+            return (
+              <span key={f} className={"cc-pill " + (s ? (s.ok ? "ok" : "bad") : "")} title={s?.error ?? s?.name ?? ""}>
+                {f === "red" ? "🔴" : "🔵"} {s ? `${s.handle ?? "X"} ${s.ok ? "✓" : "✗"}` : "…"}
+              </span>
+            );
+          })}
+          <span className={"cc-pill " + (ap?.stripeMode === "live" ? "live" : "bad")}>
+            💳 STRIPE {ap ? ap.stripeMode.toUpperCase() : "…"}
+          </span>
+          <button
+            className={"cc-btn sm" + (ap?.config.enabled ? "" : " ghost")}
+            disabled={!ap || busy === "ap"}
+            onClick={() => apPost({ action: "set", patch: { enabled: !ap?.config.enabled } })}
+          >
+            {ap?.config.enabled ? "⏸ AUTOPILOT ON" : "▶ AUTOPILOT OFF"}
+          </button>
+          <button className="cc-btn sm ghost" disabled={!ap || busy === "ap"} onClick={() => apPost({ action: "run" })}>
+            {busy === "ap" ? "Running…" : "↻ Run tick now"}
+          </button>
+          <span className="cc-ops-note">
+            {ap?.state.last_result ? `Last tick: ${ap.state.last_result}` : "Autopilot hasn't run yet."}
+            {ap ? ` · ${ap.config.review_minutes}m review window · ${ap.config.posts_per_day_per_team}/day/team` : ""}
+          </span>
+        </div>
+      </div>
+
+      <div className="cc">
+        {/* roster grouped by team */}
+        <aside className="cc-roster">
+          {GROUPS.map((g) => (
+            <div key={g.label}>
+              <h3 className="cc-roster-h">{g.label}</h3>
+              {g.keys.map((k) => {
+                const a = ROSTER.find((x) => x.key === k)!;
+                return (
+                  <button
+                    key={a.key}
+                    className={"cc-agent" + (sel === a.key ? " on" : "")}
+                    data-faction={a.faction ?? "cmd"}
+                    onClick={() => setSel(a.key)}
+                  >
+                    <span className="cc-ava">{a.emoji}</span>
+                    <span className="cc-agent-id">
+                      <span className="cc-agent-name">{a.name}</span>
+                      <span className="cc-agent-status">{a.role}</span>
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          ))}
+        </aside>
+
+        {/* center: chat + (recruiter) queue */}
+        <main className="cc-main">
+          <header className="cc-main-head">
+            <span className="cc-ava lg" data-faction={agent.faction ?? "cmd"}>{agent.emoji}</span>
+            <div>
+              <h2 className="cc-main-name">{agent.name}</h2>
+              <p className="cc-main-mission">{agent.mission}</p>
+            </div>
+          </header>
+
+          <div className="cc-tabs">
+            <button className={tab === "chat" ? "on" : ""} onClick={() => setTab("chat")}>💬 Chat</button>
+            {agent.hasQueue && (
+              <button className={tab === "queue" ? "on" : ""} onClick={() => setTab("queue")}>📋 Queue</button>
+            )}
+          </div>
+
+          {tab === "chat" ? (
+            <div className="cc-chat">
+              <div className="cc-chat-log">
+                {msgs.length === 0 && (
+                  <p className="cc-empty">Say hi to {agent.name.split(" ")[0]} — coach them, ask for a plan.</p>
+                )}
+                {msgs.map((m, i) => (
+                  <div key={i} className={"cc-msg " + m.role}>
+                    {m.content}
+                  </div>
+                ))}
+                {busy === "chat" && <div className="cc-msg agent cc-typing">…</div>}
+                <div ref={chatEnd} />
+              </div>
+              <div className="cc-chat-in">
+                <textarea
+                  rows={2}
+                  value={input}
+                  placeholder={`Message ${agent.name.split(" ")[0]}…`}
+                  onChange={(e) => setInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && !e.shiftKey) {
+                      e.preventDefault();
+                      send();
+                    }
+                  }}
+                />
+                <button className="cc-btn" onClick={send} disabled={busy === "chat" || !input.trim()}>
+                  Send
+                </button>
+              </div>
+            </div>
+          ) : (
+            <>
+              <div className="cc-actions">
+                <button className="cc-btn" onClick={() => post("draft", { goal }, "draft")} disabled={busy === "draft"}>
+                  {busy === "draft" ? "Thinking…" : "⚡ Draft a post"}
+                </button>
+                {err && <span className="ct-error">{err}</span>}
+              </div>
+              {!posts ? (
+                <p className="adm-loading">Loading…</p>
+              ) : posts.length === 0 ? (
+                <p className="cc-empty">No posts yet — hit “Draft a post”.</p>
+              ) : (
+                <div className="cc-queue">
+                  {posts.map((p) => (
+                    <div key={p.id} className={"cc-card " + p.status}>
+                      <div className="cc-card-top">
+                        <span className="cc-card-side">
+                          {p.x_account === "blue" ? "🔵" : "🔴"}
+                          {p.angle && <span className={"cc-angle a-" + p.angle}>{p.angle}</span>}
+                          <span className="cc-dim"> {p.format === "video" ? `video · ${p.video_kind ?? ""}` : "text"}</span>
+                          {p.replaces ? <span className="cc-dim"> · replaces #{p.replaces}</span> : null}
+                        </span>
+                        <span className={"cc-status " + p.status}>{p.status}</span>
+                      </div>
+                      <p className="cc-copy">{p.copy}</p>
+                      {p.reason && <p className="cc-why">💡 {p.reason}</p>}
+                      {p.deny_reason && <p className="cc-denied">✕ {p.deny_reason}</p>}
+                      {p.status === "queued" && p.scheduled_for && (
+                        <p className="cc-why">⏱ posts {new Date(p.scheduled_for).toLocaleString()} unless denied</p>
+                      )}
+                      {p.last_error && <p className="cc-denied">⚠ {p.last_error}</p>}
+                      {p.external_id && (
+                        <a className="xlink" href={`https://x.com/i/status/${p.external_id}`} target="_blank" rel="noreferrer">
+                          ↗ View on X
+                        </a>
+                      )}
+                      {p.status === "queued" && (
+                        <div className="cc-card-acts">
+                          <button className="cc-btn sm" onClick={() => post("publish", { id: p.id }, `pub-${p.id}`)} disabled={busy === `pub-${p.id}`}>
+                            {busy === `pub-${p.id}` ? "Posting…" : "▶ Post now"}
+                          </button>
+                          <button className="cc-btn sm ghost" onClick={() => deny(p.id)} disabled={busy === `deny-${p.id}`}>
+                            ✕ Deny
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </>
+          )}
+        </main>
+
+        {/* right: goal + numbers */}
+        <aside className="cc-goals">
+          {agent.hasQueue ? (
+            <>
+              <h3 className="cc-goals-h">GOAL</h3>
+              <textarea className="cc-goal" value={goal} onChange={(e) => setGoal(e.target.value)} rows={4} />
+              <p className="cc-note">Give the goal — {agent.name.split(" ")[0]} figures out how. Deny a post and your reason trains it.</p>
+              <h3 className="cc-goals-h">ACTIVITY</h3>
+              <div className="cc-kpis">
+                <div className="cc-kpi"><span className="cc-kpi-n">{kpis.queued}</span><span className="cc-kpi-l">queued</span></div>
+                <div className="cc-kpi"><span className="cc-kpi-n good">{kpis.posted}</span><span className="cc-kpi-l">posted</span></div>
+                <div className="cc-kpi"><span className="cc-kpi-n bad">{kpis.denied}</span><span className="cc-kpi-l">denied</span></div>
+              </div>
+            </>
+          ) : (
+            <>
+              <h3 className="cc-goals-h">ROLE</h3>
+              <p className="cc-note">{agent.mission}</p>
+              <p className="cc-note">
+                Chat to coach {agent.name.split(" ")[0]} or ask for ideas. {agent.faction ? `Their clips post from ${agent.faction === "red" ? "@RedBattleGround" : "@BluBattleGround"}.` : "They command both teams toward the $200K goal."}
+              </p>
+            </>
+          )}
+        </aside>
+      </div>
+    </>
+  );
+}

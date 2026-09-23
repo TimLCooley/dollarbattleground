@@ -1,0 +1,250 @@
+"use client";
+
+import { useEffect, useRef, useState } from "react";
+import { BoardView, useBattleground, ViewNav, postAdminPaint, type Team } from "./board";
+import { useAdminFreePlay } from "./use-admin-freeplay";
+import { Onboarding } from "./onboarding";
+import { PromotionModal } from "./promotion";
+import { rankFor, RANKS, type Rank } from "@/lib/ranks";
+
+const KEY = "bg_player_v1";
+
+interface Player {
+  side: Team;
+  email: string;
+  logins: number;
+  spent: number; // total $ spent
+  isOfficer: boolean;
+  placedFirst: boolean;
+  captures: number; // total positions taken
+  reclaimed: number; // positions flipped from the enemy
+  xStrikes: number; // $5 actions ordered
+  officerActions: number; // $10 actions used
+  days: number; // distinct days reported for duty
+  lastLoginDay: string; // YYYY-MM-DD
+  enlistedAt: string; // ISO
+  lastActionAt: string | null; // ISO
+  lastPromotionAt: string | null; // ISO
+  lastSeenAt: string | null; // ISO — last time we counted them present
+  rankKey: string;
+}
+
+// A fresh visit only counts as a "return" (a login) after this much inactivity,
+// so hopping between pages within a session doesn't inflate rank progression.
+const SESSION_GAP_HOURS = 8;
+
+function orderOfKey(key: string): number {
+  return RANKS.find((r) => r.key === key)?.order ?? 0;
+}
+
+const nowISO = () => new Date().toISOString();
+const today = () => new Date().toISOString().slice(0, 10);
+
+export function HomeExperience() {
+  const board = useBattleground();
+  const { freePlay } = useAdminFreePlay();
+  const [player, setPlayer] = useState<Player | null>(null);
+  const [ready, setReady] = useState(false);
+  const [placing, setPlacing] = useState(false);
+  const [flash, setFlash] = useState<string | null>(null);
+  const [promotionRank, setPromotionRank] = useState<Rank | null>(null);
+  const firstThreat = useRef(false);
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(KEY);
+      if (raw) {
+        const p = JSON.parse(raw) as Partial<Player> & { buys?: number };
+        if (p?.side) {
+          const spent = p.spent ?? (p.buys ? p.buys * 5 : 0);
+          const t = today();
+          // Only count a fresh login/day after a real gap of inactivity —
+          // page navigation within a session no longer bumps rank.
+          const lastSeen = p.lastSeenAt ? Date.parse(p.lastSeenAt) : 0;
+          const hoursSince = lastSeen ? (Date.now() - lastSeen) / 3_600_000 : Infinity;
+          const isReturn = hoursSince >= SESSION_GAP_HOURS;
+          const newDay = isReturn && !!p.lastLoginDay && p.lastLoginDay !== t;
+          const next: Player = {
+            side: p.side,
+            email: p.email ?? "",
+            logins: (p.logins ?? 1) + (isReturn ? 1 : 0),
+            spent,
+            isOfficer: p.isOfficer ?? false,
+            placedFirst: p.placedFirst ?? true,
+            captures: p.captures ?? 0,
+            reclaimed: p.reclaimed ?? 0,
+            xStrikes: p.xStrikes ?? 0,
+            officerActions: p.officerActions ?? 0,
+            days: (p.days ?? 1) + (newDay ? 1 : 0),
+            lastLoginDay: isReturn ? t : (p.lastLoginDay ?? t),
+            enlistedAt: p.enlistedAt ?? nowISO(),
+            lastActionAt: p.lastActionAt ?? null,
+            lastPromotionAt: p.lastPromotionAt ?? null,
+            lastSeenAt: nowISO(),
+            rankKey: p.rankKey ?? "recruit",
+          };
+          const nr = rankFor(next);
+          if (nr.order > orderOfKey(next.rankKey)) {
+            next.lastPromotionAt = nowISO();
+            setPromotionRank(nr);
+          }
+          next.rankKey = nr.key;
+          setPlayer(next);
+          localStorage.setItem(KEY, JSON.stringify(next));
+        }
+      }
+    } catch {
+      /* first visit / storage blocked */
+    }
+    setReady(true);
+  }, []);
+
+  function persist(p: Player) {
+    try {
+      localStorage.setItem(KEY, JSON.stringify(p));
+    } catch {
+      /* ignore */
+    }
+  }
+
+  function handleEnlist(side: Team) {
+    const p: Player = {
+      side,
+      email: "",
+      logins: 1,
+      spent: 0,
+      isOfficer: false,
+      placedFirst: false,
+      captures: 0,
+      reclaimed: 0,
+      xStrikes: 0,
+      officerActions: 0,
+      days: 1,
+      lastLoginDay: today(),
+      enlistedAt: nowISO(),
+      lastActionAt: null,
+      lastPromotionAt: null,
+      lastSeenAt: nowISO(),
+      rankKey: "recruit",
+    };
+    setPlayer(p);
+    persist(p);
+    setPlacing(true);
+    // Flip the tab favicon to their faction color immediately.
+    window.dispatchEvent(new CustomEvent("bg:sidechange", { detail: side }));
+  }
+
+  function handlePlace(
+    _i: number,
+    reclaimed: number,
+    email: string,
+    optIn: boolean,
+  ) {
+    setPlacing(false);
+    // Email + dispatch opt-in are captured here, at the claim step.
+    try {
+      const raw = localStorage.getItem("bg_settings_v1");
+      const cur = raw ? JSON.parse(raw) : {};
+      localStorage.setItem(
+        "bg_settings_v1",
+        JSON.stringify({ ...cur, email: optIn }),
+      );
+    } catch {
+      /* ignore */
+    }
+    if (player && !player.placedFirst) {
+      const promoted: Player = {
+        ...player,
+        email: email || player.email,
+        placedFirst: true,
+        captures: player.captures + 1,
+        reclaimed: player.reclaimed + reclaimed,
+        lastActionAt: nowISO(),
+        lastPromotionAt: nowISO(),
+      };
+      const nr = rankFor(promoted);
+      promoted.rankKey = nr.key;
+      setPlayer(promoted);
+      persist(promoted);
+      firstThreat.current = true;
+      setPromotionRank(nr);
+    }
+  }
+
+  function handlePurchase(amount: number, reclaimed: number, captures: number) {
+    if (!player) return;
+    const prev = rankFor(player);
+    const next: Player = {
+      ...player,
+      spent: player.spent + amount,
+      captures: player.captures + captures,
+      reclaimed: player.reclaimed + reclaimed,
+      xStrikes: player.xStrikes + (amount === 5 ? 1 : 0),
+      officerActions: player.officerActions + (amount === 10 ? 1 : 0),
+      isOfficer: player.isOfficer || amount >= 5,
+      lastActionAt: nowISO(),
+    };
+    const nr = rankFor(next);
+    const promoted = nr.order > prev.order;
+    if (promoted) next.lastPromotionAt = nowISO();
+    next.rankKey = nr.key;
+    setPlayer(next);
+    persist(next);
+    if (promoted) setPromotionRank(nr);
+  }
+
+  function dismissPromotion() {
+    setPromotionRank(null);
+    if (firstThreat.current) {
+      firstThreat.current = false;
+      const enemy = player?.side === "red" ? "Blue" : "Red";
+      flashMsg(
+        `⚠ ${enemy} is already moving on your position — hold the line, Private.`,
+      );
+    }
+  }
+
+  function flashMsg(msg: string) {
+    setFlash(msg);
+    window.setTimeout(() => setFlash((cur) => (cur === msg ? null : cur)), 9000);
+  }
+
+  const rank = player ? rankFor(player) : null;
+  const title = rank ? rank.abbr : undefined; // compact rank for the header
+
+  return (
+    <>
+      <BoardView
+        board={board}
+        lockedSide={player?.side}
+        title={title}
+        insignia={rank?.insignia}
+        placementMode={placing}
+        onPlace={handlePlace}
+        isOfficer={player?.isOfficer || freePlay}
+        adminPaint={freePlay ? postAdminPaint : undefined}
+        onPurchase={handlePurchase}
+        record={player ? { captures: player.captures } : undefined}
+        flash={flash}
+      />
+
+      {placing && (
+        <div className="place-banner">
+          Tap any tile to plant your flag, Recruit. Your first one&apos;s on us.
+        </div>
+      )}
+
+      <ViewNav active="/" />
+
+      {ready && !player && <Onboarding onEnlist={handleEnlist} />}
+
+      {promotionRank && player && (
+        <PromotionModal
+          rank={promotionRank}
+          side={player.side}
+          onClose={dismissPromotion}
+        />
+      )}
+    </>
+  );
+}

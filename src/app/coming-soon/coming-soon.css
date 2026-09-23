@@ -1,0 +1,74 @@
+.cs-wrap {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px 16px;
+}
+.cs-card {
+  width: 100%;
+  max-width: 460px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 12px;
+  padding: 26px 22px 30px;
+  background-image: var(--rivets), var(--metal-sheen);
+  background-color: var(--ground-2, #123);
+  border: 3px solid var(--mortar, #0e3f22);
+  border-radius: 12px;
+  box-shadow: 0 8px 0 -2px rgba(0, 0, 0, 0.4);
+}
+.cs-logo {
+  width: 100%;
+  max-width: 300px;
+  height: auto;
+  image-rendering: pixelated;
+}
+.cs-badge {
+  font-family: var(--font-pixel), monospace;
+  font-size: 11px;
+  letter-spacing: 2px;
+  color: var(--gold);
+}
+.cs-title {
+  font-family: var(--font-pixel), monospace;
+  font-size: clamp(26px, 8vw, 40px);
+  margin: 0;
+  color: var(--cream);
+  text-shadow: 3px 3px 0 rgba(0, 0, 0, 0.4);
+}
+.cs-tag {
+  font-family: var(--font-hand), cursive;
+  font-size: 16px;
+  line-height: 1.5;
+  color: var(--parch);
+  margin: 0;
+  max-width: 40ch;
+}
+.cs-clear {
+  margin-top: 8px;
+  background: none;
+  border: none;
+  color: var(--gold);
+  font-family: var(--font-hand), cursive;
+  font-size: 15px;
+  text-decoration: underline;
+  cursor: pointer;
+}
+.cs-gate {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 6px;
+}
+
+/* waitlist capture */
+.cs-pick { font-size: 12px; letter-spacing: 2px; color: var(--parch, #cbb98a); margin: 4px 0 6px; }
+.cs-sides { display: flex; gap: 10px; margin-bottom: 10px; }
+.cs-side { flex: 1; padding: 12px; font-family: var(--font-pixel), monospace; font-size: 13px; cursor: pointer; color: #fff; background: rgba(0,0,0,.3); border: 3px solid #0c3c21; box-shadow: var(--shadow-pix); }
+.cs-side.red.on { background: var(--red, #d23b3b); border-color: var(--red, #d23b3b); }
+.cs-side.blue.on { background: var(--blue, #356fd0); border-color: var(--blue, #356fd0); }
+.cs-thanks { color: #46d17a; font-size: 16px; }
