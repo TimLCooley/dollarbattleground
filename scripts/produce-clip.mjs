@@ -87,9 +87,10 @@ if (!process.env.FORCE && prev && prev.red === red && prev.blue === blue) {
 // 2) write the field report (Claude, in persona)
 const sys = `You are ${c.name}, the ${faction.toUpperCase()} team's field reporter for Dollar Battleground (a paid red-vs-blue tile war; site dollarbattleground.com). You report from the front — urgent, present tense, pro-${faction}, playful. It's a GAME, no real-world harm.`;
 const user = `Live board: RED ${red} tiles (${redPct}%) / BLUE ${blue} tiles (${bluePct}%) on a 15×15 grid. Write a short field report. You are LIVE from the field; ${c.partner} is back at the desk. NEVER use the word "anchor" or "reporter" on air — always use real names. End by tossing back to ${c.partner} BY NAME (e.g. "back to you, ${c.partner.split(" ")[0]}").
-Never invent game mechanics, events, or deadlines — the game is a board, two sides, tiles flipped for $1/$5/$10, first tile free. Use only the numbers above.
-CAPTION rules (the tweet): ≤ 200 chars, no hashtags, at most one emoji, sounds like a person not a campaign. Pick the angle first: "recruit" = a direct ask to join with the link dollarbattleground.com; "update"/"hype"/"taunt" = NO link at all.
-Respond ONLY JSON: {"headline":"<UPPERCASE, <=6 words>","spoken":"<what you say on camera, 22-30 words, end by tossing back to ${c.partner} by name>","caption":"<the tweet>","angle":"recruit|hype|taunt|update","locator":"GRID x,y"}`;
+Never invent game mechanics, events, or deadlines — the game is one map, two sides, positions taken for $1/$5/$10, first position free. Use only the numbers above; a quiet map is just a quiet map.
+TERRITORY LANGUAGE ONLY: positions, ground, fronts, compass directions ("pushing in from the south", "the eastern front"). NEVER grid coordinates and NEVER "flip"/"tiles flipping".
+CAPTION rules (the tweet): ≤ 200 chars, no hashtags, at most one emoji, sounds like a person not a campaign. Pick the angle first: "recruit" = an invitation to a newcomer (pick a side, first position free, a dollar takes a position) with the link dollarbattleground.com; "update"/"hype"/"taunt" = NO link at all.
+Respond ONLY JSON: {"headline":"<UPPERCASE, <=6 words>","spoken":"<what you say on camera, 22-30 words, end by tossing back to ${c.partner} by name>","caption":"<the tweet>","angle":"recruit|hype|taunt|update","locator":"<a front, e.g. EASTERN FRONT or THE NORTHWEST — never coordinates>"}`;
 // Sonnet 5 thinks before it answers; give it room so the JSON isn't cut off,
 // and surface exactly what came back when there's no text block.
 async function askClaude() {
@@ -142,7 +143,7 @@ await writeFile("public/_wr/clip.mp4", Buffer.from(await (await fetch(url)).arra
 console.log("anchor clip saved");
 
 // 4) composite the broadcast (Remotion)
-const props = { network: c.network, accent: c.accent, anchorSrc: "_wr/clip.mp4", reporterName: c.name, role: "field", headline: plan.headline, redPct, bluePct, locator: plan.locator || "GRID 7,4", url: "dollarbattleground.com", variant: "field", seconds: 12 };
+const props = { network: c.network, accent: c.accent, anchorSrc: "_wr/clip.mp4", reporterName: c.name, role: "field", headline: plan.headline, redPct, bluePct, locator: plan.locator || "THE CENTER", url: "dollarbattleground.com", variant: "field", seconds: 12 };
 await writeFile("/tmp/clip-props.json", JSON.stringify(props));
 execSync("npx remotion render src/remotion/index.ts SocialClip /tmp/social-clip.mp4 --props=/tmp/clip-props.json --concurrency=1", { stdio: "inherit" });
 

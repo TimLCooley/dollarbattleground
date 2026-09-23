@@ -4,7 +4,7 @@ import { createAdminClient } from "@/utils/supabase/admin";
 import { agentByKey } from "@/lib/agents";
 import { claudeChat, claudeConfigured } from "@/lib/claude";
 import { intelBrief } from "@/lib/intel";
-import { getOrders } from "@/lib/general";
+import { getCommanderNotes, getOrders } from "@/lib/general";
 
 // Chat directly with an agent (Grok-style coaching). History is stored so the
 // agent remembers the conversation. Uses Gemini in the agent's persona.
@@ -48,6 +48,8 @@ export async function POST(req: Request) {
     dataBrief += `\n\nSTANDING ORDERS (recruiting mix ${orders.recruit_pct}%${orders.pct_locked_by_commander ? ", locked by the Commander" : ""}, last set by ${orders.by}):\n- ${orders.directives.join("\n- ")}\nRed focus: ${orders.red_focus || "—"}\nBlue focus: ${orders.blue_focus || "—"}`;
   }
   if (agent.goals?.length) dataBrief += `\n\nYOUR GOALS:\n- ${agent.goals.join("\n- ")}`;
+  const notes = await getCommanderNotes(db);
+  if (notes) dataBrief += `\n\nCOMMANDER'S STANDING FEEDBACK (applies to every agent, outranks orders):\n${notes}`;
 
   // Recent history for context.
   const { data: hist } = await db

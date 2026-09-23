@@ -36,6 +36,7 @@ export interface DecideInput {
   denyReasons?: string[];
   brief?: IntelBrief | null;
   orders?: GeneralOrders | null;
+  commanderNotes?: string; // standing feedback from the Commander — applies to every agent, outranks orders
   forceAngle?: Angle;
 }
 
@@ -65,29 +66,36 @@ export function chooseAngle(recruitPct: number, recentAngles: Angle[] = [], phas
 }
 
 // ── the brief for one post ──────────────────────────────────────────────────
+// What a stranger needs to hear. Recruiting posts are written for someone
+// who has never seen the game — the pitch comes first, the scoreboard is
+// seasoning.
+const PITCH =
+  "WHAT THE GAME IS (the reader has never heard of it): Dollar Battleground is a live map where Red and Blue fight for territory. You pick a side, your first position is free, then a dollar takes a position ($5 takes a 2×2 strike, $10 a 3×3 barrage). The map is public and every move shows up live.";
+
 const ANGLE_GUIDE: Record<Angle, string> = {
   recruit:
-    "A direct ask to join YOUR side. Give ONE concrete reason it matters right now (a real number or event from the brief), talk to one person, and end with the link dollarbattleground.com.",
+    "An INVITATION to someone who has never heard of the game — NOT a score update. Lead with the pitch (pick a side, first position free, a dollar takes a position) and make it about THEM. A board fact is seasoning: one at most, never the opening line. End with the link dollarbattleground.com.",
   teaser: "A coming-soon hook that makes someone want to pick a side before launch. Include the link dollarbattleground.com.",
-  update: "A war-desk update: what actually happened on the board — real flips, real cells, real counts. NO link. Reads like an account reporting, not selling.",
+  update: "A war-desk update: what actually happened on the map — ground gained or lost, by direction (the east, the south, the center). NO link. Reads like an account reporting, not selling.",
   hype: "Pump your own side. Swagger with specifics. NO link.",
   taunt: "Rib the other team — playful, dry, never cruel, never about real people or real politics. NO link.",
 };
 
 const EXEMPLARS: Record<Angle, string[]> = {
   recruit: [
-    "Blue took 6 of our tiles overnight. Six. Board's 113–112 and the east edge is open — Red needs one more pair of hands at the line: dollarbattleground.com",
-    "You've got a dollar and an opinion. That's all it takes to flip a tile. Pick Blue: dollarbattleground.com",
+    "There's a map. Red vs Blue, fighting for ground. A dollar takes a position and your first one's free. Pick Red: dollarbattleground.com",
+    "You've got a dollar and an opinion. That's the whole entry fee. Take a position for Blue: dollarbattleground.com",
+    "New here? One map, two sides, every move is live. Your first position's on us — plant a Red flag: dollarbattleground.com",
   ],
   teaser: ["The map opens soon. Red or Blue — decide before your neighbor does: dollarbattleground.com"],
   update: [
-    "Overnight: 14 flips, 9 of them ours. Column 7 changed hands three times before breakfast. Board's dead even at 113–112.",
-    "Cell 4,7 has flipped 9 times this week. Nobody's holding it. Nobody's leaving it alone either.",
+    "Overnight: Blue pushed up from the south and took nine positions. Red held the east. Map's dead even at 113–112.",
+    "The northwest has changed hands three times this week. Nobody's holding it. Nobody's leaving it alone either.",
   ],
-  hype: ["Red doesn't hold the line. Red IS the line. 🔴", "Half the board. Zero panic. That's the Blue way."],
+  hype: ["Red doesn't hold the line. Red IS the line. 🔴", "Half the map. Zero panic. That's the Blue way."],
   taunt: [
-    "Red's been 'about to break through' at 4,7 for two days now. We've started leaving snacks.",
-    "Blue calls it 'strategic patience.' We call it 112 tiles and counting down.",
+    "Red's been 'about to break through' in the west for two days now. We've started leaving snacks.",
+    "Blue calls it 'strategic patience.' We call it 112 positions and counting down.",
   ],
 };
 
@@ -103,6 +111,10 @@ const BANNED = [
   "secure victory",
   "take ground now",
   "the battle is on",
+  "flip a tile",
+  "flip tiles",
+  "tile flipping",
+  "flipping tiles",
 ];
 
 function buildPrompt(input: DecideInput, angle: Angle): { system: string; user: string } {
@@ -128,16 +140,19 @@ ${focus ? `YOUR TEAM'S FOCUS: ${focus}` : ""}
 INTEL BRIEF (live):
 ${input.brief?.text ?? "No brief available — keep it general and honest."}
 
+${PITCH}
+${input.commanderNotes?.trim() ? `\nCOMMANDER'S STANDING FEEDBACK — applies to every agent and every post, and outranks the General's orders:\n${input.commanderNotes.trim()}\n` : ""}
 THIS POST'S ANGLE: ${angle.toUpperCase()} — ${ANGLE_GUIDE[angle]}
 (The angle's link rule is absolute and overrides any standing order: only recruit/teaser posts carry the link. The General controls how OFTEN you recruit, not whether this post links.)
 
 VOICE RULES: ≤ 240 characters. Vary length — some posts are one line. At most one emoji, usually none. No hashtags. No exclamation-point pileups. Specifics over adjectives. Write like the person behind the account, not a campaign.
-NEVER invent game mechanics, events, or deadlines — no "freeze", "lockout", "round", "buzzer", "season" unless the brief literally says so. The game is: a 15×15 board, two sides, tiles flipped for $1 (single), $5 (2×2), $10 (3×3), first tile free. A quiet board is just a quiet board.
+TERRITORY LANGUAGE ONLY: this is a territory war. Say positions, ground, territory, fronts, and compass directions — "pushing in from the south", "the eastern front", "the northwest", "the center". NEVER grid coordinates (no "4,7", no "H8" — nobody knows what they mean) and NEVER "flip tiles" / "tile flipping". You "take a position", "take ground", "hold the line".
+NEVER invent game mechanics, events, or deadlines — no "freeze", "lockout", "round", "buzzer", "season" unless the brief literally says so. The game is: one map, two sides, positions taken for $1 (single), $5 (2×2 strike), $10 (3×3 barrage), first position free. A quiet map is just a quiet map.
 NEVER USE: ${BANNED.map((b) => `"${b}"`).join(", ")}.
 STYLE EXAMPLES for this angle (do NOT copy them; match the feel):
 - ${EXEMPLARS[angle].join("\n- ")}
 ${input.recentCopies?.length ? `\nDO NOT REPEAT these recent posts (new idea, new wording): ${input.recentCopies.map((c) => `"${c}"`).join("; ")}` : ""}
-${input.denyReasons?.length ? `\nTHE COMMANDER DENIED earlier posts for these reasons — respect them: ${input.denyReasons.map((r) => `"${r}"`).join("; ")}` : ""}
+${input.denyReasons?.length ? `\nTHE COMMANDER DENIED recent posts (from either team — his feedback is universal) for these reasons; treat each as a rule: ${input.denyReasons.map((r) => `"${r}"`).join("; ")}` : ""}
 
 Format is "text" unless the brief shows a genuinely notable board swing worth a field report (then "video" with videoKind "social_clip").
 Respond ONLY as JSON: {"copy":"<the post>","format":"text|video","videoKind":"coming_soon|social_clip|null","reason":"<one sentence to the Commander: why this post now>"}`;

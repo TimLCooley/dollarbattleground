@@ -5,7 +5,7 @@ import { getTweetMetrics, postTweet, postTweetWithMedia, uploadVideo, type Facti
 import { produceVideo } from "@/lib/producer";
 import { getStripeMode } from "@/lib/stripe-mode";
 import { intelBrief } from "@/lib/intel";
-import { getOrders, planOrders } from "@/lib/general";
+import { getCommanderNotes, getOrders, planOrders } from "@/lib/general";
 import { runDispatches } from "@/lib/dispatch";
 
 export type { Db };
@@ -74,8 +74,29 @@ async function recentContext(db: Db, faction: Faction) {
   return {
     recentCopies: live.map((r) => r.copy).slice(0, 6),
     recentAngles: live.map((r) => r.angle).filter(Boolean).slice(0, 6) as Angle[],
-    denyReasons: rows.map((r) => r.deny_reason).filter(Boolean).slice(0, 6) as string[],
+    // The Commander's feedback is universal: denials from EITHER team train both.
+    denyReasons: await recentDenyReasons(db),
   };
+}
+
+export async function recentDenyReasons(db: Db, limit = 10): Promise<string[]> {
+  const { data } = await db
+    .from("agent_posts")
+    .select("deny_reason")
+    .eq("status", "denied")
+    .not("deny_reason", "is", null)
+    .order("decided_at", { ascending: false })
+    .limit(limit);
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const r of (data ?? []) as { deny_reason: string }[]) {
+    const t = r.deny_reason.trim();
+    if (t && !seen.has(t)) {
+      seen.add(t);
+      out.push(t);
+    }
+  }
+  return out;
 }
 
 export async function campaignDaysLeft(db: Db): Promise<number | null> {
@@ -115,14 +136,15 @@ export async function draftPost(
 ) {
   // Chain of command: the brief (Intel Ops) + standing orders (the General)
   // go into every draft.
-  const [{ config }, ctx, daysLeft, brief, orders] = await Promise.all([
+  const [{ config }, ctx, daysLeft, brief, orders, commanderNotes] = await Promise.all([
     getAutopilot(db),
     recentContext(db, faction),
     campaignDaysLeft(db),
     intelBrief(db),
     getOrders(db),
+    getCommanderNotes(db),
   ]);
-  const d = await decideNextPost({ faction, goal, phase: "live", daysLeft, brief, orders, ...ctx });
+  const d = await decideNextPost({ faction, goal, phase: "live", daysLeft, brief, orders, commanderNotes, ...ctx });
   if (!d) throw new Error("The brain returned nothing (check GEMINI_API_KEY).");
   const scheduled_for = await nextSlot(db, faction, config, opts.slot);
   const { data, error } = await db
@@ -262,7 +284,10 @@ export async function runAutopilot(db: Db, opts: { force?: boolean } = {}): Prom
   let last_plan_at = state.last_plan_at;
   if (!last_plan_at || Date.now() - new Date(last_plan_at).getTime() > 24 * 60 * 60_000) {
     try {
-      await planOrders(db, await intelBrief(db), DEFAULT_GOAL, await campaignDaysLeft(db));
+      await planOrders(db, await intelBrief(db), DEFAULT_GOAL, await campaignDaysLeft(db), {
+        commanderNotes: await getCommanderNotes(db),
+        denyReasons: await recentDenyReasons(db),
+      });
       last_plan_at = started;
       notes.push("the General issued fresh orders");
     } catch (e) {

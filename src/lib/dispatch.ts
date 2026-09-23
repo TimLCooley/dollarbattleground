@@ -3,6 +3,7 @@ import { cfgGet, cfgSet, type Db } from "@/lib/app-config";
 import { sendEmail, isEmailConfigured } from "@/lib/email";
 import { generateBriefing, isBrainConfigured } from "@/lib/agent-brain";
 import { SUPER_ADMIN_EMAIL } from "@/lib/admin-shared";
+import { regionName } from "@/lib/intel";
 
 // Dispatches: the email side of the funnel. Two kinds —
 //  • TAKEOVER alerts: the tiles trigger logs every enemy takeover of an owned
@@ -113,10 +114,6 @@ function cta(url: string, label: string, side: Side): string {
   return `<a href="${url}" style="display:inline-block;margin:14px 0 4px;padding:12px 18px;background:${COLOR[side]};color:#fff;text-decoration:none;font-weight:700;letter-spacing:.5px;border:3px solid #0c3c21">${label}</a>`;
 }
 
-function cellName(x: number, y: number): string {
-  return `${String.fromCharCode(65 + x)}${y + 1}`;
-}
-
 // ── takeover alerts ─────────────────────────────────────────────────────────
 
 interface TakeoverRow {
@@ -178,9 +175,12 @@ export async function sendPendingTakeovers(db: Db): Promise<number> {
     const uniq = [...new Map(lost.map((r) => [`${r.x},${r.y}`, r])).values()];
     const first = uniq[0];
     const many = uniq.length > 1;
+    // House voice: territory + directions, never coordinates.
+    const regions = [...new Set(uniq.map((r) => regionName(r.x, r.y)))];
+    const where = regions.length === 1 ? regions[0] : regions.slice(0, -1).join(", ") + " and " + regions[regions.length - 1];
     const subject = many
-      ? `${NAME[enemy]} took ${uniq.length} of your tiles — get them back`
-      : `${NAME[enemy]} took your square at ${cellName(first.x, first.y)} — get it back`;
+      ? `${NAME[enemy]} took ${uniq.length} of your positions in ${where} — get them back`
+      : `${NAME[enemy]} took your position in ${where} — get it back`;
 
     // The Sergeant's line (optional, never blocks the alert).
     let line = "";
@@ -203,7 +203,6 @@ export async function sendPendingTakeovers(db: Db): Promise<number> {
       }
     }
 
-    const tilesList = uniq.map((r) => cellName(r.x, r.y)).join(", ");
     const target = `${SITE}/${side}?tile=${first.x},${first.y}`;
     const id = await logAndSend(db, {
       userId: owner,
@@ -214,10 +213,9 @@ export async function sendPendingTakeovers(db: Db): Promise<number> {
       meta: { tiles: uniq.map((r) => ({ x: r.x, y: r.y })), enemy },
       html: (url) =>
         wrap(
-          `<p style="margin:0 0 10px;font-size:17px;font-weight:700;color:${COLOR[enemy]}">${NAME[enemy]} just flipped ${many ? `${uniq.length} of your tiles` : `your tile at ${cellName(first.x, first.y)}`}.</p>
-           ${many ? `<p style="margin:0 0 10px;font-size:14px;color:#efe4c4">Lost: ${tilesList}</p>` : ""}
+          `<p style="margin:0 0 10px;font-size:17px;font-weight:700;color:${COLOR[enemy]}">${NAME[enemy]} just took ${many ? `${uniq.length} of your positions in ${where}` : `your position in ${where}`}.</p>
            ${line ? `<p style="margin:0 0 6px;font-size:15px">“${line}”</p>` : ""}
-           <p style="margin:0 0 6px;font-size:14px;color:#efe4c4">${nudge || `A dollar takes it back. The board is Red ${board.red} · Blue ${board.blue}.`}</p>
+           <p style="margin:0 0 6px;font-size:14px;color:#efe4c4">${nudge || `A dollar takes it back. The map stands Red ${board.red} · Blue ${board.blue}.`}</p>
            ${cta(url, many ? "TAKE THEM BACK →" : "TAKE IT BACK →", side)}`,
           unsubFooter(prefs.unsub_token, "takeover"),
         ),

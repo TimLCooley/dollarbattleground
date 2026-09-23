@@ -59,11 +59,23 @@ export async function setOrders(db: Db, patch: Partial<GeneralOrders>): Promise<
 }
 
 // The General reads the brief and writes fresh orders (Claude).
+// The Commander's standing notes: free-form feedback that goes into every
+// prompt (General, Social agents, chat) and outranks the orders.
+export async function getCommanderNotes(db: Db): Promise<string> {
+  return (await cfgGet<{ text?: string }>(db, "commander_notes"))?.text ?? "";
+}
+export async function setCommanderNotes(db: Db, text: string): Promise<string> {
+  const t = text.trim().slice(0, 4000);
+  await cfgSet(db, "commander_notes", { text: t, updated_at: new Date().toISOString() });
+  return t;
+}
+
 export async function planOrders(
   db: Db,
   brief: IntelBrief,
   goal: string,
   daysLeft: number | null,
+  feedback: { commanderNotes?: string; denyReasons?: string[] } = {},
 ): Promise<GeneralOrders> {
   const cur = await getOrders(db);
   const persona = agentByKey("general")?.persona ?? "You are THE GENERAL.";
@@ -71,16 +83,20 @@ export async function planOrders(
 
 You are writing STANDING ORDERS for the two Social agents (Red Social runs @RedBattleGround, Blue Social runs @BluBattleGround). They will follow these orders on every post until you change them. Be specific and practical; you're a commander, not a consultant.
 
+What a RECRUITING post is: an invitation to someone who has never heard of the game — what it is (a live map, Red vs Blue fighting for territory, first position free, a dollar takes a position), why pick this side, how to start. It is NOT a score report. Board numbers are seasoning, never the opening line. Orders like "state the score first" produce sports tickers, not recruits.
+
+House voice, non-negotiable: territory language and compass directions ("pushing in from the south", "the eastern front"). Never grid coordinates (no "5,3", no "H8") and never "flip tiles". Don't write directives that name cells.
+
 Fixed system policy you cannot override: recruiting posts carry the dollarbattleground.com link; updates, hype, and taunts never do (that's what makes the feed read as real). Your lever is recruit_pct — how many posts recruit — not whether posts link. Don't write directives about links.
 
-Never invent game mechanics, events, or deadlines. The game has exactly this: a 15×15 board, two sides, tiles flipped for $1 (single), $5 (2×2), $10 (3×3), a free first tile. "0 flips in 24h" means the board was quiet — it is NOT a "freeze", "lockout", "round", or "buzzer". Describe the data plainly; the agents will echo your words verbatim.`;
+Never invent game mechanics, events, or deadlines. The game has exactly this: one map, two sides, positions taken for $1 (single), $5 (2×2 strike), $10 (3×3 barrage), a free first position. "0 moves in 24h" means the map was quiet — it is NOT a "freeze", "lockout", "round", or "buzzer". Describe the data plainly; the agents will echo your words verbatim.`;
   const user = `COMMANDER'S GOAL: ${goal}
 CAMPAIGN: ${daysLeft != null ? `recruiting push, ${daysLeft} days left` : "no countdown set — treat it as an ongoing recruiting push"}.
 ${cur.pct_locked_by_commander ? `The Commander has LOCKED the recruiting mix at ${cur.recruit_pct}% — keep it.` : `Current recruiting mix: ${cur.recruit_pct}%. Change it only if the data argues for it.`}
 
 INTEL BRIEF:
 ${brief.text}
-
+${feedback.commanderNotes?.trim() ? `\nCOMMANDER'S STANDING FEEDBACK (universal — every order must honor it):\n${feedback.commanderNotes.trim()}\n` : ""}${feedback.denyReasons?.length ? `\nTHE COMMANDER DENIED recent posts (either team) for these reasons — your orders must prevent a repeat:\n- ${feedback.denyReasons.join("\n- ")}\n` : ""}
 Write the orders. Respond ONLY as JSON:
 {"recruit_pct": <0-100, share of posts that are recruiting CTAs with the link>,
  "directives": ["<3-6 short standing orders, concrete, about content and tone>"],

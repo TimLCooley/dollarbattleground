@@ -43,6 +43,7 @@ interface Brief {
 interface Gen {
   orders: Orders;
   brief: Brief;
+  notes: string;
 }
 interface Post {
   id: number;
@@ -115,6 +116,7 @@ export function CommandCenter() {
   const [ap, setAp] = useState<Autopilot | null>(null);
   const [gen, setGen] = useState<Gen | null>(null);
   const [pct, setPct] = useState<number | null>(null); // slider position (saved on release)
+  const [notes, setNotes] = useState(""); // Commander's standing feedback (saved on blur)
   const chatEnd = useRef<HTMLDivElement>(null);
 
   const agent = ROSTER.find((a) => a.key === sel)!;
@@ -137,6 +139,7 @@ export function CommandCenter() {
       const d = (await r.json()) as Gen;
       setGen(d);
       setPct(d.orders.recruit_pct);
+      setNotes(d.notes ?? "");
     }
   }, []);
   useEffect(() => {
@@ -465,6 +468,19 @@ export function CommandCenter() {
               <li key={g}>{g}</li>
             ))}
           </ul>
+
+          <h3 className="cc-goals-h">📌 COMMANDER&apos;S NOTES</h3>
+          <textarea
+            className="cc-goal"
+            rows={4}
+            value={notes}
+            placeholder="Standing feedback for ALL agents — e.g. “Recruiting posts must explain the game to a newcomer, not report the score.”"
+            onChange={(e) => setNotes(e.target.value)}
+            onBlur={() => {
+              if (gen && notes.trim() !== (gen.notes ?? "").trim()) genPost({ action: "notes", text: notes });
+            }}
+          />
+          <p className="cc-mini">Goes into every prompt — both Social agents, the General, and chat — and outranks the orders. Deny reasons from either team train both.</p>
 
           <h3 className="cc-goals-h">🎖️ GENERAL&apos;S ORDERS</h3>
           {gen ? (

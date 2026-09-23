@@ -18,6 +18,7 @@ export interface IntelBrief {
     toRed24h: number;
     toBlue24h: number;
     hot: { x: number; y: number; flips: number }[];
+    hotRegions: { region: string; flips: number }[];
   };
   funnel: {
     waitlistTotal: number;
@@ -47,6 +48,16 @@ export interface IntelBrief {
 }
 
 const H = 60 * 60_000;
+
+// The house voice is territory + compass directions, never coordinates. Every
+// cell maps to a region so the brief (and everything downstream) can say
+// "the northeast" instead of "5,3".
+export function regionName(x: number, y: number): string {
+  const ns = y <= 4 ? "north" : y >= 10 ? "south" : "";
+  const ew = x <= 4 ? "west" : x >= 10 ? "east" : "";
+  if (!ns && !ew) return "the center";
+  return "the " + (ns && ew ? ns + ew : ns || ew);
+}
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnyQuery = any;
@@ -101,6 +112,15 @@ export async function intelBrief(db: Db): Promise<IntelBrief> {
       const [x, y] = k.split(",").map(Number);
       return { x, y, flips };
     });
+  const perRegion = new Map<string, number>();
+  for (const [k, n] of perCell) {
+    const [x, y] = k.split(",").map(Number);
+    perRegion.set(regionName(x, y), (perRegion.get(regionName(x, y)) ?? 0) + n);
+  }
+  const hotRegions = [...perRegion.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 3)
+    .map(([region, flips]) => ({ region, flips }));
 
   // ── funnel ──
   const gte = (col: string, v: string) => (q: AnyQuery) => q.gte(col, v);
@@ -198,7 +218,7 @@ export async function intelBrief(db: Db): Promise<IntelBrief> {
 
   const brief: IntelBrief = {
     at: new Date(now).toISOString(),
-    board: { red, blue, redPct, bluePct: 100 - redPct, flips24h, toRed24h, toBlue24h, hot },
+    board: { red, blue, redPct, bluePct: 100 - redPct, flips24h, toRed24h, toBlue24h, hot, hotRegions },
     funnel: {
       waitlistTotal,
       waitlist24h,
@@ -229,9 +249,12 @@ function renderBrief(b: IntelBrief): string {
   const diff = board.red - board.blue;
   const lead = diff === 0 ? "DEAD EVEN" : `${diff > 0 ? "RED" : "BLUE"} LEADS by ${Math.abs(diff)} tile${Math.abs(diff) === 1 ? "" : "s"}`;
   const lines = [
-    `BOARD: RED ${board.red} tiles (${board.redPct}%) vs BLUE ${board.blue} (${board.bluePct}%) on a 15×15 grid — ${lead}.` +
-      ` Last 24h: ${board.flips24h} flips (${board.toRed24h} to Red, ${board.toBlue24h} to Blue).` +
-      (board.hot.length ? ` Hottest cells this week: ${board.hot.map((h) => `${h.x},${h.y} (${h.flips} flips)`).join(", ")}.` : " No contested cells this week yet."),
+    `MAP: RED holds ${board.red} positions (${board.redPct}%) vs BLUE ${board.blue} (${board.bluePct}%) — ${lead}.` +
+      ` Last 24h: ${board.flips24h} moves (${board.toRed24h} taken by Red, ${board.toBlue24h} by Blue).` +
+      (board.hotRegions.length
+        ? ` Most contested ground this week: ${board.hotRegions.map((h) => `${h.region} (${h.flips} moves)`).join(", ")}.`
+        : " No contested ground this week yet.") +
+      ` (House voice: say positions/ground/fronts and compass directions — never coordinates, never "flip".)`,
     `FUNNEL: waitlist ${funnel.waitlistTotal} total (+${funnel.waitlist24h} today, +${funnel.waitlist7d} this week). Players ${funnel.players} (${funnel.active24h} active today). Paid flips this week: ${funnel.paidFlips7d}. Total spent by players: $${(funnel.spentTotalCents / 100).toFixed(2)}.`,
     `SIGNUPS: +${funnel.signups24h} today, +${funnel.signups7d} this week. PURCHASES: ${funnel.purchases24h} today, ${funnel.purchases7d} this week ($${(funnel.revenue7dCents / 100).toFixed(2)}).`,
     `EMAIL: ${funnel.emails7d} dispatches this week, ${funnel.emailClicks7d} clicked. Takeover alerts: ${funnel.takeoverEmails7d} sent, ${funnel.winbacks7d} brought the player back within 48h` +
