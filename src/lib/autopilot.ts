@@ -252,6 +252,7 @@ export async function runAutopilot(db: Db, opts: { force?: boolean } = {}): Prom
     if (d.takeovers || d.reminders || d.waitlist) {
       notes.push(`email: ${d.takeovers} takeover, ${d.reminders} reminder, ${d.waitlist} waitlist`);
     }
+    if (d.notified) notes.push(`digest sent (${d.notified} events)`);
   } catch (e) {
     notes.push(`email: ${e instanceof Error ? e.message : "failed"}`);
   }

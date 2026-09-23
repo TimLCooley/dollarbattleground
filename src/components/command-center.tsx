@@ -26,7 +26,18 @@ interface Orders {
 }
 interface Brief {
   board: { red: number; blue: number; flips24h: number; toRed24h: number; toBlue24h: number };
-  funnel: { waitlistTotal: number; waitlist24h: number; players: number; active24h: number; spentTotalCents: number };
+  funnel: {
+    waitlistTotal: number;
+    waitlist24h: number;
+    players: number;
+    active24h: number;
+    spentTotalCents: number;
+    signups7d: number;
+    purchases7d: number;
+    revenue7dCents: number;
+    takeoverEmails7d: number;
+    winbacks7d: number;
+  };
   social: { posted: number; queued: number };
 }
 interface Gen {
@@ -512,6 +523,8 @@ export function CommandCenter() {
               Waitlist <b>{gen.brief.funnel.waitlistTotal}</b> (+{gen.brief.funnel.waitlist24h} today) · Players <b>{gen.brief.funnel.players}</b> ({gen.brief.funnel.active24h} active)
               <br />
               Posted <b>{gen.brief.social.posted}</b> · Queued <b>{gen.brief.social.queued}</b> · Spent <b>${(gen.brief.funnel.spentTotalCents / 100).toFixed(2)}</b>
+              <br />
+              This week: <b>{gen.brief.funnel.signups7d}</b> signups · <b>{gen.brief.funnel.purchases7d}</b> purchases (${(gen.brief.funnel.revenue7dCents / 100).toFixed(2)}) · win-backs <b>{gen.brief.funnel.winbacks7d}/{gen.brief.funnel.takeoverEmails7d}</b>
             </p>
           ) : (
             <p className="adm-loading">Loading…</p>

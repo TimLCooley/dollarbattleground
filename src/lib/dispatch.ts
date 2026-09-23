@@ -2,6 +2,7 @@ import "server-only";
 import { cfgGet, cfgSet, type Db } from "@/lib/app-config";
 import { sendEmail, isEmailConfigured } from "@/lib/email";
 import { generateBriefing, isBrainConfigured } from "@/lib/agent-brain";
+import { SUPER_ADMIN_EMAIL } from "@/lib/admin-shared";
 
 // Dispatches: the email side of the funnel. Two kinds —
 //  • TAKEOVER alerts: the tiles trigger logs every enemy takeover of an owned
@@ -33,8 +34,9 @@ export interface DispatchConfig {
   takeovers: boolean;
   reminders: boolean;
   waitlist: boolean;
+  notify_commander: boolean; // digest email to the admin each tick when there's new activity
 }
-const DEFAULTS: DispatchConfig = { takeovers: true, reminders: true, waitlist: true };
+const DEFAULTS: DispatchConfig = { takeovers: true, reminders: true, waitlist: true, notify_commander: true };
 
 export async function getDispatchConfig(db: Db): Promise<DispatchConfig> {
   return { ...DEFAULTS, ...((await cfgGet<Partial<DispatchConfig>>(db, "dispatch")) ?? {}) };
@@ -354,15 +356,80 @@ export async function sendWaitlistNudges(db: Db): Promise<number> {
   return sent;
 }
 
-// The sweep the cron tick runs: takeovers every tick, reminders every 6h.
-export async function runDispatches(db: Db): Promise<{ takeovers: number; reminders: number; waitlist: number }> {
-  const out = { takeovers: 0, reminders: 0, waitlist: 0 };
+// ── Commander notifications ─────────────────────────────────────────────────
+// One digest per tick listing what happened since the last one: signups,
+// purchases, takeovers, dispatches that went out, posts that published.
+// Batched by design — a hot hour is one email, not forty.
+
+const NOTIFY_KINDS = ["player_new", "waitlist_new", "purchase", "takeover", "email_takeover", "email_reminder", "email_waitlist", "post_published"];
+const KIND_LABEL: Record<string, string> = {
+  player_new: "signup",
+  waitlist_new: "waitlist signup",
+  purchase: "purchase",
+  takeover: "takeover",
+  email_takeover: "takeover alert sent",
+  email_reminder: "reminder sent",
+  email_waitlist: "waitlist nudge sent",
+  post_published: "post published",
+};
+
+export async function notifyCommander(db: Db): Promise<number> {
+  if (!isEmailConfigured()) return 0;
+  const cfg = await getDispatchConfig(db);
+  if (!cfg.notify_commander) return 0;
+  const { data } = await db
+    .from("activity")
+    .select("id,kind,faction,summary,created_at")
+    .is("notified_at", null)
+    .in("kind", NOTIFY_KINDS)
+    .order("created_at", { ascending: true })
+    .limit(100);
+  const rows = (data ?? []) as { id: number; kind: string; faction: string | null; summary: string; created_at: string }[];
+  if (rows.length === 0) return 0;
+
+  const tally = new Map<string, number>();
+  for (const r of rows) tally.set(r.kind, (tally.get(r.kind) ?? 0) + 1);
+  const parts = [...tally.entries()].map(([k, n]) => `${n} ${KIND_LABEL[k] ?? k}${n === 1 ? "" : "s"}`);
+  const subject = `🔔 Battleground: ${parts.join(", ")}`;
+  const lines = rows
+    .map((r) => {
+      const t = new Date(r.created_at).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", timeZone: "America/Chicago" });
+      const dot = r.faction === "red" ? "🔴" : r.faction === "blue" ? "🔵" : "▪️";
+      return `<li style="margin:0 0 6px">${dot} <span style="opacity:.7">${t}</span> ${r.summary}</li>`;
+    })
+    .join("");
+  const res = await sendEmail({
+    to: SUPER_ADMIN_EMAIL,
+    subject,
+    html: wrap(
+      `<p style="margin:0 0 10px;font-size:15px;font-weight:700">Since the last dispatch:</p>
+       <ul style="margin:0 0 12px;padding-left:18px;font-size:14px;color:#efe4c4">${lines}</ul>
+       <a href="${SITE}/admin/activity" style="color:#f2c14e">Open the activity feed →</a>`,
+      `Commander digest — turn off with app_config.dispatch.notify_commander.`,
+    ),
+  });
+  if (!res.ok) return 0;
+  // Mark everything up to the newest row as notified (non-digest kinds too, so the pending index stays small).
+  const maxId = rows[rows.length - 1].id;
+  await db.from("activity").update({ notified_at: new Date().toISOString() }).is("notified_at", null).lte("id", maxId);
+  return rows.length;
+}
+
+// The sweep the cron tick runs: takeovers every tick, reminders every 6h,
+// then the Commander's digest of whatever happened.
+export async function runDispatches(db: Db): Promise<{ takeovers: number; reminders: number; waitlist: number; notified: number }> {
+  const out = { takeovers: 0, reminders: 0, waitlist: 0, notified: 0 };
   out.takeovers = await sendPendingTakeovers(db);
   const state = (await cfgGet<{ last_reminders_at?: string }>(db, "dispatch_state")) ?? {};
   if (!state.last_reminders_at || Date.now() - new Date(state.last_reminders_at).getTime() > REMINDER_SWEEP_MS) {
     out.reminders = await sendReminders(db);
     out.waitlist = await sendWaitlistNudges(db);
     await cfgSet(db, "dispatch_state", { ...state, last_reminders_at: new Date().toISOString() });
+  }
+  try {
+    out.notified = await notifyCommander(db);
+  } catch (e) {
+    console.error("commander digest failed:", e instanceof Error ? e.message : e);
   }
   return out;
 }

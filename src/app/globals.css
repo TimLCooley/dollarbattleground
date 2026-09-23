@@ -3419,6 +3419,25 @@ body {
 .cc-cart-menu .cc-btn { text-align: left; }
 .cc-cart-note { font-size: 11px; color: var(--parch); }
 .cc-ops-err { font-size: 11px; color: #ffb3b3; }
+/* ACTIVITY tab: the live funnel feed */
+.af { display: flex; flex-direction: column; gap: 12px; }
+.af-counts { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
+.af-count { display: flex; flex-direction: column; gap: 2px; padding: 10px 12px; text-align: left; background: var(--ground-2); border: 3px solid #0c3c21; box-shadow: var(--shadow-pix); cursor: pointer; color: var(--parch); }
+.af-count.on { border-color: var(--gold); }
+.af-count-n { font-family: var(--font-pixel), monospace; font-size: 22px; color: var(--cream); }
+.af-count-l { font-size: 11px; letter-spacing: 1px; }
+.af-count-w { font-size: 11px; opacity: .75; }
+.af-bar { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
+.af-chips { display: flex; gap: 6px; flex-wrap: wrap; }
+.af-chip { font-family: var(--font-pixel), monospace; font-size: 10px; padding: 6px 10px; border: 2px solid #0c3c21; background: var(--ground); color: var(--parch); cursor: pointer; }
+.af-chip.on { background: var(--gold); border-color: var(--gold-d); color: var(--ink); }
+.af-note { font-size: 12px; color: var(--parch); }
+.af-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.af-row { display: grid; grid-template-columns: 28px 1fr auto; align-items: center; gap: 10px; padding: 9px 12px; background: var(--ground-2); border: 2px solid #0c3c21; border-left-width: 6px; color: var(--cream); font-size: 13px; }
+.af-row[data-faction="red"] { border-left-color: var(--red); }
+.af-row[data-faction="blue"] { border-left-color: var(--blue); }
+.af-ico { text-align: center; }
+.af-time { font-size: 11px; color: var(--parch); white-space: nowrap; }
 .cc-agent[data-faction="red"] { border-left: 6px solid var(--red); }
 .cc-agent[data-faction="blue"] { border-left: 6px solid var(--blue); }
 .cc-agent[data-faction="cmd"] { border-left: 6px solid var(--gold); }

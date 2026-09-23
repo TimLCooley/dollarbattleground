@@ -29,6 +29,13 @@ export interface IntelBrief {
     spentTotalCents: number;
     emails7d: number;
     emailClicks7d: number;
+    signups24h: number;
+    signups7d: number;
+    purchases24h: number;
+    purchases7d: number;
+    revenue7dCents: number;
+    takeoverEmails7d: number;
+    winbacks7d: number; // takeover alerts after which the player came back and acted within 48h
   };
   social: {
     posted: number;
@@ -106,6 +113,44 @@ export async function intelBrief(db: Db): Promise<IntelBrief> {
   const emailRows = (em ?? []) as { clicks: number }[];
   const emails7d = emailRows.length;
   const emailClicks7d = emailRows.reduce((s, r) => s + (r.clicks ?? 0), 0);
+
+  // The activity ledger: signups + purchases, and whether takeover alerts work.
+  const { data: act } = await db.from("activity").select("kind,created_at,meta").gte("created_at", since7d).limit(5000);
+  let signups24h = 0;
+  let signups7d = 0;
+  let purchases24h = 0;
+  let purchases7d = 0;
+  let revenue7dCents = 0;
+  for (const a of (act ?? []) as { kind: string; created_at: string; meta: { cents?: number } | null }[]) {
+    const today = a.created_at >= since24;
+    if (a.kind === "player_new") {
+      signups7d++;
+      if (today) signups24h++;
+    } else if (a.kind === "purchase") {
+      purchases7d++;
+      revenue7dCents += a.meta?.cents ?? 0;
+      if (today) purchases24h++;
+    }
+  }
+  const { data: tk } = await db
+    .from("email_log")
+    .select("user_id,sent_at")
+    .eq("kind", "takeover")
+    .is("error", null)
+    .gte("sent_at", since7d)
+    .limit(1000);
+  const takeoverEmails = (tk ?? []) as { user_id: string | null; sent_at: string }[];
+  const takeoverEmails7d = takeoverEmails.length;
+  let winbacks7d = 0;
+  if (takeoverEmails7d > 0) {
+    const ids = [...new Set(takeoverEmails.map((t) => t.user_id).filter(Boolean))] as string[];
+    const { data: acted } = await db.from("player_stats").select("user_id,last_action_at").in("user_id", ids);
+    const lastAct = new Map((acted ?? []).map((p) => [(p as { user_id: string }).user_id, (p as { last_action_at: string | null }).last_action_at]));
+    for (const t of takeoverEmails) {
+      const la = t.user_id ? lastAct.get(t.user_id) : null;
+      if (la && la > t.sent_at && new Date(la).getTime() - new Date(t.sent_at).getTime() <= 48 * H) winbacks7d++;
+    }
+  }
   const { data: ps } = await db.from("player_stats").select("spent_cents,last_action_at");
   const stats = (ps ?? []) as { spent_cents: number | null; last_action_at: string | null }[];
   const players = stats.length;
@@ -154,7 +199,24 @@ export async function intelBrief(db: Db): Promise<IntelBrief> {
   const brief: IntelBrief = {
     at: new Date(now).toISOString(),
     board: { red, blue, redPct, bluePct: 100 - redPct, flips24h, toRed24h, toBlue24h, hot },
-    funnel: { waitlistTotal, waitlist24h, waitlist7d, players, active24h, paidFlips7d, spentTotalCents, emails7d, emailClicks7d },
+    funnel: {
+      waitlistTotal,
+      waitlist24h,
+      waitlist7d,
+      players,
+      active24h,
+      paidFlips7d,
+      spentTotalCents,
+      emails7d,
+      emailClicks7d,
+      signups24h,
+      signups7d,
+      purchases24h,
+      purchases7d,
+      revenue7dCents,
+      takeoverEmails7d,
+      winbacks7d,
+    },
     social: { posted: posted.length, queued, byAngle, top },
     text: "",
   };
@@ -170,7 +232,10 @@ function renderBrief(b: IntelBrief): string {
     `BOARD: RED ${board.red} tiles (${board.redPct}%) vs BLUE ${board.blue} (${board.bluePct}%) on a 15×15 grid — ${lead}.` +
       ` Last 24h: ${board.flips24h} flips (${board.toRed24h} to Red, ${board.toBlue24h} to Blue).` +
       (board.hot.length ? ` Hottest cells this week: ${board.hot.map((h) => `${h.x},${h.y} (${h.flips} flips)`).join(", ")}.` : " No contested cells this week yet."),
-    `FUNNEL: waitlist ${funnel.waitlistTotal} total (+${funnel.waitlist24h} today, +${funnel.waitlist7d} this week). Players ${funnel.players} (${funnel.active24h} active today). Paid flips this week: ${funnel.paidFlips7d}. Total spent by players: $${(funnel.spentTotalCents / 100).toFixed(2)}. Email dispatches this week: ${funnel.emails7d} sent, ${funnel.emailClicks7d} clicked through.`,
+    `FUNNEL: waitlist ${funnel.waitlistTotal} total (+${funnel.waitlist24h} today, +${funnel.waitlist7d} this week). Players ${funnel.players} (${funnel.active24h} active today). Paid flips this week: ${funnel.paidFlips7d}. Total spent by players: $${(funnel.spentTotalCents / 100).toFixed(2)}.`,
+    `SIGNUPS: +${funnel.signups24h} today, +${funnel.signups7d} this week. PURCHASES: ${funnel.purchases24h} today, ${funnel.purchases7d} this week ($${(funnel.revenue7dCents / 100).toFixed(2)}).`,
+    `EMAIL: ${funnel.emails7d} dispatches this week, ${funnel.emailClicks7d} clicked. Takeover alerts: ${funnel.takeoverEmails7d} sent, ${funnel.winbacks7d} brought the player back within 48h` +
+      (funnel.takeoverEmails7d ? ` (${Math.round((100 * funnel.winbacks7d) / funnel.takeoverEmails7d)}% win-back rate).` : "."),
     social.posted === 0
       ? `SOCIAL: nothing has been posted yet (${social.queued} queued). No performance data — this is day zero.`
       : `SOCIAL: ${social.posted} posted, ${social.queued} queued. ` +
