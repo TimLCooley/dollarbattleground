@@ -12,7 +12,7 @@ import {
 // branded overlay (network bug, headline, live score, CTA). Several `variant`
 // styles so the feed has variety. Prop-driven — one per game event.
 
-export type ClipVariant = "lower" | "breaking" | "score" | "field";
+export type ClipVariant = "lower" | "breaking" | "score" | "field" | "plain";
 
 export type SocialClipProps = {
   network: string; // "RED TEAM NEWS"
@@ -86,7 +86,40 @@ function Score({ red, blue, big }: { red: number; blue: number; big?: boolean })
   );
 }
 
+// The Developer's clips: no news dressing at all — just the person talking,
+// with the site at the top.
+const PlainClip = (props: SocialClipProps) => {
+  const frame = useCurrentFrame();
+  const { fps } = useVideoConfig();
+  const drop = spring({ frame: frame - 4, fps, config: { damping: 200 } });
+  return (
+    <AbsoluteFill style={{ background: "#0a0f1e" }}>
+      <OffthreadVideo src={staticFile(props.anchorSrc)} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+      <AbsoluteFill style={{ background: "linear-gradient(to bottom, rgba(0,0,0,.5) 0%, transparent 26%)" }} />
+      <div
+        style={{
+          position: "absolute",
+          top: 44,
+          left: 0,
+          right: 0,
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          gap: 10,
+          opacity: drop,
+          transform: `translateY(${interpolate(drop, [0, 1], [-24, 0])}px)`,
+        }}
+      >
+        <div style={{ color: "#fff", fontWeight: 800, fontSize: 30, letterSpacing: 0.6, textShadow: "0 2px 8px rgba(0,0,0,.8)" }}>
+          {props.url}
+        </div>
+      </div>
+    </AbsoluteFill>
+  );
+};
+
 export const SocialClip = (props: SocialClipProps) => {
+  if (props.variant === "plain") return <PlainClip {...props} />;
   const frame = useCurrentFrame();
   const { fps, height } = useVideoConfig();
   const letter = props.network.charAt(0);
@@ -203,7 +236,7 @@ export const SocialClip = (props: SocialClipProps) => {
 
         {/* reporter name tag */}
         <div style={{ color: "#fff", fontSize: 15, fontWeight: 700, opacity: 0.9, marginBottom: 6, textShadow: "0 2px 6px rgba(0,0,0,.7)" }}>
-          {props.reporterName} · {props.role === "field" ? "ON THE FRONT" : props.role === "founder" ? "BUILT THIS" : "AT THE DESK"}
+          {props.reporterName} · {props.role === "field" ? "ON THE FRONT" : props.role === "founder" ? "THE DEVELOPER" : "AT THE DESK"}
         </div>
 
         <div

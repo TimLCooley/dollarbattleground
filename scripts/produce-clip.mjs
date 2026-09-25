@@ -152,19 +152,63 @@ async function produce({ faction, kind, target = null }) {
     const act = await fetch(`${SB}/rest/v1/activity?kind=in.(player_new,waitlist_new)&select=id`, { headers: sbh }).then((r) => r.json());
     recruits = Array.isArray(act) ? act.length : 0;
   } catch {}
-  const FOUNDER_TOPICS = ["why I built it", "what it actually is (one map, two sides, one winner)", "launch countdown — the gates open when the timer hits zero", "how it's going right now (the map, who's leading, how many have enlisted)", "behind the scenes — I built two rival AI news desks that cover the war", "a question for the viewer (which side would you pick, and why)", "something that surprised me building it", "a day-in-the-life of running a live game"];
+  // THE DEVELOPER — the real person building it in public, outside the
+  // fiction, allowed to break the fourth wall. The AI characters make the
+  // theater; the Developer shows how the theater is being built. Everything
+  // he references must be real: recent commits + the activity ledger.
+  const DEV_THEMES = [
+    "WHAT I JUST BUILT — a feature, mechanic, experiment or fix from the recent work",
+    "WHAT YOU PEOPLE ARE DOING — react to real player behavior from the last day",
+    "THINGS I DID NOT EXPECT — something surprising in how the game or the players behave",
+    "BUILDING IN PUBLIC — why something was built or what's being tested, honestly",
+    "EXPERIMENTS — ask viewers to help decide if a feature is brilliant or stupid",
+    "NEUTRAL PROVOCATION — tease Red or Blue (or both) about the state of the map, without picking a side",
+  ];
+  const DEV_OPENINGS = [
+    "Okay, I need to show you what happened to the game overnight.",
+    "I added one feature yesterday and immediately regretted giving it to you.",
+    "Apparently I underestimated how much people hate seeing the wrong color on a screen.",
+    "I need help deciding whether this feature is brilliant or completely stupid.",
+    "Red, I don't know what happened today. Blue, enjoy this while it lasts.",
+    "Hey guys, I've been working on this weird game and something happened today that I did not expect.",
+    "When I built this, I thought people would do one thing. You are absolutely not doing that.",
+  ];
   let sys, user;
   if (founder) {
+    // Real material only.
+    let built = [];
+    try {
+      built = execSync('git log --since="3 days ago" --no-merges --pretty=%s', { encoding: "utf8" })
+        .split("\n").map((l) => l.trim()).filter((l) => l && !/^(Merge|chore|typo)/i.test(l)).slice(0, 8);
+    } catch {}
+    const since24 = new Date(Date.now() - 24 * 3600_000).toISOString();
+    const act = await fetch(`${SB}/rest/v1/activity?created_at=gte.${since24}&select=kind,faction,summary,created_at&order=created_at.desc&limit=300`, { headers: sbh }).then((r) => r.json()).catch(() => []);
+    const rows = Array.isArray(act) ? act : [];
+    const n = (k) => rows.filter((r) => r.kind === k).length;
+    const takeovers = rows.filter((r) => r.kind === "takeover");
+    const byside = { red: takeovers.filter((r) => r.faction === "red").length, blue: takeovers.filter((r) => r.faction === "blue").length };
+    const latest = takeovers.slice(0, 3).map((r) => r.summary).filter(Boolean);
+    const material = [
+      built.length ? `BUILT RECENTLY (commit notes, translate to plain talk, never say "commit"): ${built.map((b) => `"${b.split("\n")[0]}"`).join("; ")}` : "BUILT RECENTLY: nothing new shipped in the last 3 days",
+      `LAST 24 HOURS: ${n("player_new") + n("waitlist_new")} enlisted; ${takeovers.length} positions changed hands (Red took ${byside.red}, Blue took ${byside.blue})${latest.length ? `; latest: ${latest.join(" / ")}` : ""}`,
+      `THE MAP NOW: RED ${redPct}% / BLUE ${bluePct}% (${lead}); ${recruits} enlisted in total; ${daysLeft != null ? `${daysLeft} days until the gates open` : "gates open date not set"}`,
+    ];
     const prevTopics = await fetch(`${SB}/rest/v1/agent_posts?faction=eq.founder&select=video_spec&order=created_at.desc&limit=4`, { headers: sbh }).then((r) => r.json()).catch(() => []);
     const used = new Set((prevTopics ?? []).map((p) => p.video_spec?.topic).filter(Boolean));
-    const fresh = FOUNDER_TOPICS.filter((t) => !used.has(t));
-    const topic = (fresh.length ? fresh : FOUNDER_TOPICS)[Math.floor(Math.random() * (fresh.length ? fresh.length : FOUNDER_TOPICS.length))];
+    const freshT = DEV_THEMES.filter((t) => !used.has(t));
+    const pool = freshT.length ? freshT : DEV_THEMES;
+    const topic = pool[Math.floor(Math.random() * pool.length)];
     plan_topic = topic;
-    sys = `You are Tim Cooley, the person who built Dollar Battleground — a live territory war, Red vs Blue, one map, one side wins; site dollarbattleground.com. You talk to camera on TikTok as yourself: warm, curious, a builder showing people the thing he made. NEUTRAL — you never pick a side or root for one. It's a game; no real politics, no real-world harm.`;
-    user = `Write today's short TikTok to camera. Topic: ${topic}.
-Facts you may use (use what fits, don't recite): the map right now is RED ${redPct}% / BLUE ${bluePct}% (${lead}); ${daysLeft != null ? `${daysLeft} days until the gates open;` : ""} ${recruits} people have enlisted so far; two AI news desks (Red Team News and Blue Team News) cover the war daily; the first position is free.
-RULES: hook in the first five words (a question, a confession, or a number). First person, plain talk, one idea. NEVER money, buying, prices, spending, revenue, "$", "cheap", "sale" — not even jokingly. The only ask is soft: "check it out" / "link in bio" / "pick a side and see" / "dollarbattleground.com". ${HOUSE}
-Respond ONLY JSON: {"headline":"<UPPERCASE, <=6 words, the on-screen title>","spoken":"<30-45 words to camera, natural, ends with a soft check-it-out>","caption":"<TikTok caption: the hook line, one sentence more, then dollarbattleground.com and 3-5 hashtags on the last line; <=300 chars>","angle":"founder","locator":"FOUNDER'S LOG"}`;
+    sys = `You are THE DEVELOPER: Tim Cooley, the real person building Dollar Battleground in public (a live territory war, Red vs Blue, one map, one side wins; dollarbattleground.com). You are OUTSIDE the fiction and can break the fourth wall — the Red/Blue commanders, field reporters and news desks are characters; you're the one building the stage.
+PERSONALITY: curious, excited, slightly amused, transparent, builder-focused. Not a salesman, not a commander, not a polished spokesperson. Core attitude: "this probably shouldn't matter this much to you, but apparently it does." You know it's a strange little internet war and you enjoy watching people get emotionally invested; you never pretend it's more important than it is. Everyone else treats the battle like the fate of civilization — you find the contrast funny.
+VOICE: talk like a real person to a phone camera. Not scripted, not corporate, no announcer language, no CEO energy. Don't oversell. Be genuinely excited about building it, amused by how seriously players take it, honest when something is experimental or behaved differently than expected. NEUTRAL between Red and Blue — you may lightly provoke either side. The characters create the drama; you explain and react to it.
+HARD RULES: never invent statistics, events or features — use only the real material you're given, and if today's theme has no real material, bend toward the theme that does. NEVER mention money, buying, prices, spending, revenue, "$", "a dollar", "cheap", "free" as a price — not even as a joke. The only ask is soft: "check it out", "link in bio", "pick a side and see". No hashtags in what you say. It's a game; no real politics.`;
+    user = `Today's theme: ${topic}.
+REAL MATERIAL (the only facts you may use):
+- ${material.join("\n- ")}
+Openings you can riff on (don't copy one verbatim every time): ${DEV_OPENINGS.map((o) => `"${o}"`).join(" | ")}
+Write today's TikTok to camera: 35-55 words, one idea, hook in the first five words. Sound like you're actually talking — contractions, short sentences, an aside is fine, no headline-speak, no "welcome to". End on a soft check-it-out or a question to the viewer. The "headline" field is unused for you — keep it short. ${notes ? `\nCOMMANDER'S STANDING FEEDBACK (outranks everything): ${notes}` : ""}
+Respond ONLY JSON: {"headline":"<UPPERCASE on-screen title, <=6 words>","spoken":"<what you say>","caption":"<TikTok caption: your hook line, one more sentence, then dollarbattleground.com and 3-5 hashtags on the last line; <=300 chars>","angle":"founder","locator":"DEV LOG"}`;
   } else if (kind === "recruit") {
     sys = `You are ${who.name}, the ${SIDE} team's anchor at the ${team.network} desk on Dollar Battleground (a live territory war, Red vs Blue; site dollarbattleground.com). Composed, direct, on camera. It's a GAME — no real-world harm, no real politics.`;
     user = `Write a RECRUITING SPOT for ${Side}, delivered straight to camera. This is an ad: clear offer, real urgency, call to action. Every spot is an experiment — vary the hook and the wording; don't sound like the last one.
@@ -199,6 +243,7 @@ Respond ONLY JSON: {"headline":"<UPPERCASE, <=6 words>","spoken":"<what you say 
     if (!p.spoken || !p.headline || !p.caption) bad.push("missing fields");
     if (/\$\s?\d|\d+\s?(dollars?|bucks)\b/i.test(`${p.spoken} ${p.caption}`)) bad.push("mentions a price");
     if (/\bflip/i.test(`${p.spoken} ${p.caption}`)) bad.push('says "flip"');
+    if (founder && /\b(buy|bought|purchase|pay|paid|price|cost|spend|spent|revenue|cheap|dollar|money)\b/i.test(`${p.spoken} ${p.caption}`)) bad.push("developer mentions money");
     if (/\b\d{1,2},\d{1,2}\b/.test(`${p.spoken} ${p.caption} ${p.locator}`)) bad.push("grid coordinates");
     if (/#\w+/.test(p.caption ?? "")) bad.push("hashtag");
     if (bad.length) { console.log(`script rejected (${bad.join(", ")}) — retrying`); continue; }
@@ -254,12 +299,18 @@ Respond ONLY JSON: {"headline":"<UPPERCASE, <=6 words>","spoken":"<what you say 
   await mkdir("public/_wr", { recursive: true });
   await writeFile("public/_wr/clip.mp4", Buffer.from(await (await fetch(url)).arrayBuffer()));
 
-  // Composite the broadcast (Remotion).
+  // Composite the broadcast (Remotion) — sized to the actual clip so nothing
+  // gets cut off (the Developer talks longer than the anchors).
+  let clipSeconds = 12;
+  try {
+    const d = parseFloat(execSync("ffprobe -v error -show_entries format=duration -of csv=p=0 public/_wr/clip.mp4", { encoding: "utf8" }).trim());
+    if (d > 0) clipSeconds = Math.min(60, Math.ceil(d + 0.3));
+  } catch { clipSeconds = Math.min(60, Math.ceil(plan.spoken.split(/\s+/).length / 2.4) + 1); }
   const props = {
     network: team.network, accent: team.accent, anchorSrc: "_wr/clip.mp4", reporterName: who.name,
     role: founder ? "founder" : kind === "recruit" ? "anchor" : "field", headline: plan.headline, redPct, bluePct,
-    locator: plan.locator || (founder ? "FOUNDER'S LOG" : kind === "recruit" ? "RECRUITING" : "THE CENTER"), url: "dollarbattleground.com",
-    variant: founder ? "lower" : kind === "recruit" ? "breaking" : "field", seconds: 12,
+    locator: plan.locator || (founder ? "DEV LOG" : kind === "recruit" ? "RECRUITING" : "THE CENTER"), url: "dollarbattleground.com",
+    variant: founder ? "plain" : kind === "recruit" ? "breaking" : "field", seconds: clipSeconds,
   };
   await writeFile("/tmp/clip-props.json", JSON.stringify(props));
   execSync("npx remotion render src/remotion/index.ts SocialClip /tmp/social-clip.mp4 --props=/tmp/clip-props.json --concurrency=1", { stdio: "inherit" });
@@ -291,7 +342,7 @@ Respond ONLY JSON: {"headline":"<UPPERCASE, <=6 words>","spoken":"<what you say 
       body: JSON.stringify(founder ? {
         agent: "founder", faction: "founder", status: "queued", format: "video", angle: "founder",
         network: "tiktok", x_account: null, video_kind: "social_clip", media_url: mediaUrl, copy: plan.caption,
-        reason: `[theme:founder] Founder's log — ${plan_topic} (look ${look.slice(0, 6)})`,
+        reason: `[theme:developer] The Developer — ${plan_topic.split(" — ")[0]} (look ${look.slice(0, 6)})`,
         scheduled_for: new Date(Date.now() + reviewMin * 60_000).toISOString(), video_spec: spec,
       } : {
         agent: `${faction}_recruiter`, faction, status: "queued", format: "video", angle: kind === "recruit" ? "recruit" : (plan.angle || "update"),
