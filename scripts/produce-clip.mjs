@@ -264,6 +264,23 @@ Respond ONLY JSON: {"headline":"<UPPERCASE, <=6 words>","spoken":"<what you say 
 
 // ── entry ───────────────────────────────────────────────────────────────────
 const mode = process.argv[2];
+if (mode === "cast") {
+  // Print the HeyGen roster (photo-avatar groups, their looks, custom voices)
+  // so new correspondents can be wired into CAST without touching the console.
+  const H = { "x-api-key": HG };
+  const groups = await fetch("https://api.heygen.com/v2/avatar_group.list?include_public=false", { headers: H }).then((r) => r.json());
+  for (const g of groups.data?.avatar_group_list ?? []) {
+    console.log(`GROUP ${g.name} (${g.group_type}, ${g.num_looks} looks, ${g.train_status ?? "-"}) id=${g.id}`);
+    const looks = await fetch(`https://api.heygen.com/v2/avatar_group/${g.id}/avatars`, { headers: H }).then((r) => r.json());
+    for (const l of looks.data?.avatar_list ?? []) console.log(`   LOOK ${l.name ?? "-"} id=${l.id} status=${l.status ?? "-"}`);
+  }
+  const voices = await fetch("https://api.heygen.com/v2/voices", { headers: H }).then((r) => r.json());
+  const all = voices.data?.voices ?? [];
+  const mine = all.filter((v) => /tim|cooley|clone|custom|my /i.test(`${v.name} ${v.tags ?? ""}`));
+  console.log(`VOICES total=${all.length}; likely custom:`);
+  for (const v of mine.slice(0, 30)) console.log(`   VOICE ${v.name} id=${v.voice_id} lang=${v.language} gender=${v.gender}`);
+  process.exit(0);
+}
 if (mode === "due") {
   // Rendering costs money: when the autopilot is OFF nothing will post, so
   // don't render placeholders either.
