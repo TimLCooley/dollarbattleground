@@ -8,6 +8,7 @@ import { intelBrief } from "@/lib/intel";
 import { getCommanderNotes, getOrders, planOrders } from "@/lib/general";
 import { runDispatches } from "@/lib/dispatch";
 import { openGatesIfDue } from "@/lib/gate";
+import { crosspostToTikTok, getCrosspost } from "@/lib/robinreach";
 
 export type { Db };
 
@@ -324,6 +325,20 @@ export async function publishPost(db: Db, id: number): Promise<{ id: string; vid
       last_error: replyId || !hasLink ? null : "posted, but the link reply failed",
     })
     .eq("id", id);
+
+  // The clip also goes to the founder's TikTok (RobinReach) when that switch
+  // is on. Never blocks the X post — a failure is recorded on the card.
+  if (produced && mediaUrl) {
+    try {
+      const cp = await getCrosspost(db);
+      if (cp.tiktok) {
+        const r = await crosspostToTikTok(db, { id: p.id, faction: f, copy: text, media_url: mediaUrl });
+        if (!r.ok) console.error(`tiktok crosspost failed for #${p.id}:`, r.error);
+      }
+    } catch (e) {
+      console.error(`tiktok crosspost threw for #${p.id}:`, e instanceof Error ? e.message : e);
+    }
+  }
   return { id: tweet.id, video: !!produced, replyId };
 }
 

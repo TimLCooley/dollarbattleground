@@ -214,3 +214,45 @@ export function GateButton() {
     </button>
   );
 }
+
+// TikTok cross-post switch: every clip that posts to X also goes to the
+// founder's TikTok through RobinReach (captioned "I built this").
+export function TikTokButton() {
+  const [cfg, setCfg] = useState<{ tiktok: boolean; configured: boolean } | null>(null);
+  const [busy, setBusy] = useState(false);
+  useEffect(() => {
+    fetch("/api/admin/crosspost")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((c) => c && setCfg(c))
+      .catch(() => {});
+  }, []);
+  async function flip() {
+    if (!cfg) return;
+    if (!cfg.configured) {
+      window.alert("ROBINREACH_API_KEY isn't set on Vercel.");
+      return;
+    }
+    setBusy(true);
+    try {
+      const r = await fetch("/api/admin/crosspost", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "set", tiktok: !cfg.tiktok }),
+      });
+      if (r.ok) setCfg(await r.json());
+    } finally {
+      setBusy(false);
+    }
+  }
+  if (!cfg) return null;
+  return (
+    <button
+      className={"cc-btn sm" + (cfg.tiktok ? "" : " ghost")}
+      disabled={busy}
+      onClick={flip}
+      title="Every posted clip also goes to your TikTok via RobinReach"
+    >
+      {cfg.tiktok ? "📱 TIKTOK ON" : "📱 TIKTOK OFF"}
+    </button>
+  );
+}
