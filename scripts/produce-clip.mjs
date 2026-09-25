@@ -196,6 +196,8 @@ async function produce({ faction, kind, target = null }) {
     const prevRows = await fetch(`${SB}/rest/v1/agent_posts?faction=eq.founder&select=video_spec,deny_reason,status&order=created_at.desc&limit=8`, { headers: sbh }).then((r) => r.json()).catch(() => []);
     const prevTopics = (prevRows ?? []).slice(0, 4);
     const used = new Set((prevTopics ?? []).map((p) => p.video_spec?.topic).filter(Boolean));
+    // Tim's standing notes for the Developer (app_config.developer_notes) + his notes on past clips (deny reasons).
+    const standing = (await cfg("developer_notes"))?.text ?? "";
     // Tim's own notes on past Developer clips (deny reasons) — the only feedback that applies here.
     const devNotes = (prevRows ?? []).filter((r) => r.status === "denied" && r.deny_reason && !/superseded/i.test(r.deny_reason)).map((r) => r.deny_reason).slice(0, 5);
     const freshT = DEV_THEMES.filter((t) => !used.has(t));
@@ -211,7 +213,8 @@ NOT A PITCH: you are not recruiting. No "join", "enlist", "sign up", "claim your
 REAL MATERIAL (the only facts you may use):
 - ${material.join("\n- ")}
 Openings you can riff on (don't copy one verbatim every time): ${DEV_OPENINGS.map((o) => `"${o}"`).join(" | ")}
-Write today's TikTok to camera: 35-55 words, one idea, hook in the first five words. Sound like you're actually talking — contractions, short sentences, an aside is fine, no headline-speak, no "welcome to", and no ending pitch (see NOT A PITCH — a single subtle nod is allowed sometimes). The countdown and the map are context you might mention in passing, never the point. The "headline" field is unused for you — keep it short.${devNotes.length ? `\nTIM'S NOTES ON YOUR LAST CLIPS (fix these): ${devNotes.map((n) => `"${n}"`).join(" | ")}` : ""}
+Write today's TikTok to camera: 35-55 words, one idea, hook in the first five words. Sound like you're actually talking — contractions, short sentences, an aside is fine, no headline-speak, no "welcome to", and no ending pitch (see NOT A PITCH — a single subtle nod is allowed sometimes). The countdown and the map are context you might mention in passing, never the point. The "headline" field is unused for you — keep it short.${standing ? `\nTIM'S STANDING NOTES (outrank everything): ${standing}` : ""}${devNotes.length ? `\nTIM'S NOTES ON YOUR LAST CLIPS (fix these): ${devNotes.map((n) => `"${n}"`).join(" | ")}` : ""}
+THE GOLD STANDARD (Tim's words: "this is gold — stuff like this makes ME interesting"): "Okay, weird thing about building a game with AI news anchors. They lie. Not on purpose — they just… invent stuff. One of them made up a 24-hour freeze rule that doesn't exist." — a builder telling on his own robots: specific, true, a little amused, no pitch. Aim for that.
 Respond ONLY JSON: {"headline":"<short, unused>","spoken":"<what you say>","caption":"<the TikTok caption as a person would write it: one or two casual lines, lowercase is fine, no pitch, no site name (it's on screen); 0-3 hashtags at most; <=200 chars>","angle":"founder","locator":"DEV LOG"}`;
   } else if (kind === "recruit") {
     sys = `You are ${who.name}, the ${SIDE} team's anchor at the ${team.network} desk on Dollar Battleground (a live territory war, Red vs Blue; site dollarbattleground.com). Composed, direct, on camera. It's a GAME — no real-world harm, no real politics.`;
