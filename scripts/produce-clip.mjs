@@ -193,8 +193,11 @@ async function produce({ faction, kind, target = null }) {
       `LAST 24 HOURS: ${n("player_new") + n("waitlist_new")} enlisted; ${takeovers.length} positions changed hands (Red took ${byside.red}, Blue took ${byside.blue})${latest.length ? `; latest: ${latest.join(" / ")}` : ""}`,
       `THE MAP NOW: RED ${redPct}% / BLUE ${bluePct}% (${lead}); ${recruits} enlisted in total; ${daysLeft != null ? `${daysLeft} days until the gates open` : "gates open date not set"}`,
     ];
-    const prevTopics = await fetch(`${SB}/rest/v1/agent_posts?faction=eq.founder&select=video_spec&order=created_at.desc&limit=4`, { headers: sbh }).then((r) => r.json()).catch(() => []);
+    const prevRows = await fetch(`${SB}/rest/v1/agent_posts?faction=eq.founder&select=video_spec,deny_reason,status&order=created_at.desc&limit=8`, { headers: sbh }).then((r) => r.json()).catch(() => []);
+    const prevTopics = (prevRows ?? []).slice(0, 4);
     const used = new Set((prevTopics ?? []).map((p) => p.video_spec?.topic).filter(Boolean));
+    // Tim's own notes on past Developer clips (deny reasons) — the only feedback that applies here.
+    const devNotes = (prevRows ?? []).filter((r) => r.status === "denied" && r.deny_reason && !/superseded/i.test(r.deny_reason)).map((r) => r.deny_reason).slice(0, 5);
     const freshT = DEV_THEMES.filter((t) => !used.has(t));
     const pool = freshT.length ? freshT : DEV_THEMES;
     const topic = pool[Math.floor(Math.random() * pool.length)];
@@ -202,13 +205,14 @@ async function produce({ faction, kind, target = null }) {
     sys = `You are THE DEVELOPER: Tim Cooley, the real person building Dollar Battleground in public (a live territory war, Red vs Blue, one map, one side wins; dollarbattleground.com). You are OUTSIDE the fiction and can break the fourth wall — the Red/Blue commanders, field reporters and news desks are characters; you're the one building the stage.
 PERSONALITY: curious, excited, slightly amused, transparent, builder-focused. Not a salesman, not a commander, not a polished spokesperson. Core attitude: "this probably shouldn't matter this much to you, but apparently it does." You know it's a strange little internet war and you enjoy watching people get emotionally invested; you never pretend it's more important than it is. Everyone else treats the battle like the fate of civilization — you find the contrast funny.
 VOICE: talk like a real person to a phone camera. Not scripted, not corporate, no announcer language, no CEO energy. Don't oversell. Be genuinely excited about building it, amused by how seriously players take it, honest when something is experimental or behaved differently than expected. NEUTRAL between Red and Blue — you may lightly provoke either side. The characters create the drama; you explain and react to it.
-HARD RULES: never invent statistics, events or features — use only the real material you're given, and if today's theme has no real material, bend toward the theme that does. NEVER mention money, buying, prices, spending, revenue, "$", "a dollar", "cheap", "free" as a price — not even as a joke. The only ask is soft: "check it out", "link in bio", "pick a side and see". No hashtags in what you say. It's a game; no real politics.`;
+HARD RULES: never invent statistics, events or features — use only the real material you're given, and if today's theme has no real material, bend toward the theme that does. NEVER mention money, buying, prices, spending, revenue, "$", "a dollar", "cheap", "free" — not even as a joke.
+NOT A PITCH: you are not recruiting and you never ask for anything. No "join", "enlist", "sign up", "claim", "pick your side", "founding class", "days left to…", "check it out", "link in bio", "don't miss", "you wanna be the one…". The site's name is already on screen; you never say it or point at it. You end the way a person ends a thought — a shrug, a laugh, a "we'll see", a genuine question you're actually curious about — not a call to action. If a sentence would fit in an ad, cut it. No hashtags in what you say. It's a game; no real politics.`;
     user = `Today's theme: ${topic}.
 REAL MATERIAL (the only facts you may use):
 - ${material.join("\n- ")}
 Openings you can riff on (don't copy one verbatim every time): ${DEV_OPENINGS.map((o) => `"${o}"`).join(" | ")}
-Write today's TikTok to camera: 35-55 words, one idea, hook in the first five words. Sound like you're actually talking — contractions, short sentences, an aside is fine, no headline-speak, no "welcome to". End on a soft check-it-out or a question to the viewer. The "headline" field is unused for you — keep it short. ${notes ? `\nCOMMANDER'S STANDING FEEDBACK (outranks everything): ${notes}` : ""}
-Respond ONLY JSON: {"headline":"<UPPERCASE on-screen title, <=6 words>","spoken":"<what you say>","caption":"<TikTok caption: your hook line, one more sentence, then dollarbattleground.com and 3-5 hashtags on the last line; <=300 chars>","angle":"founder","locator":"DEV LOG"}`;
+Write today's TikTok to camera: 35-55 words, one idea, hook in the first five words. Sound like you're actually talking — contractions, short sentences, an aside is fine, no headline-speak, no "welcome to", and NO ending pitch (see NOT A PITCH). The countdown and the map are context you might mention in passing, never the point. The "headline" field is unused for you — keep it short.${devNotes.length ? `\nTIM'S NOTES ON YOUR LAST CLIPS (fix these): ${devNotes.map((n) => `"${n}"`).join(" | ")}` : ""}
+Respond ONLY JSON: {"headline":"<short, unused>","spoken":"<what you say>","caption":"<the TikTok caption as a person would write it: one or two casual lines, lowercase is fine, no pitch, no site name (it's on screen); 0-3 hashtags at most; <=200 chars>","angle":"founder","locator":"DEV LOG"}`;
   } else if (kind === "recruit") {
     sys = `You are ${who.name}, the ${SIDE} team's anchor at the ${team.network} desk on Dollar Battleground (a live territory war, Red vs Blue; site dollarbattleground.com). Composed, direct, on camera. It's a GAME — no real-world harm, no real politics.`;
     user = `Write a RECRUITING SPOT for ${Side}, delivered straight to camera. This is an ad: clear offer, real urgency, call to action. Every spot is an experiment — vary the hook and the wording; don't sound like the last one.
@@ -244,6 +248,7 @@ Respond ONLY JSON: {"headline":"<UPPERCASE, <=6 words>","spoken":"<what you say 
     if (/\$\s?\d|\d+\s?(dollars?|bucks)\b/i.test(`${p.spoken} ${p.caption}`)) bad.push("mentions a price");
     if (/\bflip/i.test(`${p.spoken} ${p.caption}`)) bad.push('says "flip"');
     if (founder && /\b(buy|bought|purchase|pay|paid|price|cost|spend|spent|revenue|cheap|dollars?|money|free)\b/i.test(`${p.spoken} ${p.caption}`)) bad.push("developer mentions money");
+    if (founder && /founding class|\benlist|\brecruit|sign up|claim your|pick (your|a) side|link in (the )?bio|check it out|don'?t miss|last chance|wanna be the one|join (red|blue|us|now|the)|days left to|dollarbattleground\.com/i.test(`${p.spoken} ${p.caption}`)) bad.push("developer sounds like an ad");
     if (/\b\d{1,2},\d{1,2}\b/.test(`${p.spoken} ${p.caption} ${p.locator}`)) bad.push("grid coordinates");
     if (!founder && /#\w+/.test(p.caption ?? "")) bad.push("hashtag"); // X rule; TikTok captions want them
     if (founder && /#\w+/.test(p.spoken ?? "")) bad.push("hashtag spoken aloud");
