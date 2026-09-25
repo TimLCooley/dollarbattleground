@@ -95,22 +95,30 @@ const PlainClip = (props: SocialClipProps) => {
   return (
     <AbsoluteFill style={{ background: "#0a0f1e" }}>
       <OffthreadVideo src={staticFile(props.anchorSrc)} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-      <AbsoluteFill style={{ background: "linear-gradient(to bottom, rgba(0,0,0,.5) 0%, transparent 26%)" }} />
+      {/* Feeds cover the top ~12% (search bar) and the right rail, so the
+          site name sits upper-left, below the search bar, clear of the icons. */}
       <div
         style={{
           position: "absolute",
-          top: 44,
-          left: 0,
-          right: 0,
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "center",
-          gap: 10,
+          top: 200,
+          left: 28,
           opacity: drop,
-          transform: `translateY(${interpolate(drop, [0, 1], [-24, 0])}px)`,
+          transform: `translateX(${interpolate(drop, [0, 1], [-24, 0])}px)`,
         }}
       >
-        <div style={{ color: "#fff", fontWeight: 800, fontSize: 30, letterSpacing: 0.6, textShadow: "0 2px 8px rgba(0,0,0,.8)" }}>
+        <div
+          style={{
+            display: "inline-block",
+            background: "rgba(10,15,30,.55)",
+            color: "#fff",
+            fontWeight: 800,
+            fontSize: 26,
+            letterSpacing: 0.5,
+            padding: "8px 14px",
+            borderRadius: 10,
+            textShadow: "0 2px 8px rgba(0,0,0,.8)",
+          }}
+        >
           {props.url}
         </div>
       </div>
