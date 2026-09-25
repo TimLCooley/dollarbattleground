@@ -19,7 +19,7 @@ export type SocialClipProps = {
   accent: string; // brand color
   anchorSrc: string; // staticFile path to the reporter clip (with audio)
   reporterName: string;
-  role: "anchor" | "field";
+  role: "anchor" | "field" | "founder";
   headline: string;
   redPct: number;
   bluePct: number;
@@ -203,7 +203,7 @@ export const SocialClip = (props: SocialClipProps) => {
 
         {/* reporter name tag */}
         <div style={{ color: "#fff", fontSize: 15, fontWeight: 700, opacity: 0.9, marginBottom: 6, textShadow: "0 2px 6px rgba(0,0,0,.7)" }}>
-          {props.reporterName} · {props.role === "field" ? "ON THE FRONT" : "AT THE DESK"}
+          {props.reporterName} · {props.role === "field" ? "ON THE FRONT" : props.role === "founder" ? "BUILT THIS" : "AT THE DESK"}
         </div>
 
         <div
