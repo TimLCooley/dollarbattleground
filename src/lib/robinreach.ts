@@ -15,7 +15,7 @@ export interface CrosspostConfig {
   tiktok_profile_id: number;
   founder_profile_ids: number[]; // where the founder's own clips go (TikTok by default)
 }
-const DEFAULTS: CrosspostConfig = { tiktok: false, brand_id: "a45588e3a3d18b3d", tiktok_profile_id: 15814, founder_profile_ids: [15814] };
+const DEFAULTS: CrosspostConfig = { tiktok: false, brand_id: "a45588e3a3d18b3d", tiktok_profile_id: 15814, founder_profile_ids: [15814, 15815, 16861, 23144] };
 
 export function isRobinReachConfigured(): boolean {
   return Boolean(KEY);
@@ -94,6 +94,8 @@ async function publishViaRobinReach(
           // X takes a ≤280 cut of the caption; Instagram publishes video as a Reel.
           twitter: { content: content.length > 280 ? content.slice(0, 277).replace(/\s+\S*$/, "") + "…" : content },
           instagram: { post_type: "reels", content },
+          // A vertical clip under a minute lands as a YouTube Short; title is required.
+          youtube: { title: title.slice(0, 100), content, privacy: "public" },
         },
       }),
     });
