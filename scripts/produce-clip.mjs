@@ -250,7 +250,7 @@ Respond ONLY JSON: {"headline":"<UPPERCASE, <=6 words>","spoken":"<what you say 
   let cost = Math.max(0, Number((wallet0 - wallet1).toFixed(4)));
   if (cost === 0) { cost = 0.2; console.log("wallet hasn't settled — booking the typical $0.20"); }
   await recordSpend(faction, cost);
-  console.log(`SPEND — this clip $${cost.toFixed(4)}; ${faction} month now $${(used.month + cost).toFixed(2)}/${budget.per_team_month_usd}; wallet $${wallet1.toFixed(2)}`);
+  console.log(`SPEND — this clip $${cost.toFixed(4)}; ${faction} month now $${(used.month + cost).toFixed(2)}/${capMonth}; wallet $${wallet1.toFixed(2)}`);
   await mkdir("public/_wr", { recursive: true });
   await writeFile("public/_wr/clip.mp4", Buffer.from(await (await fetch(url)).arrayBuffer()));
 
