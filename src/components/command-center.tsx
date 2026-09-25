@@ -517,13 +517,13 @@ export function CommandCenter() {
             <span>🎖️ COMMAND</span>
           </div>
 
-          <h3 className="cc-goals-h">🎥 FOUNDER&apos;S LOG</h3>
+          <h3 className="cc-goals-h">🎥 THE DEVELOPER</h3>
           <p className="cc-mini">
-            You, neutral, once a day (rendered ~10am Mountain, reviewed here, then to your TikTok via RobinReach). Never money — just the game, building it, how it&apos;s going.
+            You, outside the fiction, once a day (rendered ~10am Mountain, reviewed here, then to your TikTok via RobinReach). Building in public from real commits and real player activity. Never money.
           </p>
           <div className="cc-founder">
             {(posts ?? []).filter((p) => p.faction === "founder").slice(0, 4).map((p) => card(p, "founder"))}
-            {(posts ?? []).filter((p) => p.faction === "founder").length === 0 && <p className="cc-mini">No founder clip yet today.</p>}
+            {(posts ?? []).filter((p) => p.faction === "founder").length === 0 && <p className="cc-mini">No Developer clip yet today.</p>}
           </div>
 
           <h3 className="cc-goals-h">📌 COMMANDER&apos;S NOTES</h3>
