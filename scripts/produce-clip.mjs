@@ -116,9 +116,13 @@ async function produce({ faction, kind, target = null }) {
 
   // Manual mode only (a placeholder IS the plan, so these don't apply to it):
   if (founder && !process.env.FORCE) {
-    const since = `${today}T00:00:00Z`;
-    const todays = await fetch(`${SB}/rest/v1/agent_posts?faction=eq.founder&format=eq.video&status=in.(queued,posted)&created_at=gte.${since}&select=id`, { headers: sbh }).then((r) => r.json());
-    if ((todays ?? []).length) { console.log("SKIP founder — today's founder clip already exists."); return false; }
+    // "Once a day" in Tim's day (Mountain), not UTC's.
+    const mtDay = (d) => new Intl.DateTimeFormat("en-CA", { timeZone: "America/Denver", year: "numeric", month: "2-digit", day: "2-digit" }).format(d);
+    const since = new Date(Date.now() - 36 * 3600_000).toISOString();
+    const recent = await fetch(`${SB}/rest/v1/agent_posts?faction=eq.founder&format=eq.video&status=in.(queued,posted)&created_at=gte.${since}&select=id,created_at`, { headers: sbh }).then((r) => r.json());
+    const todayMT = mtDay(new Date());
+    const dup = (recent ?? []).find((r) => mtDay(new Date(r.created_at)) === todayMT);
+    if (dup) { console.log(`SKIP founder — today's (Mountain) Developer clip already exists (#${dup.id}).`); return false; }
   }
   if (!target && !founder && !process.env.FORCE) {
     if (kind === "field" && Number(orders.recruit_pct ?? 60) >= 90) {
@@ -390,19 +394,21 @@ if (mode === "due") {
   // don't render placeholders either.
   const ap = (await cfg("autopilot")) ?? {};
   if (!ap.enabled && !process.env.FORCE) { console.log("Autopilot is OFF — not rendering placeholders (FORCE=1 to override)."); process.exit(0); }
-  // Render every video placeholder whose slot is within the next 2 hours.
-  const horizon = new Date(Date.now() + 2 * 60 * 60_000).toISOString();
+  // Render every video placeholder whose slot is within the next 6 hours —
+  // GitHub's cron fires every 5-6 hours in practice, so 2 hours missed slots.
+  const horizon = new Date(Date.now() + 6 * 60 * 60_000).toISOString();
   const due = await fetch(`${SB}/rest/v1/agent_posts?format=eq.video&video_kind=eq.social_clip&status=eq.queued&media_url=is.null&scheduled_for=lte.${horizon}&select=id,faction,video_spec,reason,scheduled_for&order=scheduled_for.asc`, { headers: sbh }).then((r) => r.json());
-  if (!Array.isArray(due) || due.length === 0) { console.log("Nothing due — no video placeholders in the next 2 hours."); process.exit(0); }
+  const list = Array.isArray(due) ? due : [];
+  if (list.length === 0) console.log("Nothing due — no video placeholders in the next 6 hours.");
   const orders = (await cfg("general_orders")) ?? {};
   let made = 0;
-  for (const p of due) {
+  for (const p of list) {
     const faction = p.faction === "blue" ? "blue" : "red";
     const kind = p.video_spec?.kind === "field" ? "field" : p.video_spec?.kind === "recruit" ? "recruit" : Number(orders.recruit_pct ?? 60) >= 90 ? "recruit" : "field";
     console.log(`\n=== placeholder #${p.id} (${faction}, ${kind}, slot ${p.scheduled_for}) ===`);
     try { if (await produce({ faction, kind, target: p })) made++; } catch (e) { console.log(`placeholder #${p.id} failed:`, e?.message ?? e); }
   }
-  console.log(`\nDone — ${made}/${due.length} placeholder(s) rendered.`);
+  if (list.length) console.log(`\nDone — ${made}/${list.length} placeholder(s) rendered.`);
   // The founder's daily clip: once a day, after 16:00 UTC (10am Mountain),
   // when today's doesn't exist yet. Reviewed on /admin/agents like the rest.
   if (new Date().getUTCHours() >= 16) {
