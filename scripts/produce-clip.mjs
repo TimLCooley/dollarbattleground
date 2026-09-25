@@ -316,10 +316,23 @@ Respond ONLY JSON: {"headline":"<UPPERCASE, <=6 words>","spoken":"<what you say 
 
   // Composite the broadcast (Remotion) — sized to the actual clip so nothing
   // gets cut off (the Developer talks longer than the anchors).
+  // …and trimmed to the end of speech: HeyGen pads the clip with idle seconds
+  // after the last word, and a feed loops it, so it looks like a restart.
   let clipSeconds = 12;
   try {
     const d = parseFloat(execSync("ffprobe -v error -show_entries format=duration -of csv=p=0 public/_wr/clip.mp4", { encoding: "utf8" }).trim());
-    if (d > 0) clipSeconds = Math.min(60, Math.ceil(d + 0.3));
+    let end = d;
+    try {
+      const det = execSync("ffmpeg -v info -i public/_wr/clip.mp4 -af silencedetect=n=-35dB:d=0.6 -f null - 2>&1", { encoding: "utf8" });
+      const starts = [...det.matchAll(/silence_start: ([\d.]+)/g)].map((m) => parseFloat(m[1]));
+      const ends = [...det.matchAll(/silence_end: ([\d.]+)/g)].map((m) => parseFloat(m[1]));
+      // trailing silence = a start with no end after it (or an end at the file's end)
+      const lastStart = starts[starts.length - 1];
+      const trailing = lastStart != null && (ends.length < starts.length || d - ends[ends.length - 1] < 0.2);
+      if (trailing && d - lastStart > 1) end = lastStart;
+    } catch {}
+    if (d > 0) clipSeconds = Math.min(60, Math.max(4, Math.round((end + 0.7) * 10) / 10));
+    console.log(`CLIP ${d.toFixed(1)}s, speech ends ~${end.toFixed(1)}s → composite ${clipSeconds}s`);
   } catch { clipSeconds = Math.min(60, Math.ceil(plan.spoken.split(/\s+/).length / 2.4) + 1); }
   const props = {
     network: team.network, accent: team.accent, anchorSrc: "_wr/clip.mp4", reporterName: who.name,
