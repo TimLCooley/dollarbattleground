@@ -12,7 +12,7 @@ on:
   workflow_dispatch:
     inputs:
       mode:
-        description: "due (render placeholders) | red | blue"
+        description: "due (render placeholders) | red | blue | founder | cast (list HeyGen ids)"
         default: "due"
       kind:
         description: "for red/blue: field | recruit"
@@ -45,5 +45,8 @@ jobs:
         if: ${{ github.event_name == 'schedule' || github.event.inputs.mode == 'due' || github.event.inputs.mode == '' }}
         run: node scripts/produce-clip.mjs due
       - name: Manual clip
-        if: ${{ github.event_name == 'workflow_dispatch' && (github.event.inputs.mode == 'red' || github.event.inputs.mode == 'blue') }}
+        if: ${{ github.event_name == 'workflow_dispatch' && (github.event.inputs.mode == 'red' || github.event.inputs.mode == 'blue' || github.event.inputs.mode == 'founder') }}
         run: node scripts/produce-clip.mjs ${{ github.event.inputs.mode }} ${{ github.event.inputs.kind }}
+      - name: HeyGen roster
+        if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.mode == 'cast' }}
+        run: node scripts/produce-clip.mjs cast
