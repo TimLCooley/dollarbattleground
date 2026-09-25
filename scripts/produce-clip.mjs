@@ -275,7 +275,8 @@ Respond ONLY JSON: {"headline":"<UPPERCASE, <=6 words>","spoken":"<what you say 
   };
   if (founder) body.resolution = "1080p";
   if (body.engine.type === "avatar_iv") {
-    body.expressiveness = "medium";
+    // low = calmer mouth (less teeth) — Tim found medium a bit toothy.
+    body.expressiveness = founder ? (process.env.HEYGEN_EXPRESSIVENESS_FOUNDER || "low") : "medium";
     body.motion_prompt = founder
       ? "A founder talking to his phone camera: relaxed, natural hand gestures, small nods, a smile at the hook, leans in on the ask."
       : kind === "recruit"
