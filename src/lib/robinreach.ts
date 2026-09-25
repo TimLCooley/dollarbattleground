@@ -88,7 +88,13 @@ async function publishViaRobinReach(
         publish_time: new Date(Date.now() + 60_000).toISOString(),
         timezone: "UTC",
         labels: post.labels,
-        platform_options: { tiktok: { title, content, privacy: "PUBLIC_TO_EVERYONE", is_aigc: true } },
+        platform_options: {
+          tiktok: { title, content, privacy: "PUBLIC_TO_EVERYONE", is_aigc: true },
+          // The founder's clip can also go to his personal X and Instagram:
+          // X takes a ≤280 cut of the caption; Instagram publishes video as a Reel.
+          twitter: { content: content.length > 280 ? content.slice(0, 277).replace(/\s+\S*$/, "") + "…" : content },
+          instagram: { post_type: "reels", content },
+        },
       }),
     });
     const cj = (await created.json().catch(() => ({}))) as { post_id?: number; errors?: string[]; error?: string };
