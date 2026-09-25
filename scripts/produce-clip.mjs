@@ -116,10 +116,13 @@ async function produce({ faction, kind, target = null }) {
 
   // Manual mode only (a placeholder IS the plan, so these don't apply to it):
   if (founder && !process.env.FORCE) {
-    // "Once a day" in Tim's day, not UTC's: nothing in the last 18 hours.
-    const since = new Date(Date.now() - 18 * 3600_000).toISOString();
+    // "Once a day" in Tim's day (Mountain), not UTC's.
+    const mtDay = (d) => new Intl.DateTimeFormat("en-CA", { timeZone: "America/Denver", year: "numeric", month: "2-digit", day: "2-digit" }).format(d);
+    const since = new Date(Date.now() - 36 * 3600_000).toISOString();
     const recent = await fetch(`${SB}/rest/v1/agent_posts?faction=eq.founder&format=eq.video&status=in.(queued,posted)&created_at=gte.${since}&select=id,created_at`, { headers: sbh }).then((r) => r.json());
-    if ((recent ?? []).length) { console.log(`SKIP founder — a Developer clip was made ${recent[0].created_at} (within 18h).`); return false; }
+    const todayMT = mtDay(new Date());
+    const dup = (recent ?? []).find((r) => mtDay(new Date(r.created_at)) === todayMT);
+    if (dup) { console.log(`SKIP founder — today's (Mountain) Developer clip already exists (#${dup.id}).`); return false; }
   }
   if (!target && !founder && !process.env.FORCE) {
     if (kind === "field" && Number(orders.recruit_pct ?? 60) >= 90) {
