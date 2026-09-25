@@ -245,7 +245,8 @@ Respond ONLY JSON: {"headline":"<UPPERCASE, <=6 words>","spoken":"<what you say 
     if (/\bflip/i.test(`${p.spoken} ${p.caption}`)) bad.push('says "flip"');
     if (founder && /\b(buy|bought|purchase|pay|paid|price|cost|spend|spent|revenue|cheap|dollar|money)\b/i.test(`${p.spoken} ${p.caption}`)) bad.push("developer mentions money");
     if (/\b\d{1,2},\d{1,2}\b/.test(`${p.spoken} ${p.caption} ${p.locator}`)) bad.push("grid coordinates");
-    if (/#\w+/.test(p.caption ?? "")) bad.push("hashtag");
+    if (!founder && /#\w+/.test(p.caption ?? "")) bad.push("hashtag"); // X rule; TikTok captions want them
+    if (founder && /#\w+/.test(p.spoken ?? "")) bad.push("hashtag spoken aloud");
     if (bad.length) { console.log(`script rejected (${bad.join(", ")}) — retrying`); continue; }
     plan = p;
   }
