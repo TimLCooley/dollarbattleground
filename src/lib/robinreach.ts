@@ -13,8 +13,9 @@ export interface CrosspostConfig {
   tiktok: boolean;
   brand_id: string;
   tiktok_profile_id: number;
+  founder_profile_ids: number[]; // where the founder's own clips go (TikTok by default)
 }
-const DEFAULTS: CrosspostConfig = { tiktok: false, brand_id: "a45588e3a3d18b3d", tiktok_profile_id: 15814 };
+const DEFAULTS: CrosspostConfig = { tiktok: false, brand_id: "a45588e3a3d18b3d", tiktok_profile_id: 15814, founder_profile_ids: [15814] };
 
 export function isRobinReachConfigured(): boolean {
   return Boolean(KEY);
@@ -54,9 +55,27 @@ export async function crosspostToTikTok(
   db: Db,
   post: { id: number; faction: "red" | "blue"; copy: string; media_url: string },
 ): Promise<{ ok: boolean; postId?: number; error?: string }> {
+  const cfg = await getCrosspost(db);
+  return publishViaRobinReach(db, { ...post, profileIds: [cfg.tiktok_profile_id], labels: ["battleground", post.faction], ...tiktokCaption(post.faction, post.copy) });
+}
+
+// The founder's own clip: the caption is already written for TikTok.
+export async function publishFounderClip(
+  db: Db,
+  post: { id: number; copy: string; media_url: string },
+): Promise<{ ok: boolean; postId?: number; error?: string }> {
+  const cfg = await getCrosspost(db);
+  const title = post.copy.split("\n")[0].split(/[.!?]/)[0].slice(0, 80) || "Founder's log";
+  return publishViaRobinReach(db, { ...post, profileIds: cfg.founder_profile_ids, labels: ["battleground", "founder"], title, content: post.copy });
+}
+
+async function publishViaRobinReach(
+  db: Db,
+  post: { id: number; media_url: string; profileIds: number[]; labels: string[]; title: string; content: string },
+): Promise<{ ok: boolean; postId?: number; error?: string }> {
   if (!KEY) return { ok: false, error: "ROBINREACH_API_KEY not set" };
   const cfg = await getCrosspost(db);
-  const { title, content } = tiktokCaption(post.faction, post.copy);
+  const { title, content } = post;
   try {
     const created = await rr("/posts", {
       brand: cfg.brand_id,
@@ -64,11 +83,11 @@ export async function crosspostToTikTok(
       body: JSON.stringify({
         content,
         media_urls: [post.media_url],
-        social_profile_ids: [cfg.tiktok_profile_id],
+        social_profile_ids: post.profileIds,
         status: "draft",
         publish_time: new Date(Date.now() + 60_000).toISOString(),
         timezone: "UTC",
-        labels: ["battleground", post.faction],
+        labels: post.labels,
         platform_options: { tiktok: { title, content, privacy: "PUBLIC_TO_EVERYONE", is_aigc: true } },
       }),
     });

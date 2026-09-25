@@ -37,10 +37,17 @@ const CAST = {
     field: { name: "Skye Bennett", partner: "Sterling Wells", voice: "ad257b0545cc4892b5400e1cd8efdd9a", looks: ["3397e024eb4e48c48c45678829327ae7", "f7db61b05fa34645bc96f5c438c0580c", "d259ba87a62e46b384a32084bca8e343", "5a1559b14ce9436899b4085916aa2ac8", "5f819e65ddcf45f28c4fc6fc865c3bb2", "53cd21e322a14aa4a54d4a37193bd487"] },
     anchor: { name: "Sterling Wells", voice: "810ea13d55f045b68c75cbcbda7ce14a", looks: ["b950798aeb554ce4b9e76f77297d6e2b", "49e594f3bb794215bdad62884e4e1b40", "d92b800c58034cb69d3cfdf970e8a6ea", "1791f77c8d6b44bd87d3352aea1d1553"] },
   },
+  // The founder — neutral, first person, the person who built it. TikTok-first.
+  founder: {
+    network: "BATTLEGROUND", accent: "#f2c14e",
+    founder: { name: "Tim Cooley", voice: "415b2adc57fd486d95f15e97eeece48b", looks: ["f62df01471e54b9682d5e0549f9340bb", "e81fae5958714d76a1f6360cf8579e08", "03f23840beff43ff82f0fa5eddd7c27c", "d6ca071dca8d4d9c82ab402b0a3359ed", "436c18a5f66a47368f5b0a4212bf1162", "575f5ac4c15e4c0c90c7d4d3fd258e4a", "eb1899a3445d434b9c7639464595e718", "e00837ecb36a46bdacbb4e2675e42f93", "eaad76abaf35463a9e8275668cac9741", "b0f2ff81ed7449b7a79b5f3344fbe00e", "5dce0a109cf3428eacd0e774c9aaff84", "421533ae699947c2b854faffc7aa3a69"] },
+  },
 };
 
-const DEF_BUDGET = { per_team_daily_usd: 0.5, per_team_month_usd: 15, wallet_floor_usd: 0.25 };
+const DEF_BUDGET = { per_team_daily_usd: 0.5, per_team_month_usd: 15, wallet_floor_usd: 0.25, founder_daily_usd: 1.5, founder_month_usd: 40 };
 const ENGINE = process.env.HEYGEN_ENGINE || "avatar_iii"; // see the render step
+// The founder is a real person on camera — body language matters more there.
+const ENGINE_FOUNDER = process.env.HEYGEN_ENGINE_FOUNDER || "avatar_iv";
 const today = new Date().toISOString().slice(0, 10);
 const monthStart = today.slice(0, 8) + "01";
 
@@ -73,10 +80,11 @@ async function recordSpend(faction, usd) {
 // post is queued. Returns true if a clip was produced.
 async function produce({ faction, kind, target = null }) {
   const team = CAST[faction];
-  const who = kind === "recruit" ? team.anchor : team.field;
+  const founder = faction === "founder";
+  const who = founder ? team.founder : kind === "recruit" ? team.anchor : team.field;
   const look = who.looks[Math.floor(Math.random() * who.looks.length)];
   const SIDE = faction.toUpperCase();
-  const Side = faction === "red" ? "Red" : "Blue";
+  const Side = faction === "red" ? "Red" : faction === "blue" ? "Blue" : "Founder";
 
   // Wallet budget guard: per-team daily + monthly $ caps and a wallet floor.
   // Video only — text posts never touch this.
@@ -85,10 +93,12 @@ async function produce({ faction, kind, target = null }) {
   const used = await spentSoFar(faction);
   const blocks = [];
   if (wallet0 <= budget.wallet_floor_usd) blocks.push(`wallet $${wallet0.toFixed(2)} at/below floor $${budget.wallet_floor_usd}`);
-  if (used.day >= budget.per_team_daily_usd) blocks.push(`${faction} hit daily video cap $${budget.per_team_daily_usd} (spent $${used.day.toFixed(2)} today)`);
-  if (used.month >= budget.per_team_month_usd) blocks.push(`${faction} hit monthly video cap $${budget.per_team_month_usd} (spent $${used.month.toFixed(2)})`);
+  const capDay = founder ? budget.founder_daily_usd : budget.per_team_daily_usd;
+  const capMonth = founder ? budget.founder_month_usd : budget.per_team_month_usd;
+  if (used.day >= capDay) blocks.push(`${faction} hit daily video cap $${capDay} (spent $${used.day.toFixed(2)} today)`);
+  if (used.month >= capMonth) blocks.push(`${faction} hit monthly video cap $${capMonth} (spent $${used.month.toFixed(2)})`);
   if (blocks.length) { console.log(`SKIP ${SIDE} — ${blocks.join("; ")}`); return false; }
-  console.log(`BUDGET OK — wallet $${wallet0.toFixed(2)}; ${faction} today $${used.day.toFixed(2)}/${budget.per_team_daily_usd}, month $${used.month.toFixed(2)}/${budget.per_team_month_usd}`);
+  console.log(`BUDGET OK — wallet $${wallet0.toFixed(2)}; ${faction} today $${used.day.toFixed(2)}/${capDay}, month $${used.month.toFixed(2)}/${capMonth}`);
   if (process.env.DRYRUN) { console.log("DRYRUN — stopping before any spend."); return false; }
 
   // Live data: the map + the campaign countdown.
@@ -105,7 +115,12 @@ async function produce({ faction, kind, target = null }) {
   console.log(`MAP: RED ${redPct}% / BLUE ${bluePct}% (${lead}) — ${daysLeft ?? "?"} days left — ${kind} clip, ${who.name}, look ${look.slice(0, 6)}${target ? `, for post #${target.id}` : ""}`);
 
   // Manual mode only (a placeholder IS the plan, so these don't apply to it):
-  if (!target && !process.env.FORCE) {
+  if (founder && !process.env.FORCE) {
+    const since = `${today}T00:00:00Z`;
+    const todays = await fetch(`${SB}/rest/v1/agent_posts?faction=eq.founder&format=eq.video&status=in.(queued,posted)&created_at=gte.${since}&select=id`, { headers: sbh }).then((r) => r.json());
+    if ((todays ?? []).length) { console.log("SKIP founder — today's founder clip already exists."); return false; }
+  }
+  if (!target && !founder && !process.env.FORCE) {
     if (kind === "field" && Number(orders.recruit_pct ?? 60) >= 90) {
       console.log(`SKIP ${SIDE} field report — recruiting mix is ${orders.recruit_pct}%, field reports are paused.`);
       return false;
@@ -127,11 +142,30 @@ async function produce({ faction, kind, target = null }) {
   }
 
   // The script — from this moment's data.
+  let plan_topic = null;
   const notes = (await cfg("commander_notes"))?.text ?? "";
   const HOUSE = `HOUSE RULES: Territory language only — positions, ground, fronts, compass directions ("the eastern front", "pushing up from the south"). NEVER grid coordinates, NEVER "flip"/"tiles flipping". NEVER mention spending money or prices — no dollar amounts ("first position is free" is fine; "a strike commissions you as an officer" is fine). Never invent mechanics, events, or deadlines: the game is one map, two sides, positions, strikes, barrages, first position free, a strike commissions you Second Lieutenant, and a ${daysLeft ?? 15}-day recruiting campaign. A quiet map is just a quiet map. No hashtags.${notes ? `\nCOMMANDER'S STANDING FEEDBACK (outranks everything): ${notes}` : ""}${orders.directives?.length ? `\nTHE GENERAL'S ORDERS: ${orders.directives.join(" | ")}` : ""}`;
 
+  // Recruits so far (the campaign's real number) — the founder talks about how it's going.
+  let recruits = 0;
+  try {
+    const act = await fetch(`${SB}/rest/v1/activity?kind=in.(player_new,waitlist_new)&select=id`, { headers: sbh }).then((r) => r.json());
+    recruits = Array.isArray(act) ? act.length : 0;
+  } catch {}
+  const FOUNDER_TOPICS = ["why I built it", "what it actually is (one map, two sides, one winner)", "launch countdown — the gates open when the timer hits zero", "how it's going right now (the map, who's leading, how many have enlisted)", "behind the scenes — I built two rival AI news desks that cover the war", "a question for the viewer (which side would you pick, and why)", "something that surprised me building it", "a day-in-the-life of running a live game"];
   let sys, user;
-  if (kind === "recruit") {
+  if (founder) {
+    const prevTopics = await fetch(`${SB}/rest/v1/agent_posts?faction=eq.founder&select=video_spec&order=created_at.desc&limit=4`, { headers: sbh }).then((r) => r.json()).catch(() => []);
+    const used = new Set((prevTopics ?? []).map((p) => p.video_spec?.topic).filter(Boolean));
+    const fresh = FOUNDER_TOPICS.filter((t) => !used.has(t));
+    const topic = (fresh.length ? fresh : FOUNDER_TOPICS)[Math.floor(Math.random() * (fresh.length ? fresh.length : FOUNDER_TOPICS.length))];
+    plan_topic = topic;
+    sys = `You are Tim Cooley, the person who built Dollar Battleground — a live territory war, Red vs Blue, one map, one side wins; site dollarbattleground.com. You talk to camera on TikTok as yourself: warm, curious, a builder showing people the thing he made. NEUTRAL — you never pick a side or root for one. It's a game; no real politics, no real-world harm.`;
+    user = `Write today's short TikTok to camera. Topic: ${topic}.
+Facts you may use (use what fits, don't recite): the map right now is RED ${redPct}% / BLUE ${bluePct}% (${lead}); ${daysLeft != null ? `${daysLeft} days until the gates open;` : ""} ${recruits} people have enlisted so far; two AI news desks (Red Team News and Blue Team News) cover the war daily; the first position is free.
+RULES: hook in the first five words (a question, a confession, or a number). First person, plain talk, one idea. NEVER money, buying, prices, spending, revenue, "$", "cheap", "sale" — not even jokingly. The only ask is soft: "check it out" / "link in bio" / "pick a side and see" / "dollarbattleground.com". ${HOUSE}
+Respond ONLY JSON: {"headline":"<UPPERCASE, <=6 words, the on-screen title>","spoken":"<30-45 words to camera, natural, ends with a soft check-it-out>","caption":"<TikTok caption: the hook line, one sentence more, then dollarbattleground.com and 3-5 hashtags on the last line; <=300 chars>","angle":"founder","locator":"FOUNDER'S LOG"}`;
+  } else if (kind === "recruit") {
     sys = `You are ${who.name}, the ${SIDE} team's anchor at the ${team.network} desk on Dollar Battleground (a live territory war, Red vs Blue; site dollarbattleground.com). Composed, direct, on camera. It's a GAME — no real-world harm, no real politics.`;
     user = `Write a RECRUITING SPOT for ${Side}, delivered straight to camera. This is an ad: clear offer, real urgency, call to action. Every spot is an experiment — vary the hook and the wording; don't sound like the last one.
 Ingredients (use two or three, not all): ${daysLeft != null ? `${daysLeft} days left to join ${Side}'s founding class;` : ""} pick your side; your first position is free; join as an officer — one strike commissions you Second Lieutenant; we're looking for the best; where ${Side} needs boots (a front, by direction). Map right now: ${lead} — background only, don't lead with it.
@@ -182,18 +216,21 @@ Respond ONLY JSON: {"headline":"<UPPERCASE, <=6 words>","spoken":"<what you say 
   const body = {
     type: "avatar", avatar_id: look, script: plan.spoken, voice_id: who.voice,
     title: `${SIDE} ${kind} ${today}`, aspect_ratio: "9:16", resolution: "720p",
-    background: { type: "color", value: "#0a0f1e" }, engine: { type: ENGINE },
+    background: { type: "color", value: "#0a0f1e" }, engine: { type: founder ? ENGINE_FOUNDER : ENGINE },
   };
-  if (ENGINE === "avatar_iv") {
+  if (founder) body.resolution = "1080p";
+  if (body.engine.type === "avatar_iv") {
     body.expressiveness = "medium";
-    body.motion_prompt = kind === "recruit"
-      ? "A news anchor at the desk: natural presenter hand gestures, leans in on the key line, counts on fingers when listing, steady eye contact."
-      : "A field correspondent reporting from the front: points off-camera toward the action, small emphatic hand gestures, alert posture.";
+    body.motion_prompt = founder
+      ? "A founder talking to his phone camera: relaxed, natural hand gestures, small nods, a smile at the hook, leans in on the ask."
+      : kind === "recruit"
+        ? "A news anchor at the desk: natural presenter hand gestures, leans in on the key line, counts on fingers when listing, steady eye contact."
+        : "A field correspondent reporting from the front: points off-camera toward the action, small emphatic hand gestures, alert posture.";
   }
   const cr = await fetch("https://api.heygen.com/v3/videos", { method: "POST", headers: H, body: JSON.stringify(body) }).then((r) => r.json());
   const vid = cr.data?.video_id ?? cr.video_id;
   if (!vid) { console.log("HEYGEN FAIL:", JSON.stringify(cr)); return false; }
-  console.log(`HEYGEN rendering ${vid} (${ENGINE})`);
+  console.log(`HEYGEN rendering ${vid} (${body.engine.type})`);
   let url;
   for (let i = 0; i < 200; i++) {
     await new Promise((r) => setTimeout(r, 8000));
@@ -220,9 +257,9 @@ Respond ONLY JSON: {"headline":"<UPPERCASE, <=6 words>","spoken":"<what you say 
   // Composite the broadcast (Remotion).
   const props = {
     network: team.network, accent: team.accent, anchorSrc: "_wr/clip.mp4", reporterName: who.name,
-    role: kind === "recruit" ? "anchor" : "field", headline: plan.headline, redPct, bluePct,
-    locator: plan.locator || (kind === "recruit" ? "RECRUITING" : "THE CENTER"), url: "dollarbattleground.com",
-    variant: kind === "recruit" ? "breaking" : "field", seconds: 12,
+    role: founder ? "founder" : kind === "recruit" ? "anchor" : "field", headline: plan.headline, redPct, bluePct,
+    locator: plan.locator || (founder ? "FOUNDER'S LOG" : kind === "recruit" ? "RECRUITING" : "THE CENTER"), url: "dollarbattleground.com",
+    variant: founder ? "lower" : kind === "recruit" ? "breaking" : "field", seconds: 12,
   };
   await writeFile("/tmp/clip-props.json", JSON.stringify(props));
   execSync("npx remotion render src/remotion/index.ts SocialClip /tmp/social-clip.mp4 --props=/tmp/clip-props.json --concurrency=1", { stdio: "inherit" });
@@ -234,7 +271,7 @@ Respond ONLY JSON: {"headline":"<UPPERCASE, <=6 words>","spoken":"<what you say 
   console.log("HOSTED:", mediaUrl);
 
   const themeTag = target ? (target.reason?.match(/\[theme:\w+\]/)?.[0] ?? `[theme:${kind === "recruit" ? "countdown" : "update"}]`) : `[theme:${kind === "recruit" ? "countdown" : "update"}]`;
-  const spec = { ...(target?.video_spec ?? {}), kind, red, blue, redPct, bluePct, look, who: who.name, rendered_at: new Date().toISOString(), placeholder: false };
+  const spec = { ...(target?.video_spec ?? {}), kind, red, blue, redPct, bluePct, look, who: who.name, rendered_at: new Date().toISOString(), placeholder: false, ...(plan_topic ? { topic: plan_topic } : {}) };
   const reason = `${themeTag} ${kind === "recruit" ? `Recruiting spot — ${who.name} at the desk` : `Field report — ${who.name}, ${lead}`} (look ${look.slice(0, 6)}) · rendered from live data before posting`;
 
   if (target) {
@@ -251,19 +288,41 @@ Respond ONLY JSON: {"headline":"<UPPERCASE, <=6 words>","spoken":"<what you say 
     await fetch(`${SB}/rest/v1/agent_posts`, {
       method: "POST",
       headers: { ...sbh, "Content-Type": "application/json", Prefer: "return=minimal" },
-      body: JSON.stringify({
+      body: JSON.stringify(founder ? {
+        agent: "founder", faction: "founder", status: "queued", format: "video", angle: "founder",
+        network: "tiktok", x_account: null, video_kind: "social_clip", media_url: mediaUrl, copy: plan.caption,
+        reason: `[theme:founder] Founder's log — ${plan_topic} (look ${look.slice(0, 6)})`,
+        scheduled_for: new Date(Date.now() + reviewMin * 60_000).toISOString(), video_spec: spec,
+      } : {
         agent: `${faction}_recruiter`, faction, status: "queued", format: "video", angle: kind === "recruit" ? "recruit" : (plan.angle || "update"),
         network: faction, x_account: faction, video_kind: "social_clip", media_url: mediaUrl, copy: plan.caption, reason,
         scheduled_for: new Date(Date.now() + reviewMin * 60_000).toISOString(), video_spec: spec,
       }),
     });
-    console.log(`QUEUED ${kind} clip for ${SIDE} — review it in /admin/agents`);
+    console.log(`QUEUED ${founder ? "founder" : kind} clip for ${SIDE} — review it in /admin/agents`);
   }
   return true;
 }
 
 // ── entry ───────────────────────────────────────────────────────────────────
 const mode = process.argv[2];
+if (mode === "cast") {
+  // Print the HeyGen roster (photo-avatar groups, their looks, custom voices)
+  // so new correspondents can be wired into CAST without touching the console.
+  const H = { "x-api-key": HG };
+  const groups = await fetch("https://api.heygen.com/v2/avatar_group.list?include_public=false", { headers: H }).then((r) => r.json());
+  for (const g of groups.data?.avatar_group_list ?? []) {
+    console.log(`GROUP ${g.name} (${g.group_type}, ${g.num_looks} looks, ${g.train_status ?? "-"}) id=${g.id}`);
+    const looks = await fetch(`https://api.heygen.com/v2/avatar_group/${g.id}/avatars`, { headers: H }).then((r) => r.json());
+    for (const l of looks.data?.avatar_list ?? []) console.log(`   LOOK ${l.name ?? "-"} id=${l.id} status=${l.status ?? "-"}`);
+  }
+  const voices = await fetch("https://api.heygen.com/v2/voices", { headers: H }).then((r) => r.json());
+  const all = voices.data?.voices ?? [];
+  const mine = all.filter((v) => /tim|cooley|clone|custom|my /i.test(`${v.name} ${v.tags ?? ""}`));
+  console.log(`VOICES total=${all.length}; likely custom:`);
+  for (const v of mine.slice(0, 30)) console.log(`   VOICE ${v.name} id=${v.voice_id} lang=${v.language} gender=${v.gender}`);
+  process.exit(0);
+}
 if (mode === "due") {
   // Rendering costs money: when the autopilot is OFF nothing will post, so
   // don't render placeholders either.
@@ -282,6 +341,13 @@ if (mode === "due") {
     try { if (await produce({ faction, kind, target: p })) made++; } catch (e) { console.log(`placeholder #${p.id} failed:`, e?.message ?? e); }
   }
   console.log(`\nDone — ${made}/${due.length} placeholder(s) rendered.`);
+  // The founder's daily clip: once a day, after 16:00 UTC (10am Mountain),
+  // when today's doesn't exist yet. Reviewed on /admin/agents like the rest.
+  if (new Date().getUTCHours() >= 16) {
+    try { await produce({ faction: "founder", kind: "founder" }); } catch (e) { console.log("founder clip failed:", e?.message ?? e); }
+  }
+} else if (mode === "founder") {
+  await produce({ faction: "founder", kind: "founder" });
 } else {
   const faction = mode === "blue" ? "blue" : "red";
   const kind = process.argv[3] === "recruit" ? "recruit" : "field";

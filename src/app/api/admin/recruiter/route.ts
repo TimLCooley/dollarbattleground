@@ -15,7 +15,7 @@ export async function GET(req: Request) {
   const db = createAdminClient();
   const faction = new URL(req.url).searchParams.get("faction");
   let q = db.from("agent_posts").select("*").order("created_at", { ascending: false }).limit(50);
-  if (faction === "red" || faction === "blue") q = q.eq("faction", faction);
+  if (faction === "red" || faction === "blue" || faction === "founder") q = q.eq("faction", faction);
   const { data, error } = await q;
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json({ posts: data });

@@ -14,7 +14,7 @@ type Status = "queued" | "posted" | "denied";
 
 interface Post {
   id: number;
-  faction: Faction | null;
+  faction: Faction | "founder" | null;
   status: string;
   format: string;
   angle: string | null;
@@ -215,10 +215,15 @@ export function CommandCenter() {
 
   // ── loaders ──
   const loadPosts = useCallback(async () => {
-    const [r, b] = await Promise.all([fetch("/api/admin/recruiter?faction=red"), fetch("/api/admin/recruiter?faction=blue")]);
+    const [r, b, o] = await Promise.all([
+      fetch("/api/admin/recruiter?faction=red"),
+      fetch("/api/admin/recruiter?faction=blue"),
+      fetch("/api/admin/recruiter?faction=founder"),
+    ]);
     const rp = r.ok ? ((await r.json()).posts as Post[]) : [];
     const bp = b.ok ? ((await b.json()).posts as Post[]) : [];
-    setPosts([...rp, ...bp]);
+    const op = o.ok ? ((await o.json()).posts as Post[]) : [];
+    setPosts([...rp, ...bp, ...op]);
   }, []);
   const loadAp = useCallback(async () => {
     const r = await fetch("/api/admin/autopilot");
@@ -245,7 +250,7 @@ export function CommandCenter() {
 
   // ── actions ──
   const post = useCallback(
-    async (action: string, extra: Record<string, unknown>, tag: string, faction: Faction) => {
+    async (action: string, extra: Record<string, unknown>, tag: string, faction: Faction | "founder") => {
       setBusy(tag);
       setErr(null);
       try {
@@ -263,7 +268,7 @@ export function CommandCenter() {
     },
     [loadPosts],
   );
-  function deny(id: number, faction: Faction) {
+  function deny(id: number, faction: Faction | "founder") {
     const reason = window.prompt("Why deny this? (your reason trains BOTH agents)");
     if (reason?.trim()) post("deny", { id, reason: reason.trim() }, `deny-${id}`, faction);
   }
@@ -328,7 +333,7 @@ export function CommandCenter() {
   }, [posts]);
 
   // ── one post card ──
-  function card(p: Post, f: Faction) {
+  function card(p: Post, f: Faction | "founder") {
     const theme = themeOf(p.reason);
     return (
       <div key={p.id} className={"cc-card " + p.status}>
@@ -361,7 +366,7 @@ export function CommandCenter() {
             👁 {p.impressions ?? 0} · ♥ {p.likes ?? 0} · 🔁 {p.reposts ?? 0} · 💬 {p.replies ?? 0} · 🔗 {p.clicks ?? 0} clicks
           </p>
         )}
-        {p.external_id && (
+        {p.external_id && f !== "founder" && (
           <a className="xlink" href={`https://x.com/i/status/${p.external_id}`} target="_blank" rel="noreferrer">
             ↗ View on X
           </a>
@@ -510,6 +515,15 @@ export function CommandCenter() {
         <section className="cc-cmdcol">
           <div className="cc-h">
             <span>🎖️ COMMAND</span>
+          </div>
+
+          <h3 className="cc-goals-h">🎥 FOUNDER&apos;S LOG</h3>
+          <p className="cc-mini">
+            You, neutral, once a day (rendered ~10am Mountain, reviewed here, then to your TikTok via RobinReach). Never money — just the game, building it, how it&apos;s going.
+          </p>
+          <div className="cc-founder">
+            {(posts ?? []).filter((p) => p.faction === "founder").slice(0, 4).map((p) => card(p, "founder"))}
+            {(posts ?? []).filter((p) => p.faction === "founder").length === 0 && <p className="cc-mini">No founder clip yet today.</p>}
           </div>
 
           <h3 className="cc-goals-h">📌 COMMANDER&apos;S NOTES</h3>

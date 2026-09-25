@@ -8,7 +8,7 @@ import { intelBrief } from "@/lib/intel";
 import { getCommanderNotes, getOrders, planOrders } from "@/lib/general";
 import { runDispatches } from "@/lib/dispatch";
 import { openGatesIfDue } from "@/lib/gate";
-import { crosspostToTikTok, getCrosspost } from "@/lib/robinreach";
+import { crosspostToTikTok, getCrosspost, publishFounderClip } from "@/lib/robinreach";
 
 export type { Db };
 
@@ -208,6 +208,7 @@ interface PostRow {
   copy: string;
   x_account: string | null;
   faction: string | null;
+  network: string | null;
   format: string;
   angle: Angle | null;
   reason: string | null;
@@ -239,6 +240,17 @@ export async function publishPost(db: Db, id: number): Promise<{ id: string; vid
   const { data: row } = await db.from("agent_posts").select("*").eq("id", id).single();
   const p = row as PostRow | null;
   if (!p) throw new Error("not found");
+  // The founder's clip never touches X: it goes to his own feeds via RobinReach.
+  if (p.faction === "founder" || p.network === "tiktok") {
+    if (!p.media_url) throw new NotReady("founder clip not rendered yet");
+    const r = await publishFounderClip(db, { id: p.id, copy: p.copy, media_url: p.media_url });
+    if (!r.ok) throw new Error(r.error ?? "RobinReach refused the founder clip");
+    await db
+      .from("agent_posts")
+      .update({ status: "posted", external_id: null, media_url: p.media_url, posted_at: new Date().toISOString(), last_error: null })
+      .eq("id", id);
+    return { id: `rr:${r.postId}`, video: true, replyId: null };
+  }
   const f = (p.faction === "blue" || p.x_account === "blue" ? "blue" : "red") as Faction;
   const { config } = await getAutopilot(db);
 
@@ -492,7 +504,7 @@ export async function runAutopilot(db: Db, opts: { force?: boolean } = {}): Prom
   const canPublish = !config.require_stripe_live || stripeMode === "live";
   if (!canPublish && stripeMode === "test") notes.push("Stripe is TEST — publishing held until you go live");
 
-  for (const f of ["red", "blue"] as Faction[]) {
+  for (const f of ["red", "blue", "founder"] as (Faction | "founder")[]) {
     // 1) publish the oldest due post for this team (one per team per tick)
     if (canPublish) {
       const { data: due } = await db
@@ -505,7 +517,7 @@ export async function runAutopilot(db: Db, opts: { force?: boolean } = {}): Prom
         .limit(1);
       const d = due?.[0] as { id: number; scheduled_for: string } | undefined;
       if (d) {
-        if (Date.now() - new Date(d.scheduled_for).getTime() > STALE_MS) {
+        if (f !== "founder" && Date.now() - new Date(d.scheduled_for).getTime() > STALE_MS) {
           const slot = await nextSlot(db, f, config);
           await db.from("agent_posts").update({ scheduled_for: slot }).eq("id", d.id);
           notes.push(`#${d.id} was stale → rescheduled`);

@@ -3526,3 +3526,7 @@ a.cc-pill-x:hover { color: #f2c14e; text-decoration: underline; }
 .sc-chip.red { background: var(--red); }
 .sc-chip.blue { background: var(--blue); }
 @media (max-width: 700px) { .sc-day { min-height: 56px; } .sc-copy { max-width: 170px; } }
+
+/* Founder's log: the founder's own cards in the COMMAND column */
+.cc-founder { display: grid; gap: 8px; margin: 6px 0 14px; }
+.cc-founder .cc-card { border-left: 4px solid #f2c14e; }
