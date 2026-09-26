@@ -294,7 +294,7 @@ Respond ONLY JSON: {"headline":"<UPPERCASE, <=6 words>","spoken":"<what you say 
   };
   if (fa?.engine === "none") delete body.engine; // let HeyGen pick for a video twin
   if (founder) body.resolution = "1080p";
-  if (body.engine.type === "avatar_iv") {
+  if (body.engine?.type === "avatar_iv") {
     // low = calmer mouth (less teeth) — Tim found medium a bit toothy.
     body.expressiveness = founder ? (process.env.HEYGEN_EXPRESSIVENESS_FOUNDER || "low") : "medium";
     body.motion_prompt = founder
@@ -306,7 +306,7 @@ Respond ONLY JSON: {"headline":"<UPPERCASE, <=6 words>","spoken":"<what you say 
   const cr = await fetch("https://api.heygen.com/v3/videos", { method: "POST", headers: H, body: JSON.stringify(body) }).then((r) => r.json());
   const vid = cr.data?.video_id ?? cr.video_id;
   if (!vid) { console.log("HEYGEN FAIL:", JSON.stringify(cr)); return false; }
-  console.log(`HEYGEN rendering ${vid} (${body.engine.type})`);
+  console.log(`HEYGEN rendering ${vid} (${body.engine?.type ?? "default"}${fa?.avatar_id ? ", twin" : ""})`);
   let url;
   for (let i = 0; i < 200; i++) {
     await new Promise((r) => setTimeout(r, 8000));
