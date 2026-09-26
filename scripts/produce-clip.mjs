@@ -395,6 +395,11 @@ if (mode === "cast") {
     const looks = await fetch(`https://api.heygen.com/v2/avatar_group/${g.id}/avatars`, { headers: H }).then((r) => r.json());
     for (const l of looks.data?.avatar_list ?? []) console.log(`   LOOK ${l.name ?? "-"} id=${l.id} status=${l.status ?? "-"}`);
   }
+  // Video avatars (digital twins) live in the avatar list, not the photo groups.
+  const av = await fetch("https://api.heygen.com/v2/avatars", { headers: H }).then((r) => r.json());
+  for (const a of (av.data?.avatars ?? []).filter((a) => /tim|cooley/i.test(a.avatar_name ?? ""))) {
+    console.log(`AVATAR ${a.avatar_name} id=${a.avatar_id} gender=${a.gender ?? "-"} premium=${a.premium ?? "-"} type=${a.type ?? "-"} status=${a.status ?? "-"}`);
+  }
   const voices = await fetch("https://api.heygen.com/v2/voices", { headers: H }).then((r) => r.json());
   const all = voices.data?.voices ?? [];
   const mine = all.filter((v) => /tim|cooley|clone|custom|my /i.test(`${v.name} ${v.tags ?? ""}`));
