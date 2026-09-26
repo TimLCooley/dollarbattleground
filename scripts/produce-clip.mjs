@@ -355,8 +355,16 @@ Respond ONLY JSON: {"headline":"<UPPERCASE, <=6 words>","spoken":"<what you say 
       if (trailing && d - lastStart > 1) end = lastStart;
     } catch {}
     if (d > 0) clipSeconds = Math.min(60, Math.max(4, Math.round((end + 0.7) * 10) / 10));
+    // Cut the source itself so a frozen tail can never reach the composite.
+    if (end < d - 0.5) {
+      execSync(`ffmpeg -v error -y -i public/_wr/clip.mp4 -t ${clipSeconds} -c:v libx264 -preset veryfast -crf 18 -c:a aac -movflags +faststart public/_wr/clip-cut.mp4`, { stdio: "inherit" });
+      execSync("mv public/_wr/clip-cut.mp4 public/_wr/clip.mp4");
+    }
     console.log(`CLIP ${d.toFixed(1)}s, speech ends ~${end.toFixed(1)}s → composite ${clipSeconds}s`);
-  } catch { clipSeconds = Math.min(60, Math.ceil(plan.spoken.split(/\s+/).length / 2.4) + 1); }
+  } catch (e) {
+    clipSeconds = Math.min(60, Math.ceil(plan.spoken.split(/\s+/).length / 2.4) + 1);
+    console.log(`TRIM FAILED (${e?.message?.split("\n")[0] ?? e}) — falling back to ${clipSeconds}s from the word count`);
+  }
   const props = {
     network: team.network, accent: team.accent, anchorSrc: "_wr/clip.mp4", reporterName: who.name,
     role: founder ? "founder" : kind === "recruit" ? "anchor" : "field", headline: plan.headline, redPct, bluePct,
