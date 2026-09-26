@@ -82,6 +82,10 @@ async function produce({ faction, kind, target = null }) {
   const team = CAST[faction];
   const founder = faction === "founder";
   const who = founder ? team.founder : kind === "recruit" ? team.anchor : team.field;
+  // The founder's on-camera self can be swapped from app_config.founder_avatar
+  // ({avatar_id, voice_id, engine}) — e.g. the video twin — without a deploy.
+  const fa = faction === "founder" ? (await cfg("founder_avatar")) ?? null : null;
+  if (fa?.avatar_id) { who.looks = [fa.avatar_id]; if (fa.voice_id) who.voice = fa.voice_id; }
   const look = who.looks[Math.floor(Math.random() * who.looks.length)];
   const SIDE = faction.toUpperCase();
   const Side = faction === "red" ? "Red" : faction === "blue" ? "Blue" : "Founder";
@@ -161,12 +165,13 @@ async function produce({ faction, kind, target = null }) {
   // theater; the Developer shows how the theater is being built. Everything
   // he references must be real: recent commits + the activity ledger.
   const DEV_THEMES = [
-    "WHAT I JUST BUILT — a feature, mechanic, experiment or fix from the recent work",
-    "WHAT YOU PEOPLE ARE DOING — react to real player behavior from the last day",
-    "THINGS I DID NOT EXPECT — something surprising in how the game or the players behave",
-    "BUILDING IN PUBLIC — why something was built or what's being tested, honestly",
-    "EXPERIMENTS — ask viewers to help decide if a feature is brilliant or stupid",
-    "NEUTRAL PROVOCATION — tease Red or Blue (or both) about the state of the map, without picking a side",
+    "WHAT I JUST BUILT — a feature, mechanic, experiment or fix from the recent work, and why",
+    "THINGS I DID NOT EXPECT — something about building this that surprised me",
+    "BUILDING IN PUBLIC — why I made a choice, what I'm testing, what I'm unsure about",
+    "EXPERIMENTS — ask viewers to help decide whether something is brilliant or stupid",
+    "WHY I'M MAKING THIS — the idea, what I hoped it would feel like, what it actually feels like",
+    "MAKING THINGS WITH AI CHARACTERS — the news desks, what they get wrong, what it's like directing them",
+    "HOW HARD MARKETING IS — the business side of making a game; the real numbers, honestly",
   ];
   const DEV_OPENINGS = [
     "Okay, I need to show you what happened to the game overnight.",
@@ -192,7 +197,13 @@ async function produce({ faction, kind, target = null }) {
     const takeovers = rows.filter((r) => r.kind === "takeover");
     const byside = { red: takeovers.filter((r) => r.faction === "red").length, blue: takeovers.filter((r) => r.faction === "blue").length };
     const latest = takeovers.slice(0, 3).map((r) => r.summary).filter(Boolean);
+    let reach = { videos: 0, views: 0, likes: 0 };
+    try {
+      const posted = await fetch(`${SB}/rest/v1/agent_posts?status=eq.posted&select=format,impressions,likes`, { headers: sbh }).then((r) => r.json());
+      for (const r of posted ?? []) { if (r.format === "video") reach.videos++; reach.views += Number(r.impressions ?? 0); reach.likes += Number(r.likes ?? 0); }
+    } catch {}
     const material = [
+      `THE BUSINESS SIDE (true numbers): ${reach.videos} videos posted by the news desks so far, ${reach.views} views and ${reach.likes} likes on X in total; ${recruits} people have picked a side; the game is behind a countdown wall until launch; I post three videos a day (Red, Blue, me).`,
       built.length ? `BUILT RECENTLY (commit notes, translate to plain talk, never say "commit"): ${built.map((b) => `"${b.split("\n")[0]}"`).join("; ")}` : "BUILT RECENTLY: nothing new shipped in the last 3 days",
       `LAST 24 HOURS: ${n("player_new") + n("waitlist_new")} enlisted; ${takeovers.length} positions changed hands (Red took ${byside.red}, Blue took ${byside.blue})${latest.length ? `; latest: ${latest.join(" / ")}` : ""}`,
       `THE MAP NOW: RED ${redPct}% / BLUE ${bluePct}% (${lead}); ${recruits} enlisted in total; ${daysLeft != null ? `${daysLeft} days until the gates open` : "gates open date not set"}`,
@@ -208,16 +219,18 @@ async function produce({ faction, kind, target = null }) {
     const pool = freshT.length ? freshT : DEV_THEMES;
     const topic = pool[Math.floor(Math.random() * pool.length)];
     plan_topic = topic;
-    sys = `You are THE DEVELOPER: Tim Cooley, the real person building Dollar Battleground in public (a live territory war, Red vs Blue, one map, one side wins; dollarbattleground.com). You are OUTSIDE the fiction and can break the fourth wall — the Red/Blue commanders, field reporters and news desks are characters; you're the one building the stage.
-PERSONALITY: curious, excited, slightly amused, transparent, builder-focused. Not a salesman, not a commander, not a polished spokesperson. Core attitude: "this probably shouldn't matter this much to you, but apparently it does." You know it's a strange little internet war and you enjoy watching people get emotionally invested; you never pretend it's more important than it is. Everyone else treats the battle like the fate of civilization — you find the contrast funny.
-VOICE: talk like a real person to a phone camera. Not scripted, not corporate, no announcer language, no CEO energy. Don't oversell. Be genuinely excited about building it, amused by how seriously players take it, honest when something is experimental or behaved differently than expected. NEUTRAL between Red and Blue — you may lightly provoke either side. The characters create the drama; you explain and react to it.
-HARD RULES: never invent statistics, events or features — use only the real material you're given, and if today's theme has no real material, bend toward the theme that does. NEVER mention money, buying, prices, spending, revenue, "$", "a dollar", "cheap", "free" — not even as a joke.
-NOT A PITCH: you are not recruiting. No "join", "enlist", "sign up", "claim your", "founding class", "days left to…", "don't miss", "last chance", "you wanna be the one…". The site's name is on screen; you don't say it. You usually end the way a person ends a thought — a shrug, a laugh, a "we'll see", a question you're actually curious about. ONCE IN A WHILE, when it genuinely fits, one subtle nod is fine — "check it out", "link's in the bio", "hope you enjoy it", "what color would you pick?" — said as an aside, never as the point, never more than one, and not every clip. If a sentence would fit in an ad, cut it. No hashtags in what you say. It's a game; no real politics.`;
+    sys = `You are THE DEVELOPER: Tim Cooley, the real person MAKING Dollar Battleground (a live territory war, Red vs Blue, one map, one side wins). You are OUTSIDE the fiction and can break the fourth wall — the Red/Blue commanders, field reporters and news desks are characters you built; you're the one building the stage.
+WHO YOU ARE ON CAMERA: a producer whose game isn't working yet, and who's honest about that. Slightly unsure, curious, a little amused, warm — a slight smile, not a grin. Not a salesman, not a commander, not a spokesperson. You know it's a strange little internet war and you find it funny that anyone (including you) cares this much.
+THE ONE RULE ABOVE ALL: every clip makes it obvious that YOU MADE THIS. In the first sentence or two you say some version of "I've been working on this game" / "so I'm making this game where…" / "I built…". A stranger scrolling past must know within five seconds that this is the person building it — otherwise you're just another anchor, and that reads fake.
+YOUR SUBJECT IS THE MAKING, NEVER THE MATCH: what you built, what broke, what surprised you, what you're testing, why you're doing this, what it's like directing AI characters that go off-script, how hard the marketing and business side is. The map/score is at most a one-line aside ("board's still dead even, by the way") — never the topic. You never commentate the war; that's the news desks' job.
+VOICE: talk like a real person to your own phone. Not scripted, not corporate, no announcer language, no CEO energy. Contractions, short sentences, an aside is fine. Honest about small numbers — that's charming, not weak.
+ENDING: end like a person ends a thought. Sometimes — not every clip — close with a genuine invitation like "I've been working on this, I'd love for you to check it out" or "what color would you pick?" — an invitation from the maker, never a pitch.
+HARD RULES: never invent statistics, events or features — only the real material you're given. NEVER mention money, buying, prices, spending, revenue, "$", "a dollar", "cheap", "free". No "join", "enlist", "sign up", "claim your", "founding class", "days left to…", "don't miss". Don't say the site's name (it's on screen). No hashtags in what you say. It's a game; no real politics.`;
     user = `Today's theme: ${topic}.
 REAL MATERIAL (the only facts you may use):
 - ${material.join("\n- ")}
 Openings you can riff on (don't copy one verbatim every time): ${DEV_OPENINGS.map((o) => `"${o}"`).join(" | ")}
-Write today's TikTok to camera: 35-55 words, one idea, hook in the first five words. Sound like you're actually talking — contractions, short sentences, an aside is fine, no headline-speak, no "welcome to", and no ending pitch (see NOT A PITCH — a single subtle nod is allowed sometimes). The countdown and the map are context you might mention in passing, never the point. The "headline" field is unused for you — keep it short.${standing ? `\nTIM'S STANDING NOTES (outrank everything): ${standing}` : ""}${devNotes.length ? `\nTIM'S NOTES ON YOUR LAST CLIPS (fix these): ${devNotes.map((n) => `"${n}"`).join(" | ")}` : ""}
+Write today's clip to camera: 35-55 words, ONE thought, and it must be clear in the first two sentences that you are the person making this game. Sound like you're actually talking — contractions, short sentences, an aside is fine, no headline-speak, no "welcome to". The map and the countdown are passing context at most, never the subject. Finish the thought inside the time; don't start a second one. The "headline" field is unused for you — keep it short.${standing ? `\nTIM'S STANDING NOTES (outrank everything): ${standing}` : ""}${devNotes.length ? `\nTIM'S NOTES ON YOUR LAST CLIPS (fix these): ${devNotes.map((n) => `"${n}"`).join(" | ")}` : ""}
 THE GOLD STANDARD (Tim's words: "this is gold — stuff like this makes ME interesting"): "Okay, weird thing about building a game with AI news anchors. They lie. Not on purpose — they just… invent stuff. One of them made up a 24-hour freeze rule that doesn't exist." — a builder telling on his own robots: specific, true, a little amused, no pitch. Aim for that.
 Respond ONLY JSON: {"headline":"<short, unused>","spoken":"<what you say>","caption":"<the TikTok caption as a person would write it: one or two casual lines, lowercase is fine, no pitch, no site name (it's on screen); 0-3 hashtags at most; <=200 chars>","angle":"founder","locator":"DEV LOG"}`;
   } else if (kind === "recruit") {
@@ -257,6 +270,8 @@ Respond ONLY JSON: {"headline":"<UPPERCASE, <=6 words>","spoken":"<what you say 
     if (founder && /\b(buy|bought|purchase|pay|paid|price|cost|spend|spent|revenue|cheap|dollars?|money|free)\b/i.test(`${p.spoken} ${p.caption}`)) bad.push("developer mentions money");
     if (founder && /founding class|\benlist|\brecruit|sign up|claim your|don'?t miss|last chance|wanna be the one|join (red|blue|us|now|the)|days left to|dollarbattleground\.com/i.test(`${p.spoken} ${p.caption}`)) bad.push("developer sounds like an ad");
     if (founder && ((p.spoken ?? "").match(/check it out|link'?s? in (the )?bio|hope you enjoy|what color|which side would you/gi) ?? []).length > 1) bad.push("more than one nod");
+    if (founder && !/\b(I'?ve been (working on|making|building)|I'?m (working on|making|building)|I (built|made|make)|(my|this) game (I|that I)|been building|been making)\b/i.test(p.spoken ?? "")) bad.push("never says he's making the game");
+    if (founder && /(\d+\s?%|percent|up by|dead even|tied|fifty[- ]fifty|leads? by|nobody('s| has) moved)/i.test(p.spoken ?? "") && !/(built|building|making|made|wrote|coded|fixed|shipped)/i.test(p.spoken ?? "")) bad.push("commentates the score");
     if (/\b\d{1,2},\d{1,2}\b/.test(`${p.spoken} ${p.caption} ${p.locator}`)) bad.push("grid coordinates");
     if (!founder && /#\w+/.test(p.caption ?? "")) bad.push("hashtag"); // X rule; TikTok captions want them
     if (founder && /#\w+/.test(p.spoken ?? "")) bad.push("hashtag spoken aloud");
@@ -275,14 +290,15 @@ Respond ONLY JSON: {"headline":"<UPPERCASE, <=6 words>","spoken":"<what you say 
   const body = {
     type: "avatar", avatar_id: look, script: plan.spoken, voice_id: who.voice,
     title: `${SIDE} ${kind} ${today}`, aspect_ratio: "9:16", resolution: "720p",
-    background: { type: "color", value: "#0a0f1e" }, engine: { type: founder ? ENGINE_FOUNDER : ENGINE },
+    background: { type: "color", value: "#0a0f1e" }, engine: { type: founder ? (fa?.engine || ENGINE_FOUNDER) : ENGINE },
   };
+  if (fa?.engine === "none") delete body.engine; // let HeyGen pick for a video twin
   if (founder) body.resolution = "1080p";
   if (body.engine.type === "avatar_iv") {
     // low = calmer mouth (less teeth) — Tim found medium a bit toothy.
     body.expressiveness = founder ? (process.env.HEYGEN_EXPRESSIVENESS_FOUNDER || "low") : "medium";
     body.motion_prompt = founder
-      ? "A founder talking to his phone camera: relaxed, natural hand gestures, small nods, a smile at the hook, leans in on the ask."
+      ? "A person talking to his own phone, not to an audience: a slight, warm smile as his resting face — never a grin, mouth mostly relaxed. Slightly unsure; glances away while thinking, looks down now and then, comes back to the lens. Small hand movements, small nods, no big gestures, no leaning in."
       : kind === "recruit"
         ? "A news anchor at the desk: natural presenter hand gestures, leans in on the key line, counts on fingers when listing, steady eye contact."
         : "A field correspondent reporting from the front: points off-camera toward the action, small emphatic hand gestures, alert posture.";
