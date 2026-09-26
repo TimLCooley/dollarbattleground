@@ -264,7 +264,14 @@ Respond ONLY JSON: {"headline":"<UPPERCASE, <=6 words>","spoken":"<what you say 
     let p = {};
     try { p = JSON.parse(raw); } catch { continue; }
     const bad = [];
-    if (!p.spoken || !p.headline || !p.caption) bad.push("missing fields");
+    if (founder) {
+      // The Developer only owes the spoken line; the rest has sane defaults.
+      if (!p.headline) p.headline = "DEV LOG";
+      if (!p.caption && p.spoken) p.caption = p.spoken.split(/(?<=[.!?])\s/)[0].slice(0, 140).toLowerCase();
+      if (!p.locator) p.locator = "DEV LOG";
+      p.angle = "founder";
+    }
+    if (!p.spoken || !p.headline || !p.caption) bad.push(`missing fields (${Object.keys(p).join(",") || "none"})`);
     if (/\$\s?\d|\d+\s?(dollars?|bucks)\b/i.test(`${p.spoken} ${p.caption}`)) bad.push("mentions a price");
     if (/\bflip/i.test(`${p.spoken} ${p.caption}`)) bad.push('says "flip"');
     if (founder && /\b(buy|bought|purchase|pay|paid|price|cost|spend|spent|revenue|cheap|dollars?|money|free)\b/i.test(`${p.spoken} ${p.caption}`)) bad.push("developer mentions money");
