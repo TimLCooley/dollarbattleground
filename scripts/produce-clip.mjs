@@ -303,6 +303,14 @@ Respond ONLY JSON: {"headline":"<UPPERCASE, <=6 words>","spoken":"<what you say 
   };
   if (fa?.engine === "none") delete body.engine; // let HeyGen pick for a video twin
   if (founder) body.resolution = "1080p";
+  // Backgrounds rotate behind the twin (founder_avatar.backgrounds = [image urls]):
+  // HeyGen keys the recorded room out and drops him into a new one.
+  if (founder && fa?.backgrounds?.length) {
+    const bg = fa.backgrounds[Math.floor(Math.random() * fa.backgrounds.length)];
+    body.background = { type: "image", url: bg };
+    body.remove_background = true;
+    console.log(`BACKGROUND ${bg}`);
+  }
   if (body.engine?.type === "avatar_iv") {
     // low = calmer mouth (less teeth) — Tim found medium a bit toothy.
     body.expressiveness = founder ? (process.env.HEYGEN_EXPRESSIVENESS_FOUNDER || "low") : "medium";
