@@ -264,7 +264,14 @@ Respond ONLY JSON: {"headline":"<UPPERCASE, <=6 words>","spoken":"<what you say 
     let p = {};
     try { p = JSON.parse(raw); } catch { continue; }
     const bad = [];
-    if (!p.spoken || !p.headline || !p.caption) bad.push("missing fields");
+    if (founder) {
+      // The Developer only owes the spoken line; the rest has sane defaults.
+      if (!p.headline) p.headline = "DEV LOG";
+      if (!p.caption && p.spoken) p.caption = p.spoken.split(/(?<=[.!?])\s/)[0].slice(0, 140).toLowerCase();
+      if (!p.locator) p.locator = "DEV LOG";
+      p.angle = "founder";
+    }
+    if (!p.spoken || !p.headline || !p.caption) bad.push(`missing fields (${Object.keys(p).join(",") || "none"})`);
     if (/\$\s?\d|\d+\s?(dollars?|bucks)\b/i.test(`${p.spoken} ${p.caption}`)) bad.push("mentions a price");
     if (/\bflip/i.test(`${p.spoken} ${p.caption}`)) bad.push('says "flip"');
     if (founder && /\b(buy|bought|purchase|pay|paid|price|cost|spend|spent|revenue|cheap|dollars?|money|free)\b/i.test(`${p.spoken} ${p.caption}`)) bad.push("developer mentions money");
@@ -348,8 +355,16 @@ Respond ONLY JSON: {"headline":"<UPPERCASE, <=6 words>","spoken":"<what you say 
       if (trailing && d - lastStart > 1) end = lastStart;
     } catch {}
     if (d > 0) clipSeconds = Math.min(60, Math.max(4, Math.round((end + 0.7) * 10) / 10));
+    // Cut the source itself so a frozen tail can never reach the composite.
+    if (end < d - 0.5) {
+      execSync(`ffmpeg -v error -y -i public/_wr/clip.mp4 -t ${clipSeconds} -c:v libx264 -preset veryfast -crf 18 -c:a aac -movflags +faststart public/_wr/clip-cut.mp4`, { stdio: "inherit" });
+      execSync("mv public/_wr/clip-cut.mp4 public/_wr/clip.mp4");
+    }
     console.log(`CLIP ${d.toFixed(1)}s, speech ends ~${end.toFixed(1)}s → composite ${clipSeconds}s`);
-  } catch { clipSeconds = Math.min(60, Math.ceil(plan.spoken.split(/\s+/).length / 2.4) + 1); }
+  } catch (e) {
+    clipSeconds = Math.min(60, Math.ceil(plan.spoken.split(/\s+/).length / 2.4) + 1);
+    console.log(`TRIM FAILED (${e?.message?.split("\n")[0] ?? e}) — falling back to ${clipSeconds}s from the word count`);
+  }
   const props = {
     network: team.network, accent: team.accent, anchorSrc: "_wr/clip.mp4", reporterName: who.name,
     role: founder ? "founder" : kind === "recruit" ? "anchor" : "field", headline: plan.headline, redPct, bluePct,
