@@ -366,14 +366,12 @@ Respond ONLY JSON: {"headline":"<UPPERCASE, <=6 words>","spoken":"<what you say 
     } catch {}
     if (d > 0) clipSeconds = Math.min(60, Math.max(4, Math.round((end + 0.7) * 10) / 10));
     // Cut the source itself so a frozen tail can never reach the composite.
-    // The Developer's audio is also roughed up to sound like a phone in a room
-    // (a cloned voice comes out studio-clean, which reads as an ad): phone-mic
+    // Every clip's audio is roughed up to sound like a phone in a room (a
+    // synthetic voice comes out studio-clean, which reads as an ad): phone-mic
     // band, gentle compression, a touch of small-room reflection, a whisper of
-    // noise floor. The anchors keep the clean studio sound — that's their bit.
-    const phone = founder
-      ? `-filter_complex "[0:a]highpass=f=110,lowpass=f=7600,acompressor=threshold=-20dB:ratio=2.2:attack=8:release=120,aecho=0.9:0.35:11|23:0.10|0.06,volume=1.05[v];anoisesrc=color=pink:amplitude=0.0025:duration=${clipSeconds + 1}[n];[v][n]amix=inputs=2:duration=first:normalize=0[a]" -map 0:v -map "[a]"`
-      : "";
-    if (end < d - 0.5 || founder) {
+    // noise floor. Tim asked for it on the anchors too.
+    const phone = `-filter_complex "[0:a]highpass=f=110,lowpass=f=7600,acompressor=threshold=-20dB:ratio=2.2:attack=8:release=120,aecho=0.9:0.35:11|23:0.10|0.06,volume=1.05[v];anoisesrc=color=pink:amplitude=0.0025:duration=${clipSeconds + 1}[n];[v][n]amix=inputs=2:duration=first:normalize=0[a]" -map 0:v -map "[a]"`;
+    {
       execSync(`ffmpeg -v error -y -i public/_wr/clip.mp4 -t ${clipSeconds} ${phone} -c:v libx264 -preset veryfast -crf 18 -c:a aac -b:a 128k -movflags +faststart public/_wr/clip-cut.mp4`, { stdio: "inherit" });
       execSync("mv public/_wr/clip-cut.mp4 public/_wr/clip.mp4");
     }
