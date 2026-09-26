@@ -40,7 +40,7 @@ const CAST = {
   // The founder — neutral, first person, the person who built it. TikTok-first.
   founder: {
     network: "BATTLEGROUND", accent: "#f2c14e",
-    founder: { name: "Tim Cooley", voice: "415b2adc57fd486d95f15e97eeece48b", looks: ["f62df01471e54b9682d5e0549f9340bb", "e81fae5958714d76a1f6360cf8579e08", "03f23840beff43ff82f0fa5eddd7c27c", "d6ca071dca8d4d9c82ab402b0a3359ed", "436c18a5f66a47368f5b0a4212bf1162", "575f5ac4c15e4c0c90c7d4d3fd258e4a", "eb1899a3445d434b9c7639464595e718", "e00837ecb36a46bdacbb4e2675e42f93", "eaad76abaf35463a9e8275668cac9741", "b0f2ff81ed7449b7a79b5f3344fbe00e", "5dce0a109cf3428eacd0e774c9aaff84", "421533ae699947c2b854faffc7aa3a69"] },
+    founder: { name: "Tim Cooley", voice: "2c58da09c9ec4d4cbbc006a7a3298e57", looks: ["bd2c9c12984844a8b3776d39d3049c97", "22d5799e480144a1b0d0fab898e28a88", "571ac427f9f649009b22a2ef72fb74a8", "00e9cdbf757e4d84a5281f533bdd9c9f", "86d75809e34644039ebc0ed36b7b4ab5", "857aff106c594ece8d4462934aebc589", "8c60a083618b434dbe3b69be4262cbc4"] },
   },
 };
 
