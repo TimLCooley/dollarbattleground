@@ -88,6 +88,17 @@ async function produce({ faction, kind, target = null }) {
   let fa = faction === "founder" ? (await cfg("founder_avatar")) ?? null : null;
   if (fa?.avatars?.length) fa = { ...fa, ...fa.avatars[Math.floor(Math.random() * fa.avatars.length)] };
   if (fa?.avatar_id) { who.looks = [fa.avatar_id]; if (fa.voice_id) who.voice = fa.voice_id; }
+  else if (fa?.group_id) {
+    // Photo-avatar group: read its looks live, so deleting a bad one in the
+    // HeyGen app (the jawline one) drops it from the rotation without a deploy.
+    try {
+      const gl = await fetch(`https://api.heygen.com/v2/avatar_group/${fa.group_id}/avatars`, { headers: { "x-api-key": HG } }).then((r) => r.json());
+      const ids = (gl.data?.avatar_list ?? []).filter((l) => l.id && l.id !== fa.group_id && (l.status ?? "completed") === "completed").map((l) => l.id);
+      if (ids.length) who.looks = ids;
+      if (fa.voice_id) who.voice = fa.voice_id;
+      console.log(`LOOKS ${ids.length} live from group ${fa.group_id.slice(0, 6)}`);
+    } catch (e) { console.log("could not read the group's looks — using the built-in list:", e?.message ?? e); }
+  }
   const look = who.looks[Math.floor(Math.random() * who.looks.length)];
   const SIDE = faction.toUpperCase();
   const Side = faction === "red" ? "Red" : faction === "blue" ? "Blue" : "Founder";
@@ -364,13 +375,15 @@ Respond ONLY JSON: {"headline":"<UPPERCASE, <=6 words>","spoken":"<what you say 
       const trailing = lastStart != null && (ends.length < starts.length || d - ends[ends.length - 1] < 0.2);
       if (trailing && d - lastStart > 1) end = lastStart;
     } catch {}
-    if (d > 0) clipSeconds = Math.min(60, Math.max(4, Math.round((end + 0.7) * 10) / 10));
+    const tail = founder ? 1.4 : 0.7; // the Developer gets a beat to finish the thought
+    if (d > 0) clipSeconds = Math.min(60, Math.max(4, Math.round((end + tail) * 10) / 10));
     // Cut the source itself so a frozen tail can never reach the composite.
     // Every clip's audio is roughed up to sound like a phone in a room (a
     // synthetic voice comes out studio-clean, which reads as an ad): phone-mic
     // band, gentle compression, a touch of small-room reflection, a whisper of
     // noise floor. Tim asked for it on the anchors too.
-    const phone = `-filter_complex "[0:a]highpass=f=110,lowpass=f=7600,acompressor=threshold=-20dB:ratio=2.2:attack=8:release=120,aecho=0.9:0.35:11|23:0.10|0.06,volume=1.05[v];anoisesrc=color=pink:amplitude=0.0025:duration=${clipSeconds + 1}[n];[v][n]amix=inputs=2:duration=first:normalize=0[a]" -map 0:v -map "[a]"`;
+    const fadeAt = Math.max(0, clipSeconds - 0.6).toFixed(2);
+    const phone = `-filter_complex "[0:a]highpass=f=110,lowpass=f=7600,acompressor=threshold=-20dB:ratio=2.2:attack=8:release=120,aecho=0.9:0.35:11|23:0.10|0.06,volume=1.05[v];anoisesrc=color=pink:amplitude=0.0025:duration=${clipSeconds + 1}[n];[v][n]amix=inputs=2:duration=first:normalize=0,afade=t=out:st=${fadeAt}:d=0.6[a]" -map 0:v -map "[a]"`;
     {
       execSync(`ffmpeg -v error -y -i public/_wr/clip.mp4 -t ${clipSeconds} ${phone} -c:v libx264 -preset veryfast -crf 18 -c:a aac -b:a 128k -movflags +faststart public/_wr/clip-cut.mp4`, { stdio: "inherit" });
       execSync("mv public/_wr/clip-cut.mp4 public/_wr/clip.mp4");
