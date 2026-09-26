@@ -84,7 +84,9 @@ async function produce({ faction, kind, target = null }) {
   const who = founder ? team.founder : kind === "recruit" ? team.anchor : team.field;
   // The founder's on-camera self can be swapped from app_config.founder_avatar
   // ({avatar_id, voice_id, engine}) — e.g. the video twin — without a deploy.
-  const fa = faction === "founder" ? (await cfg("founder_avatar")) ?? null : null;
+  // Several twins (different rooms, outfits, framings) rotate: founder_avatar.avatars = [{avatar_id, voice_id?}]
+  let fa = faction === "founder" ? (await cfg("founder_avatar")) ?? null : null;
+  if (fa?.avatars?.length) fa = { ...fa, ...fa.avatars[Math.floor(Math.random() * fa.avatars.length)] };
   if (fa?.avatar_id) { who.looks = [fa.avatar_id]; if (fa.voice_id) who.voice = fa.voice_id; }
   const look = who.looks[Math.floor(Math.random() * who.looks.length)];
   const SIDE = faction.toUpperCase();
