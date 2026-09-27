@@ -173,11 +173,16 @@ const PlainClip = (props: SocialClipProps) => {
 export const SocialClip = (props: SocialClipProps) => {
   if (props.variant === "plain") return <PlainClip {...props} />;
   const frame = useCurrentFrame();
-  const { fps, height } = useVideoConfig();
+  const { fps, height, durationInFrames } = useVideoConfig();
   const letter = props.network.charAt(0);
   const rise = spring({ frame: frame - 8, fps, config: { damping: 200 } });
   const y = interpolate(rise, [0, 1], [60, 0]);
   const blink = Math.floor(frame / 15) % 2 === 0;
+  // The closing card: after the last word the news dressing fades, the picture
+  // dims, and JOIN THE BATTLE + the site step forward in the team's color.
+  const outroStart = Math.max(0, durationInFrames - Math.round(2.0 * fps));
+  const outro = spring({ frame: frame - outroStart, fps, config: { damping: 18, stiffness: 120 } });
+  const inOutro = frame >= outroStart;
 
   return (
     <AbsoluteFill style={{ backgroundColor: "#000", fontFamily: "Arial, Helvetica, sans-serif" }}>
@@ -268,7 +273,7 @@ export const SocialClip = (props: SocialClipProps) => {
       )}
 
       {/* bottom stack: headline + score + CTA */}
-      <div style={{ position: "absolute", left: 20, right: 20, bottom: 40, transform: `translateY(${y}px)` }}>
+      <div style={{ position: "absolute", left: 20, right: 20, bottom: 40, transform: `translateY(${y}px)`, opacity: inOutro ? 1 - outro : 1 }}>
         {props.variant === "breaking" && (
           <div
             style={{
@@ -326,6 +331,41 @@ export const SocialClip = (props: SocialClipProps) => {
           ▶ {props.url}
         </div>
       </div>
+
+      {inOutro && (
+        <>
+          <AbsoluteFill style={{ background: "rgba(0,0,0,.62)", opacity: outro }} />
+          <div
+            style={{
+              position: "absolute",
+              left: 0,
+              right: 0,
+              top: "52%",
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              gap: 10,
+              opacity: outro,
+              transform: `translateY(${interpolate(outro, [0, 1], [40, 0])}px) scale(${interpolate(outro, [0, 1], [0.92, 1])})`,
+            }}
+          >
+            <span style={{ fontSize: 40, fontWeight: 900, letterSpacing: 4, color: props.accent, textShadow: "0 3px 12px rgba(0,0,0,.9)" }}>JOIN THE BATTLE</span>
+            <span
+              style={{
+                fontSize: 40,
+                fontWeight: 900,
+                color: "#0a0f1e",
+                background: "#f2c14e",
+                padding: "12px 24px",
+                borderRadius: 14,
+                boxShadow: "0 10px 30px rgba(0,0,0,.5)",
+              }}
+            >
+              {props.url}
+            </span>
+          </div>
+        </>
+      )}
     </AbsoluteFill>
   );
 };
