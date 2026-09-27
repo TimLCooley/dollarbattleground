@@ -444,6 +444,66 @@ Respond ONLY JSON: {"headline":"<UPPERCASE, <=6 words>","spoken":"<what you say 
 
 // ── entry ───────────────────────────────────────────────────────────────────
 const mode = process.argv[2];
+if (mode === "looks") {
+  // Manage the Developer's photo-avatar looks without HeyGen's editor.
+  //   looks add            — every photo in the private bucket cast/tim/ → a look
+  //   looks train          — train the group on its looks (better generated looks)
+  //   looks status         — training status
+  //   looks generate "<prompt>" — HeyGen generates looks from the trained group and adds them
+  //   looks list           — the group's looks
+  const fa = (await cfg("founder_avatar")) ?? {};
+  const group = fa.group_id;
+  if (!group) { console.log("founder_avatar.group_id not set"); process.exit(1); }
+  const H = { "x-api-key": HG, "Content-Type": "application/json" };
+  const sub = process.argv[3] ?? "list";
+  const jsonOf = async (r) => { const t = await r.text(); try { return JSON.parse(t); } catch { return { raw: t, status: r.status }; } };
+  if (sub === "add") {
+    const list = await fetch(`${SB}/storage/v1/object/list/cast`, { method: "POST", headers: { ...sbh, "Content-Type": "application/json" }, body: JSON.stringify({ prefix: "tim/", limit: 100 }) }).then(jsonOf);
+    const files = (Array.isArray(list) ? list : []).map((f) => f.name).filter((n) => /\.(jpe?g|png)$/i.test(n));
+    console.log(`photos in cast/tim: ${files.length}`);
+    const keys = [];
+    for (const name of files) {
+      const bytes = await fetch(`${SB}/storage/v1/object/cast/tim/${name}`, { headers: sbh }).then((r) => r.arrayBuffer());
+      const up = await fetch("https://upload.heygen.com/v1/asset", { method: "POST", headers: { "x-api-key": HG, "Content-Type": name.toLowerCase().endsWith(".png") ? "image/png" : "image/jpeg" }, body: Buffer.from(bytes) }).then(jsonOf);
+      const key = up.data?.image_key;
+      console.log(`  ${name} → ${key ?? JSON.stringify(up)}`);
+      if (key) keys.push(key);
+    }
+    if (keys.length) {
+      const add = await fetch("https://api.heygen.com/v2/photo_avatar/avatar_group/add", { method: "POST", headers: H, body: JSON.stringify({ group_id: group, image_keys: keys, name: "Tim Cooley" }) }).then(jsonOf);
+      console.log("ADD:", JSON.stringify(add).slice(0, 600));
+    }
+  } else if (sub === "train") {
+    const t = await fetch("https://api.heygen.com/v2/photo_avatar/train", { method: "POST", headers: H, body: JSON.stringify({ group_id: group }) }).then(jsonOf);
+    console.log("TRAIN:", JSON.stringify(t).slice(0, 400));
+  } else if (sub === "status") {
+    const t = await fetch(`https://api.heygen.com/v2/photo_avatar/train/status/${group}`, { headers: H }).then(jsonOf);
+    console.log("STATUS:", JSON.stringify(t).slice(0, 400));
+  } else if (sub === "generate") {
+    const prompt = process.argv.slice(4).join(" ") || process.env.LOOK_PROMPT;
+    if (!prompt) { console.log("no prompt"); process.exit(1); }
+    const g = await fetch("https://api.heygen.com/v2/photo_avatar/look/generate", { method: "POST", headers: H, body: JSON.stringify({ group_id: group, prompt, orientation: "vertical", pose: "half_body", style: "Realistic" }) }).then(jsonOf);
+    console.log("GENERATE:", JSON.stringify(g).slice(0, 400));
+    const gid = g.data?.generation_id;
+    if (!gid) process.exit(1);
+    let done = null;
+    for (let i = 0; i < 60 && !done; i++) {
+      await new Promise((r) => setTimeout(r, 6000));
+      const st = await fetch(`https://api.heygen.com/v2/photo_avatar/generation/${gid}`, { headers: H }).then(jsonOf);
+      const d = st.data ?? st;
+      if (d.status === "success" || d.status === "completed" || d.image_key_list?.length) done = d;
+      else if (d.status === "failed") { console.log("generation failed:", JSON.stringify(d).slice(0, 300)); process.exit(1); }
+    }
+    if (!done) { console.log("generation timed out"); process.exit(1); }
+    console.log("IMAGES:", (done.image_url_list ?? []).join("\n        "));
+    const add = await fetch("https://api.heygen.com/v2/photo_avatar/avatar_group/add", { method: "POST", headers: H, body: JSON.stringify({ group_id: group, image_keys: done.image_key_list, name: "Tim Cooley" }) }).then(jsonOf);
+    console.log("ADDED TO GROUP:", JSON.stringify(add).slice(0, 300));
+  } else {
+    const gl = await fetch(`https://api.heygen.com/v2/avatar_group/${group}/avatars`, { headers: H }).then(jsonOf);
+    for (const l of gl.data?.avatar_list ?? []) console.log(`LOOK ${l.name ?? "-"} id=${l.id} status=${l.status ?? "-"} ${l.image_url ?? l.preview_image_url ?? ""}`);
+  }
+  process.exit(0);
+}
 if (mode === "cast") {
   // Print the HeyGen roster (photo-avatar groups, their looks, custom voices)
   // so new correspondents can be wired into CAST without touching the console.
