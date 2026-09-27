@@ -201,6 +201,7 @@ function ChatBox({ target, placeholder }: { target: string | "both"; placeholder
 export function CommandCenter() {
   const [posts, setPosts] = useState<Post[] | null>(null);
   const [filter, setFilter] = useState<Record<Faction, Status>>({ red: "queued", blue: "queued" });
+  const [devFilter, setDevFilter] = useState<Status>("queued");
   const [chatTarget, setChatTarget] = useState<Record<Faction, string>>({ red: "red_recruiter", blue: "blue_recruiter" });
   const [cmdTarget, setCmdTarget] = useState<"general" | "intel" | "both">("both");
   const [busy, setBusy] = useState<string | null>(null);
@@ -521,9 +522,18 @@ export function CommandCenter() {
           <p className="cc-mini">
             You, outside the fiction, once a day (rendered ~10am Mountain, reviewed here, then to your TikTok via RobinReach). Building in public from real commits and real player activity. Never money.
           </p>
+          <div className="cc-filters">
+            {(["queued", "posted", "denied"] as const).map((s) => (
+              <button key={s} className={devFilter === s ? "on" : ""} onClick={() => setDevFilter(s)}>
+                {s === "queued" ? "DRAFT" : s.toUpperCase()} {(posts ?? []).filter((p) => p.faction === "founder" && p.status === s).length}
+              </button>
+            ))}
+          </div>
           <div className="cc-founder">
-            {(posts ?? []).filter((p) => p.faction === "founder").slice(0, 4).map((p) => card(p, "founder"))}
-            {(posts ?? []).filter((p) => p.faction === "founder").length === 0 && <p className="cc-mini">No Developer clip yet today.</p>}
+            {(posts ?? []).filter((p) => p.faction === "founder" && p.status === devFilter).slice(0, 6).map((p) => card(p, "founder"))}
+            {(posts ?? []).filter((p) => p.faction === "founder" && p.status === devFilter).length === 0 && (
+              <p className="cc-mini">{devFilter === "queued" ? "Nothing waiting — today's clip renders around 10am Mountain." : `No ${devFilter} Developer clips.`}</p>
+            )}
           </div>
 
           <h3 className="cc-goals-h">📌 COMMANDER&apos;S NOTES</h3>
