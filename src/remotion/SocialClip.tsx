@@ -90,8 +90,14 @@ function Score({ red, blue, big }: { red: number; blue: number; big?: boolean })
 // with the site at the top.
 const PlainClip = (props: SocialClipProps) => {
   const frame = useCurrentFrame();
-  const { fps } = useVideoConfig();
+  const { fps, durationInFrames } = useVideoConfig();
   const drop = spring({ frame: frame - 4, fps, config: { damping: 200 } });
+  // a slow breathe so the eye catches it without it shouting
+  const breathe = 1 + 0.025 * Math.sin((frame / fps) * 2 * Math.PI * 0.45);
+  // the closing card: when he stops talking and they're still looking
+  const outroStart = Math.max(0, durationInFrames - Math.round(2.4 * fps));
+  const outro = spring({ frame: frame - outroStart, fps, config: { damping: 18, stiffness: 120 } });
+  const inOutro = frame >= outroStart;
   return (
     <AbsoluteFill style={{ background: "#0a0f1e" }}>
       <OffthreadVideo src={staticFile(props.anchorSrc)} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
@@ -102,26 +108,64 @@ const PlainClip = (props: SocialClipProps) => {
           position: "absolute",
           top: 200,
           left: 28,
-          opacity: drop,
-          transform: `translateX(${interpolate(drop, [0, 1], [-24, 0])}px)`,
+          opacity: inOutro ? 1 - outro : drop,
+          transform: `translateX(${interpolate(drop, [0, 1], [-24, 0])}px) scale(${breathe})`,
+          transformOrigin: "left center",
         }}
       >
         <div
           style={{
-            display: "inline-block",
-            background: "rgba(10,15,30,.55)",
+            display: "inline-flex",
+            flexDirection: "column",
+            background: "rgba(10,15,30,.6)",
             color: "#fff",
-            fontWeight: 800,
-            fontSize: 26,
-            letterSpacing: 0.5,
-            padding: "8px 14px",
-            borderRadius: 10,
+            padding: "8px 14px 9px",
+            borderRadius: 12,
             textShadow: "0 2px 8px rgba(0,0,0,.8)",
+            boxShadow: "0 6px 18px rgba(0,0,0,.35)",
           }}
         >
-          {props.url}
+          <span style={{ fontSize: 15, fontWeight: 800, letterSpacing: 2.2, color: "#f2c14e", marginBottom: 2 }}>CHECK OUT</span>
+          <span style={{ fontSize: 26, fontWeight: 800, letterSpacing: 0.5 }}>{props.url}</span>
         </div>
       </div>
+
+      {/* closing card */}
+      {inOutro && (
+        <>
+          <AbsoluteFill style={{ background: "rgba(10,15,30,.45)", opacity: outro }} />
+          <div
+            style={{
+              position: "absolute",
+              left: 0,
+              right: 0,
+              top: "58%",
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              gap: 8,
+              opacity: outro,
+              transform: `translateY(${interpolate(outro, [0, 1], [40, 0])}px) scale(${interpolate(outro, [0, 1], [0.92, 1])})`,
+            }}
+          >
+            <span style={{ fontSize: 22, fontWeight: 800, letterSpacing: 3, color: "#f2c14e", textShadow: "0 2px 10px rgba(0,0,0,.8)" }}>CHECK IT OUT</span>
+            <span
+              style={{
+                fontSize: 44,
+                fontWeight: 900,
+                color: "#fff",
+                background: "rgba(10,15,30,.7)",
+                padding: "12px 24px",
+                borderRadius: 16,
+                textShadow: "0 3px 12px rgba(0,0,0,.8)",
+                boxShadow: "0 10px 30px rgba(0,0,0,.45)",
+              }}
+            >
+              {props.url}
+            </span>
+          </div>
+        </>
+      )}
     </AbsoluteFill>
   );
 };
