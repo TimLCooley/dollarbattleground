@@ -469,9 +469,9 @@ if (mode === "looks") {
       console.log(`  ${name} → ${key ?? JSON.stringify(up)}`);
       if (key) keys.push(key);
     }
-    if (keys.length) {
-      const add = await fetch("https://api.heygen.com/v2/photo_avatar/avatar_group/add", { method: "POST", headers: H, body: JSON.stringify({ group_id: group, image_keys: keys, name: "Tim Cooley" }) }).then(jsonOf);
-      console.log("ADD:", JSON.stringify(add).slice(0, 600));
+    for (let i = 0; i < keys.length; i += 4) { // HeyGen takes at most 4 per call
+      const add = await fetch("https://api.heygen.com/v2/photo_avatar/avatar_group/add", { method: "POST", headers: H, body: JSON.stringify({ group_id: group, image_keys: keys.slice(i, i + 4), name: "Tim Cooley" }) }).then(jsonOf);
+      console.log("ADD:", JSON.stringify(add.error ?? add.data ?? add).slice(0, 300));
     }
   } else if (sub === "train") {
     const t = await fetch("https://api.heygen.com/v2/photo_avatar/train", { method: "POST", headers: H, body: JSON.stringify({ group_id: group }) }).then(jsonOf);
@@ -496,8 +496,11 @@ if (mode === "looks") {
     }
     if (!done) { console.log("generation timed out"); process.exit(1); }
     console.log("IMAGES:", (done.image_url_list ?? []).join("\n        "));
-    const add = await fetch("https://api.heygen.com/v2/photo_avatar/avatar_group/add", { method: "POST", headers: H, body: JSON.stringify({ group_id: group, image_keys: done.image_key_list, name: "Tim Cooley" }) }).then(jsonOf);
-    console.log("ADDED TO GROUP:", JSON.stringify(add).slice(0, 300));
+    const gk = done.image_key_list ?? [];
+    for (let i = 0; i < gk.length; i += 4) {
+      const add = await fetch("https://api.heygen.com/v2/photo_avatar/avatar_group/add", { method: "POST", headers: H, body: JSON.stringify({ group_id: group, image_keys: gk.slice(i, i + 4), name: "Tim Cooley" }) }).then(jsonOf);
+      console.log("ADDED TO GROUP:", JSON.stringify(add.error ?? add.data ?? add).slice(0, 300));
+    }
   } else {
     const gl = await fetch(`https://api.heygen.com/v2/avatar_group/${group}/avatars`, { headers: H }).then(jsonOf);
     for (const l of gl.data?.avatar_list ?? []) console.log(`LOOK ${l.name ?? "-"} id=${l.id} status=${l.status ?? "-"} ${l.image_url ?? l.preview_image_url ?? ""}`);
