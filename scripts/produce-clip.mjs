@@ -380,7 +380,7 @@ Respond ONLY JSON: {"headline":"<UPPERCASE, <=6 words>","spoken":"<what you say 
       const trailing = lastStart != null && (ends.length < starts.length || d - ends[ends.length - 1] < 0.2);
       if (trailing && d - lastStart > 1) end = lastStart;
     } catch {}
-    const tail = founder ? 1.4 : 0.7; // the Developer gets a beat to finish the thought
+    const tail = founder ? 1.8 : 2.0; // room for the closing card after the last word
     if (d > 0) clipSeconds = Math.min(60, Math.max(4, Math.round((end + tail) * 10) / 10));
     // Cut the source itself so a frozen tail can never reach the composite.
     // Every clip's audio is roughed up to sound like a phone in a room (a
