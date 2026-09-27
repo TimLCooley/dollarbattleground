@@ -423,18 +423,22 @@ Respond ONLY JSON: {"headline":"<UPPERCASE, <=6 words>","spoken":"<what you say 
   } else {
     const ap = (await cfg("autopilot")) ?? {};
     const reviewMin = Number(ap.review_minutes) || 60;
+    // A clip made by hand (workflow_dispatch / CLI) is a test until someone
+    // presses Post now: no slot, so the autopilot never publishes it on its own.
+    const manual = !target && process.env.GITHUB_EVENT_NAME !== "schedule" && !process.env.AUTO;
+    const slot = manual ? null : new Date(Date.now() + reviewMin * 60_000).toISOString();
     await fetch(`${SB}/rest/v1/agent_posts`, {
       method: "POST",
       headers: { ...sbh, "Content-Type": "application/json", Prefer: "return=minimal" },
       body: JSON.stringify(founder ? {
         agent: "founder", faction: "founder", status: "queued", format: "video", angle: "founder",
         network: "tiktok", x_account: null, video_kind: "social_clip", media_url: mediaUrl, copy: plan.caption,
-        reason: `[theme:developer] The Developer — ${plan_topic.split(" — ")[0]} (look ${look.slice(0, 6)})`,
-        scheduled_for: new Date(Date.now() + reviewMin * 60_000).toISOString(), video_spec: spec,
+        reason: `${manual ? "MANUAL TEST — posts only if you press Post now · " : ""}[theme:developer] The Developer — ${plan_topic.split(" — ")[0]} (look ${look.slice(0, 6)})`,
+        scheduled_for: slot, video_spec: spec,
       } : {
         agent: `${faction}_recruiter`, faction, status: "queued", format: "video", angle: kind === "recruit" ? "recruit" : (plan.angle || "update"),
-        network: faction, x_account: faction, video_kind: "social_clip", media_url: mediaUrl, copy: plan.caption, reason,
-        scheduled_for: new Date(Date.now() + reviewMin * 60_000).toISOString(), video_spec: spec,
+        network: faction, x_account: faction, video_kind: "social_clip", media_url: mediaUrl, copy: plan.caption, reason: `${manual ? "MANUAL TEST — posts only if you press Post now · " : ""}${reason}`,
+        scheduled_for: slot, video_spec: spec,
       }),
     });
     console.log(`QUEUED ${founder ? "founder" : kind} clip for ${SIDE} — review it in /admin/agents`);
@@ -552,6 +556,7 @@ if (mode === "due") {
   // The founder's daily clip: once a day, after 16:00 UTC (10am Mountain),
   // when today's doesn't exist yet. Reviewed on /admin/agents like the rest.
   if (new Date().getUTCHours() >= 16) {
+    process.env.AUTO = "1"; // the daily clip is real: it gets a slot
     try { await produce({ faction: "founder", kind: "founder" }); } catch (e) { console.log("founder clip failed:", e?.message ?? e); }
   }
 } else if (mode === "founder") {
