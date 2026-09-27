@@ -93,10 +93,15 @@ async function produce({ faction, kind, target = null }) {
     // HeyGen app (the jawline one) drops it from the rotation without a deploy.
     try {
       const gl = await fetch(`https://api.heygen.com/v2/avatar_group/${fa.group_id}/avatars`, { headers: { "x-api-key": HG } }).then((r) => r.json());
-      const ids = (gl.data?.avatar_list ?? []).filter((l) => l.id && l.id !== fa.group_id && (l.status ?? "completed") === "completed").map((l) => l.id);
+      const all = (gl.data?.avatar_list ?? []).filter((l) => l.id && l.id !== fa.group_id && (l.status ?? "completed") === "completed" && !(fa.exclude_looks ?? []).includes(l.id));
+      // Real photos (the ones Tim named) animate as Tim's actual face — the
+      // HeyGen-generated stills ("Photo Avatar") gave him a stranger's chin.
+      // Use the real ones when there are enough of them.
+      const real = all.filter((l) => l.name && !/^photo avatar$/i.test(l.name.trim()));
+      const ids = (real.length >= 3 ? real : all).map((l) => l.id);
       if (ids.length) who.looks = ids;
       if (fa.voice_id) who.voice = fa.voice_id;
-      console.log(`LOOKS ${ids.length} live from group ${fa.group_id.slice(0, 6)}`);
+      console.log(`LOOKS ${ids.length} live from group ${fa.group_id.slice(0, 6)} (${real.length} real photos, ${all.length} total)`);
     } catch (e) { console.log("could not read the group's looks — using the built-in list:", e?.message ?? e); }
   }
   const look = who.looks[Math.floor(Math.random() * who.looks.length)];
@@ -326,7 +331,7 @@ Respond ONLY JSON: {"headline":"<UPPERCASE, <=6 words>","spoken":"<what you say 
     // low = calmer mouth (less teeth) — Tim found medium a bit toothy.
     body.expressiveness = founder ? (process.env.HEYGEN_EXPRESSIVENESS_FOUNDER || "low") : "medium";
     body.motion_prompt = founder
-      ? "A person talking to his own phone, not to an audience: a slight, warm smile as his resting face — never a grin, mouth mostly relaxed. Slightly unsure; glances away while thinking, looks down now and then, comes back to the lens. Small hand movements, small nods, no big gestures, no leaning in."
+      ? "A person talking to his own phone, not to an audience: a slight, warm smile as his resting face — never a grin; lips mostly together between phrases, minimal teeth, small mouth movements. Slightly unsure; glances away while thinking, looks down now and then, comes back to the lens. Small hand movements, small nods, no big gestures, no leaning in."
       : kind === "recruit"
         ? "A news anchor at the desk: natural presenter hand gestures, leans in on the key line, counts on fingers when listing, steady eye contact."
         : "A field correspondent reporting from the front: points off-camera toward the action, small emphatic hand gestures, alert posture.";
