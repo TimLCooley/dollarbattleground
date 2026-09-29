@@ -23,7 +23,9 @@ const SB = process.env.SUPABASE_URL;
 const SK = process.env.SUPABASE_SECRET_KEY;
 const sbh = { apikey: SK, Authorization: `Bearer ${SK}` };
 
-// Every correspondent has several looks — a different one each run.
+// Every correspondent has several looks. Each run takes the one used longest
+// ago (see pickFresh), so nobody wears the same look twice in a row and every
+// look gets a turn before any repeats.
 const CAST = {
   red: {
     network: "RED TEAM NEWS",
@@ -50,6 +52,26 @@ const ENGINE = process.env.HEYGEN_ENGINE || "avatar_iii"; // see the render step
 const ENGINE_FOUNDER = process.env.HEYGEN_ENGINE_FOUNDER || "avatar_iv";
 const today = new Date().toISOString().slice(0, 10);
 const monthStart = today.slice(0, 8) + "01";
+
+// Rotation: pick from `pool` the entry used longest ago. `recent` is what was
+// used before, most recent first (from the posts' video_spec). Entries never
+// used come first; ties break at random. With 2+ entries the last one used is
+// never picked again, and every entry is used once before any comes back.
+function pickFresh(pool, recent) {
+  if (pool.length <= 1) return pool[0];
+  const lastUse = new Map(pool.map((id) => [id, Infinity]));
+  recent.forEach((id, i) => { if (lastUse.get(id) === Infinity) lastUse.set(id, i); });
+  const oldest = Math.max(...pool.map((id) => lastUse.get(id)));
+  const cands = pool.filter((id) => lastUse.get(id) === oldest);
+  return cands[Math.floor(Math.random() * cands.length)];
+}
+// The specs of this character's recent clips, newest first (look, bg, ...).
+async function recentSpecs(faction, name) {
+  try {
+    const rows = await fetch(`${SB}/rest/v1/agent_posts?faction=eq.${faction}&format=eq.video&video_spec->>who=eq.${encodeURIComponent(name)}&select=video_spec&order=created_at.desc&limit=50`, { headers: sbh }).then((r) => r.json());
+    return (Array.isArray(rows) ? rows : []).map((r) => r.video_spec).filter((v) => v && !v.placeholder);
+  } catch (e) { console.log("could not read recent clips for the rotation — picking at random:", e?.message ?? e); return []; }
+}
 
 async function cfg(key) {
   const rows = await fetch(`${SB}/rest/v1/app_config?key=eq.${key}&select=value`, { headers: sbh }).then((r) => r.json());
@@ -86,8 +108,9 @@ async function produce({ faction, kind, target = null }) {
   // ({avatar_id, voice_id, engine}) — e.g. the video twin — without a deploy.
   // Several twins (different rooms, outfits, framings) rotate: founder_avatar.avatars = [{avatar_id, voice_id?}]
   let fa = faction === "founder" ? (await cfg("founder_avatar")) ?? null : null;
-  if (fa?.avatars?.length) fa = { ...fa, ...fa.avatars[Math.floor(Math.random() * fa.avatars.length)] };
-  if (fa?.avatar_id) { who.looks = [fa.avatar_id]; if (fa.voice_id) who.voice = fa.voice_id; }
+  const twins = fa?.avatars?.filter((a) => a?.avatar_id) ?? [];
+  if (twins.length) who.looks = twins.map((a) => a.avatar_id);
+  else if (fa?.avatar_id) { who.looks = [fa.avatar_id]; if (fa.voice_id) who.voice = fa.voice_id; }
   else if (fa?.group_id) {
     // Photo-avatar group: read its looks live, so deleting a bad one in the
     // HeyGen app (the jawline one) drops it from the rotation without a deploy.
@@ -104,7 +127,11 @@ async function produce({ faction, kind, target = null }) {
       console.log(`LOOKS ${ids.length} live from group ${fa.group_id.slice(0, 6)} (${real.length} real photos, ${all.length} total)`);
     } catch (e) { console.log("could not read the group's looks — using the built-in list:", e?.message ?? e); }
   }
-  const look = who.looks[Math.floor(Math.random() * who.looks.length)];
+  // The look used longest ago — the previous clips' specs remember which one
+  // each wore, so the same face never shows up twice running.
+  const prevSpecs = await recentSpecs(faction, who.name);
+  const look = pickFresh(who.looks, prevSpecs.map((v) => v.look).filter(Boolean));
+  if (twins.length) { fa = { ...fa, ...twins.find((a) => a.avatar_id === look) }; if (fa.voice_id) who.voice = fa.voice_id; }
   const SIDE = faction.toUpperCase();
   const Side = faction === "red" ? "Red" : faction === "blue" ? "Blue" : "Founder";
 
@@ -321,8 +348,9 @@ Respond ONLY JSON: {"headline":"<UPPERCASE, <=6 words>","spoken":"<what you say 
   if (founder) body.resolution = "1080p";
   // Backgrounds rotate behind the twin (founder_avatar.backgrounds = [image urls]):
   // HeyGen keys the recorded room out and drops him into a new one.
+  let bg = null;
   if (founder && fa?.backgrounds?.length) {
-    const bg = fa.backgrounds[Math.floor(Math.random() * fa.backgrounds.length)];
+    bg = pickFresh(fa.backgrounds, prevSpecs.map((v) => v.bg).filter(Boolean));
     body.background = { type: "image", url: bg };
     body.remove_background = true;
     console.log(`BACKGROUND ${bg}`);
@@ -414,7 +442,7 @@ Respond ONLY JSON: {"headline":"<UPPERCASE, <=6 words>","spoken":"<what you say 
   console.log("HOSTED:", mediaUrl);
 
   const themeTag = target ? (target.reason?.match(/\[theme:\w+\]/)?.[0] ?? `[theme:${kind === "recruit" ? "countdown" : "update"}]`) : `[theme:${kind === "recruit" ? "countdown" : "update"}]`;
-  const spec = { ...(target?.video_spec ?? {}), kind, red, blue, redPct, bluePct, look, who: who.name, rendered_at: new Date().toISOString(), placeholder: false, ...(plan_topic ? { topic: plan_topic } : {}) };
+  const spec = { ...(target?.video_spec ?? {}), kind, red, blue, redPct, bluePct, look, ...(bg ? { bg } : {}), who: who.name, rendered_at: new Date().toISOString(), placeholder: false, ...(plan_topic ? { topic: plan_topic } : {}) };
   const reason = `${themeTag} ${kind === "recruit" ? `Recruiting spot — ${who.name} at the desk` : `Field report — ${who.name}, ${lead}`} (look ${look.slice(0, 6)}) · rendered from live data before posting`;
 
   if (target) {
