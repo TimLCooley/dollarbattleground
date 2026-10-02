@@ -2108,6 +2108,52 @@ body {
   color: #ffb0ac;
   opacity: 1;
 }
+/* ---- War Show strip (command console) */
+.adm-show {
+  flex-direction: column;
+  align-items: stretch;
+  margin-bottom: 12px;
+}
+.adm-show.on {
+  border-color: #7a1f1f;
+}
+.adm-show-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.adm-spacer {
+  flex: 1;
+}
+.adm-preview {
+  border: 3px solid #0c3c21;
+  box-shadow: var(--shadow-pix);
+}
+.adm-num {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-family: var(--font-pixel), monospace;
+  font-size: 10px;
+  color: var(--parch);
+}
+.adm-num-in {
+  width: 58px;
+  padding: 5px 6px;
+  font: inherit;
+  font-size: 12px;
+  color: var(--ink);
+  background: var(--cream);
+  border: 3px solid #0c3c21;
+}
+.adm-num-u {
+  opacity: 0.7;
+}
+.adm-show .adm-mode-note b {
+  color: var(--gold);
+  font-weight: 700;
+}
 .adm-stats {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
