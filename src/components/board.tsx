@@ -13,6 +13,7 @@ import { ScreenFx, CELE_MS, type Cele, type ScreenFxState } from "./screen-fx";
 import { StrikeStage, TIER_FX, useFxSpeed, type Proj } from "@/lib/flip-fx";
 import { SocialFeeds } from "./social-feed";
 import { useAdminFreePlay } from "./use-admin-freeplay";
+import { useShowConfig, useShowPreview, useWarShow, type SimStrike } from "./use-war-show";
 
 const N = 15;
 const TOTAL = N * N;
@@ -52,6 +53,7 @@ function seed5050(): CellVal[] {
 
 export interface Battleground {
   cells: CellVal[];
+  loaded: boolean; // false until the real board arrived (the 50/50 placeholder shows before)
   counts: { b: number; r: number; n: number };
   popping: Set<number>;
   owned: Set<number>; // tiles the current player currently holds
@@ -67,6 +69,7 @@ export interface Battleground {
 export function useBattleground(): Battleground {
   const supabase = useMemo(() => createClient(), []);
   const [cells, setCells] = useState<CellVal[]>(seed5050);
+  const [loaded, setLoaded] = useState(false);
   const [popping, setPopping] = useState<Set<number>>(new Set());
   const [owned, setOwned] = useState<Set<number>>(new Set());
   const myIdRef = useRef<string | null>(null);
@@ -113,6 +116,7 @@ export function useBattleground(): Battleground {
       }
       setCells(nextCells);
       setOwned(nextOwned);
+      setLoaded(true);
     })();
     return () => {
       active = false;
@@ -193,7 +197,7 @@ export function useBattleground(): Battleground {
     [pop],
   );
 
-  return { cells, counts, popping, claimFree, owned };
+  return { cells, loaded, counts, popping, claimFree, owned };
 }
 
 function Crosshair() {
@@ -390,7 +394,7 @@ export function BoardView({
   flash,
   adminPaint,
 }: BoardViewProps) {
-  const { cells, counts, popping, claimFree, owned } = board;
+  const { cells, loaded, counts, popping, claimFree, owned } = board;
   const [internalSide, setInternalSide] = useState<Team>("blue");
   const side: Team = lockedSide ?? internalSide;
   const [tool, setTool] = useState<Tool>("flip");
@@ -443,6 +447,7 @@ export function BoardView({
     center: number;
     proj: Proj;
     impactMs: number;
+    side?: Team; // who fired (the War Show strikes for either side)
     onImpact: () => void;
   } | null>(null);
   const strikeId = useRef(0);
@@ -481,7 +486,7 @@ export function BoardView({
   );
 
   const animateHit = useCallback(
-    (idxs: number[], center: number, kind: Tool) => {
+    (idxs: number[], center: number, kind: Tool, quiet = false) => {
       setFlipping((prev) => new Set([...prev, ...idxs]));
       window.setTimeout(() => {
         setFlipping((prev) => {
@@ -493,10 +498,57 @@ export function BoardView({
       const id = ++blastId.current;
       setBlast({ id, center });
       window.setTimeout(() => setBlast((b) => (b && b.id === id ? null : b)), 620);
-      fireScreenFx(center, kind);
+      if (!quiet) fireScreenFx(center, kind);
     },
     [fireScreenFx],
   );
+
+  // ---- The War Show: pretend strikes on an overlay, the real board untouched.
+  // Off for admins (they log in to see what's real) unless they turn on the
+  // preview in the command console; off in Free Play and while a recruit is
+  // planting their flag, so what they tap is what they get.
+  const showCfg = useShowConfig();
+  const { preview: showPreview } = useShowPreview();
+  const { isAdmin } = useAdminFreePlay();
+  const showOn = showCfg.on && !adminPaint && !placementMode && (!isAdmin || showPreview);
+  const [simFlash, setSimFlash] = useState<string | null>(null);
+  const simFlashTimer = useRef<number | null>(null);
+  const fireSim = useCallback(
+    (s: SimStrike, paint: () => void) => {
+      const cfg = s.kind === "x" ? TIER_FX["$5"] : s.kind === "strike" ? TIER_FX["$10"] : TIER_FX["$1"];
+      const land = () => {
+        animateHit(s.idxs, s.center, s.kind, true);
+        paint();
+        if (s.kind !== "flip") {
+          const x = s.center % N;
+          const y = Math.floor(s.center / N);
+          const what = s.kind === "x" ? "2×2 strike" : "3×3 barrage";
+          const msg = `⚠ ${s.attacker.toUpperCase()} ${what} at (${x}, ${y}) — ${s.idxs.length} position${s.idxs.length === 1 ? "" : "s"} turned.`;
+          setSimFlash(msg);
+          if (simFlashTimer.current) clearTimeout(simFlashTimer.current);
+          simFlashTimer.current = window.setTimeout(() => setSimFlash((m) => (m === msg ? null : m)), 6000);
+        }
+      };
+      if (!cfg.proj) {
+        land();
+        return;
+      }
+      // Never bump a player's own strike mid-flight: its impact is what commits
+      // their claim. If one is in the air, this show strike is simply dropped.
+      const sid = ++strikeId.current;
+      setStrike((cur) =>
+        cur && cur.side === undefined
+          ? cur
+          : { id: sid, center: s.center, proj: cfg.proj!, impactMs: cfg.impactMs, side: s.attacker, onImpact: land },
+      );
+    },
+    [animateHit],
+  );
+  const show = useWarShow({ cells, loaded, owned, side, enabled: showOn, config: showCfg, fire: fireSim });
+  // The tiles under the crosshair are always real, so the preview, the price
+  // and the result all agree.
+  const shownCells = show.shown;
+  const protectShow = show.protect;
 
   // No neutral tiles: the board is always fully red/blue. A side at 100% has
   // nothing left to take, so that side is locked out — but the OTHER side can
@@ -519,6 +571,10 @@ export function BoardView({
     (focus: number) => patternFor(tool, focus).filter((k) => cells[k] !== side),
     [patternFor, tool, cells, side],
   );
+  useEffect(() => {
+    const focus = aim ?? hoverIndex;
+    protectShow(focus == null ? [] : patternFor(tool, focus));
+  }, [aim, hoverIndex, tool, patternFor, protectShow]);
 
   // Best spot for a given piece: the center that flips the MOST enemy tiles,
   // tie-broken toward the board center. Used to auto-place banked/free pieces.
@@ -847,7 +903,7 @@ export function BoardView({
           aria-label="15 by 15 battleground"
           onMouseLeave={() => setHoverIndex(null)}
         >
-          {cells.map((c, i) => {
+          {shownCells.map((c, i) => {
             const cls =
               "cell" +
               (c ? " " + c : tufts[i] ? " tuft" : "") +
@@ -890,7 +946,7 @@ export function BoardView({
             >
               <StrikeStage
                 proj={strike.proj}
-                side={side}
+                side={strike.side ?? side}
                 impactMs={strike.impactMs}
                 speed={fxSpeed}
                 onImpact={strike.onImpact}
@@ -982,7 +1038,7 @@ export function BoardView({
           );
         })()}
 
-      <FieldRadio counts={counts} side={side} rank={title} flash={flash} />
+      <FieldRadio counts={show.counts} side={side} rank={title} flash={flash ?? simFlash} />
 
       <div className="attack-head">★ CHOOSE YOUR ATTACK ★</div>
 
