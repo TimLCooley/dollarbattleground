@@ -11,6 +11,23 @@ import {
 // A vertical (9:16) social clip: a reporter talking, full-bleed, with a thin
 // branded overlay (network bug, headline, live score, CTA). Several `variant`
 // styles so the feed has variety. Prop-driven — one per game event.
+//
+// Every overlay stays inside SAFE: the feeds draw their own chrome over the
+// top band (search bar, back / menu buttons), the bottom band (account,
+// caption, action row, music) and the right rail (like / comment / share).
+// X, TikTok, Reels and Shorts all cover about the same ground; this is the
+// union, so one render reads on all of them. Render with `safeGuide: true` in
+// the Studio to see the covered bands.
+
+// The frame is 720 × 1280. Values in px.
+export const SAFE = {
+  top: 180, // 14% — search bar, back / menu, "Following | For You"
+  bottom: 410, // 32% — account, caption, action row, music strip
+  right: 100, // 14% — the vertical rail of icons (from ~40% down to ~92%)
+  left: 24,
+  railTop: 0.4, // the rail runs from here…
+  railBottom: 0.92, // …to here, as fractions of the height
+};
 
 export type ClipVariant = "lower" | "breaking" | "score" | "field" | "plain";
 
@@ -27,6 +44,7 @@ export type SocialClipProps = {
   url: string;
   variant: ClipVariant;
   seconds: number;
+  safeGuide?: boolean; // Studio only: draw the bands the feeds cover
 }
 
 export const DEFAULT_SOCIAL_PROPS: SocialClipProps = {
@@ -44,16 +62,56 @@ export const DEFAULT_SOCIAL_PROPS: SocialClipProps = {
   seconds: 10,
 };
 
+// Darkens where the text sits now: under the bug (top ~14–24%) and behind the
+// lower-third stack (~45–70%), not the bottom edge nobody sees.
 const Scrim = () => (
   <>
     <AbsoluteFill
-      style={{ background: "linear-gradient(to bottom, rgba(0,0,0,.55) 0%, transparent 22%)" }}
+      style={{ background: "linear-gradient(to bottom, rgba(0,0,0,.6) 0%, rgba(0,0,0,.45) 18%, transparent 30%)" }}
     />
     <AbsoluteFill
-      style={{ background: "linear-gradient(to top, rgba(0,0,0,.78) 0%, transparent 42%)" }}
+      style={{
+        background:
+          "linear-gradient(to top, rgba(0,0,0,.35) 0%, rgba(0,0,0,.72) 30%, rgba(0,0,0,.72) 50%, transparent 66%)",
+      }}
     />
   </>
 );
+
+// The bands the feeds cover, for checking a layout in the Studio.
+const SafeGuide = () => {
+  const band: React.CSSProperties = {
+    position: "absolute",
+    background: "rgba(255,0,0,.28)",
+    color: "#fff",
+    fontSize: 14,
+    fontWeight: 800,
+    letterSpacing: 1,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    outline: "2px dashed rgba(255,80,80,.9)",
+    outlineOffset: -2,
+  };
+  return (
+    <AbsoluteFill style={{ pointerEvents: "none" }}>
+      <div style={{ ...band, top: 0, left: 0, right: 0, height: SAFE.top }}>FEED CHROME — TOP</div>
+      <div style={{ ...band, bottom: 0, left: 0, right: 0, height: SAFE.bottom }}>FEED CHROME — CAPTION / ACTIONS</div>
+      <div
+        style={{
+          ...band,
+          right: 0,
+          width: SAFE.right,
+          top: `${SAFE.railTop * 100}%`,
+          bottom: `${(1 - SAFE.railBottom) * 100}%`,
+          writingMode: "vertical-rl",
+        }}
+      >
+        RAIL
+      </div>
+    </AbsoluteFill>
+  );
+};
 
 function Score({ red, blue, big }: { red: number; blue: number; big?: boolean }) {
   return (
@@ -101,13 +159,12 @@ const PlainClip = (props: SocialClipProps) => {
   return (
     <AbsoluteFill style={{ background: "#0a0f1e" }}>
       <OffthreadVideo src={staticFile(props.anchorSrc)} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-      {/* Feeds cover the top ~12% (search bar) and the right rail, so the
-          site name sits upper-left, below the search bar, clear of the icons. */}
+      {/* Upper-left, just under the feed's top band, clear of the rail. */}
       <div
         style={{
           position: "absolute",
-          top: 200,
-          left: 28,
+          top: SAFE.top + 16,
+          left: SAFE.left,
           opacity: inOutro ? 1 - outro : drop,
           transform: `translateX(${interpolate(drop, [0, 1], [-24, 0])}px) scale(${breathe})`,
           transformOrigin: "left center",
@@ -138,8 +195,8 @@ const PlainClip = (props: SocialClipProps) => {
             style={{
               position: "absolute",
               left: 0,
-              right: 0,
-              top: "58%",
+              right: SAFE.right,
+              top: "46%",
               display: "flex",
               flexDirection: "column",
               alignItems: "center",
@@ -166,6 +223,7 @@ const PlainClip = (props: SocialClipProps) => {
           </div>
         </>
       )}
+      {props.safeGuide && <SafeGuide />}
     </AbsoluteFill>
   );
 };
@@ -192,13 +250,13 @@ export const SocialClip = (props: SocialClipProps) => {
       />
       <Scrim />
 
-      {/* top: network bug + LIVE */}
+      {/* top: network bug + LIVE — just under the feed's top band */}
       <div
         style={{
           position: "absolute",
-          top: 26,
-          left: 20,
-          right: 20,
+          top: SAFE.top,
+          left: SAFE.left,
+          right: SAFE.left,
           display: "flex",
           justifyContent: "space-between",
           alignItems: "flex-start",
@@ -262,9 +320,9 @@ export const SocialClip = (props: SocialClipProps) => {
         </div>
       </div>
 
-      {/* score variant: big module near the top-center */}
+      {/* score variant: big module under the bug */}
       {props.variant === "score" && (
-        <div style={{ position: "absolute", top: 110, left: 20, right: 20 }}>
+        <div style={{ position: "absolute", top: SAFE.top + 80, left: SAFE.left, right: SAFE.left }}>
           <div style={{ color: "#fff", fontSize: 13, letterSpacing: 3, fontWeight: 700, marginBottom: 8, textAlign: "center", opacity: 0.85 }}>
             TERRITORY CONTROL
           </div>
@@ -272,8 +330,18 @@ export const SocialClip = (props: SocialClipProps) => {
         </div>
       )}
 
-      {/* bottom stack: headline + score + CTA */}
-      <div style={{ position: "absolute", left: 20, right: 20, bottom: 40, transform: `translateY(${y}px)`, opacity: inOutro ? 1 - outro : 1 }}>
+      {/* lower-third stack: headline + score + CTA — above the caption band,
+          left of the rail */}
+      <div
+        style={{
+          position: "absolute",
+          left: SAFE.left,
+          right: SAFE.right,
+          bottom: SAFE.bottom,
+          transform: `translateY(${y}px)`,
+          opacity: inOutro ? 1 - outro : 1,
+        }}
+      >
         {props.variant === "breaking" && (
           <div
             style={{
@@ -339,8 +407,8 @@ export const SocialClip = (props: SocialClipProps) => {
             style={{
               position: "absolute",
               left: 0,
-              right: 0,
-              top: "52%",
+              right: SAFE.right,
+              top: "44%",
               display: "flex",
               flexDirection: "column",
               alignItems: "center",
@@ -366,6 +434,7 @@ export const SocialClip = (props: SocialClipProps) => {
           </div>
         </>
       )}
+      {props.safeGuide && <SafeGuide />}
     </AbsoluteFill>
   );
 };
