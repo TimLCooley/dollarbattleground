@@ -271,10 +271,11 @@ async function produce({ faction, kind, target = null }) {
     "When I built this, I thought people would do one thing. You are absolutely not doing that.",
   ];
   // Officer commissions per side — the Developer's pitch when he fronts a team.
-  const commissionsOpen = Number(ta?.commissions ?? 100);
+  const commissionsOpen = Number(ta?.commissions ?? 100); // "looking for 100 officers"
+  const filled = Number(ta?.filled ?? 0); // spots counted as taken before the ledger started
   const officers = tim ? await officersOn(faction) : 0;
-  const commissionsLeft = Math.max(0, commissionsOpen - officers);
-  const enemyLeft = tim ? Math.max(0, commissionsOpen - (await officersOn(faction === "red" ? "blue" : "red"))) : 0;
+  const commissionsLeft = Math.max(0, commissionsOpen - filled - officers);
+  const enemyLeft = tim ? Math.max(0, commissionsOpen - filled - (await officersOn(faction === "red" ? "blue" : "red"))) : 0;
   let sys, user;
   if (tim) {
     // THE DEVELOPER, RECRUITING FOR A SIDE. Still Tim — the person who built
@@ -283,17 +284,23 @@ async function produce({ faction, kind, target = null }) {
     // prices); the numbers are real.
     const Enemy = faction === "red" ? "Blue" : "Red";
     const full = commissionsLeft === 0;
-    sys = `You are THE DEVELOPER: Tim Cooley, the real person who built Dollar Battleground (a live territory war, Red vs Blue, one map, one side wins) — and you are running ${SIDE}. You're outside the fiction: the news desks are characters you built; you're the one building it and you've picked a side.
-WHO YOU ARE ON CAMERA: the maker, not a salesman. Warm, direct, a little amused that you care this much, honest about small numbers. A slight smile, not a grin. You talk to your own phone like a real person: contractions, short sentences, one thought.
-THE RULE ABOVE ALL: within the first two sentences it's obvious that YOU MADE THIS and that you're on ${SIDE} — some version of "I built this game and I'm running Red" / "so I made this thing and I picked Blue". A stranger must know in five seconds that the builder is recruiting for his own side.
-THE PITCH (real, use it): each side has ${commissionsOpen} officer commissions. ${full ? `${SIDE}'s are all taken — point people at ${Enemy}, which has ${enemyLeft} open, or at taking a position on ${SIDE} anyway.` : `${SIDE} has ${commissionsLeft} still open${enemyLeft !== commissionsLeft ? ` (${Enemy} has ${enemyLeft})` : ""}.`} Your first position is free. One strike commissions you Second Lieutenant. ${daysLeft != null ? `${daysLeft} days left in the recruiting campaign.` : ""} Say the number of open commissions out loud — that's the hook.
-${HOUSE}
-NEVER: money words, prices, "cheap", "$"; hashtags; coordinates; "flip". Don't say the site's name (it's on screen). It's a game; no real politics.`;
+    // Tim fronting a side is a RECRUITER for that colour: same world as the
+    // reporters (partisan, territory language, lively) but talking, not
+    // anchoring — and never the producer. No countdown, no founding class.
+    const HOUSE_TIM = `HOUSE RULES: Territory language only — positions, ground, fronts, compass directions ("the eastern front", "pushing up from the south"). NEVER grid coordinates, NEVER "flip"/"tiles flipping". NEVER mention spending money or prices — no dollar amounts ("your first position is free" is fine; "one strike commissions you Second Lieutenant" is fine). Never invent mechanics, events or deadlines: the game is one map, two sides, positions, strikes, barrages, first position free, a strike commissions you Second Lieutenant. A quiet map is just a quiet map. No hashtags.`;
+    sys = `You are Tim, ${SIDE}'s recruiter on Dollar Battleground (a live territory war, Red vs Blue, one map, one side wins). You've picked ${Side} and you want the best people on it. It's a GAME — no real politics, no real-world harm.
+WHO YOU ARE ON CAMERA: one of ${Side}'s own, talking to your phone — not a news anchor, not the game's producer, not a salesman. Partisan for ${Side} the way the ${SIDE} news desk is, but conversational: contractions, short sentences, a little swagger, a slight smile. You never mention building or making the game, never say "I built" / "I made" / "I'm running" / "developer" — you're just on ${Side}.
+NOT REPORTERY: no "reporting live", no "this just in", no "back to you", no sign-off with a name or a network, no reading the score like a broadcast. You talk the way a person talks when they're recruiting friends for their team.
+NO COUNTDOWN: never mention days left, a deadline, a last day, a campaign, or a "founding class". The campaign framing is over.
+THE SHAPE OF EVERY CLIP — "here's how ${Side} is doing… come play": (1) how ${Side} is doing right now, as a subtle clue of what's happening on the map — the lead, where the fight is, which front needs boots — territory language, a sentence or two, never a scoreboard read; (2) the invitation, as an action: "claim your territory", "flip a ${Enemy} territory", "take a position", "come play"; (3) the officers line when it fits.
+THE PITCH (real, use it): ${Side} is looking for ${commissionsOpen} officers. ${full ? `${Side}'s spots are all taken — point people at taking a position on ${Side} anyway, or at ${Enemy}, which has ${enemyLeft} open.` : `${commissionsLeft} spots are still open${enemyLeft !== commissionsLeft ? ` (${Enemy} has ${enemyLeft})` : ""}.`} Your first position is free. One strike commissions you Second Lieutenant. Say "looking for ${commissionsOpen} officers" and say the open number out loud — those two numbers are the hook.
+${HOUSE_TIM}
+Don't say the site's name (it's on screen).`;
     user = kind === "recruit"
-      ? `Write today's clip to camera for ${SIDE}: 30-50 words, ONE thought. Lead with you (built it, running ${SIDE}), land the open-commissions number, end like a person ends a thought — an invitation from the maker, not an ad read. Vary the hook from clip to clip.
-Map right now: ${lead} — passing context at most.
-Respond ONLY JSON: {"headline":"<UPPERCASE, <=6 words, e.g. ${commissionsLeft} ${SIDE} COMMISSIONS OPEN>","spoken":"<what you say>","caption":"<the tweet from the ${SIDE} account, 2-3 short sentences as a person would write them: the Developer is running ${SIDE}, the open-commissions number, the link dollarbattleground.com; <=200 chars; no hashtags>","angle":"recruit","locator":"RECRUITING FOR ${SIDE}"}`
-      : `Write today's clip to camera for ${SIDE}: 30-50 words, ONE thought, about the map as you see it from ${SIDE}'s side — RED holds ${red} positions (${redPct}%) / BLUE ${blue} (${bluePct}%), ${lead} — where ${Side} needs boots (a front, by direction), in territory language only. Lead with you (built it, running ${SIDE}); work the open-commissions number in once; end like a person ends a thought.
+      ? `Write today's recruiting clip for ${SIDE}: 30-45 words, straight to camera, in the shape "here's how ${Side} is doing… come play". Open with how ${Side} is doing (one subtle clue from the map below), then the invitation as an action (claim your territory / flip a ${Enemy} territory / take a position / come play), and land both numbers (looking for ${commissionsOpen}; ${commissionsLeft} open). End like a person ends a thought, not an ad read. Vary the hook and the action from clip to clip.
+Map right now: RED holds ${red} positions (${redPct}%) / BLUE ${blue} (${bluePct}%) — ${lead}.
+Respond ONLY JSON: {"headline":"<UPPERCASE, <=6 words, e.g. ${SIDE} WANTS ${commissionsOpen} OFFICERS · ${commissionsLeft} OPEN>","spoken":"<what you say>","caption":"<the tweet from the ${SIDE} account, 2-3 short sentences as a person would write them: looking for ${commissionsOpen} officers, ${commissionsLeft} open, the link dollarbattleground.com; <=200 chars; no hashtags>","angle":"recruit","locator":"RECRUITING FOR ${SIDE}"}`
+      : `Write today's clip for ${SIDE}: 30-45 words, ONE thought, about the map as ${Side} sees it — RED holds ${red} positions (${redPct}%) / BLUE ${blue} (${bluePct}%), ${lead} — where ${Side} needs boots (a front, by direction), territory language only, talking not anchoring. Work the open-spots number (${commissionsLeft} of ${commissionsOpen}) in once; end like a person ends a thought.
 Respond ONLY JSON: {"headline":"<UPPERCASE, <=6 words>","spoken":"<what you say>","caption":"<the tweet from the ${SIDE} account, <=200 chars, sounds like a person, the link dollarbattleground.com only if it's an invitation; no hashtags>","angle":"recruit|update|hype","locator":"<a front, e.g. EASTERN FRONT — never coordinates>"}`;
   } else if (founder) {
     // Real material only.
@@ -385,13 +392,17 @@ Respond ONLY JSON: {"headline":"<UPPERCASE, <=6 words>","spoken":"<what you say 
     }
     if (!p.spoken || !p.headline || !p.caption) bad.push(`missing fields (${Object.keys(p).join(",") || "none"})`);
     if (/\$\s?\d|\d+\s?(dollars?|bucks)\b/i.test(`${p.spoken} ${p.caption}`)) bad.push("mentions a price");
-    if (/\bflip/i.test(`${p.spoken} ${p.caption}`)) bad.push('says "flip"');
+    const flipText = tim ? `${p.spoken} ${p.caption}`.replace(/\bflip(ping|s|ped)? (a |an |the |that |some |every )?(red |blue )?(territory|territories|position|positions|ground)\b/gi, "") : `${p.spoken} ${p.caption}`;
+    if (/\bflip/i.test(flipText)) bad.push('says "flip"');
     if (founder && /\b(buy|bought|purchase|pay|paid|price|cost|spend|spent|revenue|cheap|dollars?|money|free)\b/i.test(`${p.spoken} ${p.caption}`)) bad.push("developer mentions money");
     if (founder && /founding class|\benlist|\brecruit|sign up|claim your|don'?t miss|last chance|wanna be the one|join (red|blue|us|now|the)|days left to|dollarbattleground\.com/i.test(`${p.spoken} ${p.caption}`)) bad.push("developer sounds like an ad");
     if (founder && ((p.spoken ?? "").match(/check it out|link'?s? in (the )?bio|hope you enjoy|what color|which side would you/gi) ?? []).length > 1) bad.push("more than one nod");
-    if ((founder || tim) && !/\b(I'?ve been (working on|making|building)|I'?m (working on|making|building)|I (built|made|make)|(my|this) game (I|that I)|been building|been making)\b/i.test(p.spoken ?? "")) bad.push("never says he's making the game");
+    if (founder && !/\b(I'?ve been (working on|making|building)|I'?m (working on|making|building)|I (built|made|make)|(my|this) game (I|that I)|been building|been making)\b/i.test(p.spoken ?? "")) bad.push("never says he's making the game");
     if (tim && !new RegExp(`\\b${faction}\\b`, "i").test(p.spoken ?? "")) bad.push("never says which side he's on");
-    if (tim && commissionsLeft > 0 && !new RegExp(`\\b${commissionsLeft}\\b`).test(p.spoken ?? "")) bad.push("doesn't say the open-commissions number");
+    if (tim && commissionsLeft > 0 && !new RegExp(`\\b${commissionsLeft}\\b`).test(p.spoken ?? "")) bad.push("doesn't say the open-spots number");
+    if (tim && !new RegExp(`\\b${commissionsOpen}\\b`).test(p.spoken ?? "")) bad.push("doesn't say 'looking for N officers'");
+    if (tim && /\b(I built|I made|I'?m running|I'?ve been (building|making|working)|developer|producer|founding class|days? left|last day|deadline|countdown|campaign)\b/i.test(`${p.spoken} ${p.caption}`)) bad.push("producer / countdown language");
+    if (tim && /\b(reporting live|this just in|back to you|signing off|for (red|blue) team news|(red|blue) team news)\b/i.test(p.spoken ?? "")) bad.push("too reportery");
     if (founder && /(\d+\s?%|percent|up by|dead even|tied|fifty[- ]fifty|leads? by|nobody('s| has) moved)/i.test(p.spoken ?? "") && !/(built|building|making|made|wrote|coded|fixed|shipped)/i.test(p.spoken ?? "")) bad.push("commentates the score");
     if (/\b\d{1,2},\d{1,2}\b/.test(`${p.spoken} ${p.caption} ${p.locator}`)) bad.push("grid coordinates");
     if (!founder && /#\w+/.test(p.caption ?? "")) bad.push("hashtag"); // X rule; TikTok captions want them
