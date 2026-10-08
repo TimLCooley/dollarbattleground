@@ -12,7 +12,7 @@ on:
   workflow_dispatch:
     inputs:
       mode:
-        description: "due (render placeholders) | red | blue | founder | cast (list HeyGen ids) | looks (Tim's photo groups)"
+        description: "due | red | blue | founder | dispatch (free map clip: team=red|blue|both, kind=dispatch|launch) | cast | looks"
         default: "due"
       kind:
         description: "for red/blue: field | recruit; for looks: create | add | train | status | generate | list"
@@ -59,6 +59,9 @@ jobs:
       - name: Manual clip
         if: ${{ github.event_name == 'workflow_dispatch' && (github.event.inputs.mode == 'red' || github.event.inputs.mode == 'blue' || github.event.inputs.mode == 'founder') }}
         run: node scripts/produce-clip.mjs ${{ github.event.inputs.mode }} ${{ github.event.inputs.kind }}
+      - name: Dispatch clip (free — Remotion only)
+        if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.mode == 'dispatch' }}
+        run: node scripts/produce-clip.mjs dispatch ${{ github.event.inputs.team }} ${{ github.event.inputs.kind }}
       - name: HeyGen roster
         if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.mode == 'cast' }}
         run: node scripts/produce-clip.mjs cast

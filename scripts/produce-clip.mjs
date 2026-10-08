@@ -626,6 +626,66 @@ Respond ONLY JSON: {"headline":"<UPPERCASE, <=6 words>","spoken":"<what you say 
 
 // ── entry ───────────────────────────────────────────────────────────────────
 const mode = process.argv[2];
+// ── free clips: the map + words, no HeyGen ──────────────────────────────────
+// dispatch red|blue [dispatch|launch]   — a side's map report, in the recruiter's voice
+// dispatch both launch                  — "the battle has begun", neutral, for both X accounts
+async function dispatchClip({ side, kind = "dispatch", auto = false }) {
+  const tiles = await fetch(`${SB}/rest/v1/tiles?select=x,y,team&order=y.asc,x.asc`, { headers: sbh }).then((r) => r.json());
+  const board = new Array(225).fill(null);
+  let red = 0, blue = 0;
+  for (const t of tiles ?? []) { const i = t.y * 15 + t.x; if (i >= 0 && i < 225) board[i] = t.team === "red" ? "r" : t.team === "blue" ? "b" : null; if (t.team === "red") red++; else if (t.team === "blue") blue++; }
+  const total = red + blue || 1;
+  const redPct = Math.round((red / total) * 100), bluePct = 100 - redPct;
+  const lead = red === blue ? "dead even" : red > blue ? `Red leads by ${red - blue}` : `Blue leads by ${blue - red}`;
+  const ta = (await cfg("team_avatar")) ?? {};
+  const open = Math.max(0, Number(ta.commissions ?? 100) - Number(ta.filled ?? 0) - (await officersOn("red")) - (await officersOn("blue")));
+  const voices = (await cfg("voices")) ?? {};
+  const guide = [voices.team_tim?.text, ...((voices.team_tim?.notes ?? []).map((n) => `• ${n}`))].filter(Boolean).join("\n");
+  const mood = voices.launch?.text ? `RIGHT NOW: ${voices.launch.text}\n` : "";
+  const launch = kind === "launch";
+  const Side = side === "red" ? "Red" : side === "blue" ? "Blue" : null;
+  const sys = launch
+    ? `${mood}You write the on-screen text for a short launch clip for Dollar Battleground — a live territory war, Red vs Blue, one map, one side wins. The map is live for the first time today. Neutral — both sides. Plain, punchy, true. No prices, no money, no hashtags, no coordinates, no invented events.`
+    : `${mood}VOICE GUIDE (Tim's words): ${guide}\nYou write the on-screen text for ${Side}'s short map clip on Dollar Battleground: how ${Side} is doing, then come play. Territory language only (fronts, compass directions, ground), no coordinates, no prices, no hashtags, no deadlines, no invented events. One of ${Side}'s own, not an anchor.`;
+  const user = `Map right now: RED holds ${red} positions (${redPct}%) / BLUE ${blue} (${bluePct}%) — ${lead}. Founding officer spots open: ${open} of 100 (the first 100 to sign up are commissioned on the spot).
+Respond ONLY JSON: {"headline":"<UPPERCASE, <=5 words, fits two lines>","lines":["<line 1, <=9 words>","<line 2, <=9 words>","<line 3, <=9 words — the invitation, e.g. claim your territory / come play${Side ? ` / join ${Side}` : ""}>"],"caption":"<the post text: 2 short sentences as a person would write them${launch ? ", the battle has begun" : ""}, the link dollarbattleground.com; <=200 chars; no hashtags>"}`;
+  const ai = await fetch("https://api.anthropic.com/v1/messages", { method: "POST", headers: { "x-api-key": AI, "anthropic-version": "2023-06-01", "content-type": "application/json" }, body: JSON.stringify({ model: "claude-sonnet-5", max_tokens: 800, system: sys, messages: [{ role: "user", content: user }] }) }).then((r) => r.json());
+  const text = ai.content?.find((b) => b.type === "text")?.text ?? "";
+  let plan = {};
+  try { plan = JSON.parse(text.slice(text.indexOf("{"), text.lastIndexOf("}") + 1)); } catch {}
+  if (!plan.headline || !Array.isArray(plan.lines) || plan.lines.length < 2) { console.log("DISPATCH PLAN FAIL:", text.slice(0, 300)); return false; }
+  if (/\$\s?\d|#\w+|\b\d{1,2},\d{1,2}\b/.test(`${plan.headline} ${plan.lines.join(" ")} ${plan.caption}`)) { console.log("DISPATCH rejected (price/hashtag/coordinates)"); return false; }
+  console.log("DISPATCH PLAN:", plan);
+  if (process.env.PLAN_ONLY) return false;
+  const seconds = Math.min(16, 7.5 + plan.lines.length * 1.1 + 2.4);
+  const props = { variant: launch ? "launch" : "dispatch", side: launch ? null : side, headline: plan.headline, lines: plan.lines.slice(0, 3), board, redPct, bluePct, openSpots: open, url: "dollarbattleground.com", seconds };
+  await writeFile("/tmp/dispatch-props.json", JSON.stringify(props));
+  execSync("npx remotion render src/remotion/index.ts Dispatch /tmp/dispatch.mp4 --props=/tmp/dispatch-props.json --concurrency=1", { stdio: "inherit" });
+  const key = `dispatch-${launch ? "launch" : side}-${Date.now()}.mp4`;
+  await fetch(`${SB}/storage/v1/object/media/${key}`, { method: "POST", headers: { ...sbh, "Content-Type": "video/mp4" }, body: await readFile("/tmp/dispatch.mp4") });
+  const mediaUrl = `${SB}/storage/v1/object/public/media/${key}`;
+  console.log("HOSTED:", mediaUrl);
+  const ap = (await cfg("autopilot")) ?? {};
+  const reviewMin = Number(ap.review_minutes) || 60;
+  const sides = launch && side === "both" ? ["red", "blue"] : [side];
+  for (const f of sides) {
+    await fetch(`${SB}/rest/v1/agent_posts`, { method: "POST", headers: { ...sbh, "Content-Type": "application/json", Prefer: "return=minimal" }, body: JSON.stringify({
+      agent: `${f}_recruiter`, faction: f, status: "queued", format: "video", angle: "recruit", network: f, x_account: f, video_kind: "dispatch", media_url: mediaUrl, copy: plan.caption,
+      reason: `${auto ? "" : "MANUAL TEST — posts only if you press Post now · "}[theme:${launch ? "launch" : "dispatch"}] Map clip (free, no HeyGen) — ${plan.headline}`,
+      scheduled_for: auto ? new Date(Date.now() + reviewMin * 60_000).toISOString() : null,
+      video_spec: { kind: launch ? "launch" : "dispatch", topic: launch ? "launch card" : "map dispatch", red, blue, redPct, bluePct, rendered_at: new Date().toISOString(), placeholder: false, free: true },
+    }) });
+    console.log(`QUEUED ${launch ? "launch" : "dispatch"} clip for ${f.toUpperCase()}${auto ? "" : " (manual test)"}`);
+  }
+  return true;
+}
+
+if (mode === "dispatch") {
+  const side = ["red", "blue", "both"].includes(process.argv[3]) ? process.argv[3] : "red";
+  const kind = process.argv[4] === "launch" ? "launch" : "dispatch";
+  await dispatchClip({ side, kind });
+  process.exit(0);
+}
 if (mode === "looks") {
   // Manage Tim's photo-avatar looks without HeyGen's editor.
   //   looks add [red|blue]       — every photo in the private bucket cast/tim/ (or
@@ -756,6 +816,17 @@ if (mode === "due") {
     try { if (await produce({ faction, kind, target: p })) made++; } catch (e) { console.log(`placeholder #${p.id} failed:`, e?.message ?? e); }
   }
   if (list.length) console.log(`\nDone — ${made}/${list.length} placeholder(s) rendered.`);
+  // Free map clips: up to two per side per day (one before 18:00 UTC, one after).
+  for (const f of ["red", "blue"]) {
+    try {
+      const since = `${today}T00:00:00Z`;
+      const made = await fetch(`${SB}/rest/v1/agent_posts?faction=eq.${f}&video_kind=eq.dispatch&status=in.(queued,posted)&created_at=gte.${since}&select=id`, { headers: sbh }).then((r) => r.json());
+      const n = Array.isArray(made) ? made.length : 0;
+      const want = new Date().getUTCHours() >= 18 ? 2 : 1;
+      if (n < want) await dispatchClip({ side: f, auto: true });
+      else console.log(`dispatch ${f}: ${n}/${want} already today`);
+    } catch (e) { console.log(`dispatch ${f} failed:`, e?.message ?? e); }
+  }
   // The founder's daily clip: once a day, after 16:00 UTC (10am Mountain),
   // when today's doesn't exist yet. Reviewed on /admin/agents like the rest.
   if (new Date().getUTCHours() >= 16) {

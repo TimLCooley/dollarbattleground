@@ -2,6 +2,7 @@ import { Composition } from "remotion";
 import { WarReport, DEFAULT_PROPS } from "./WarReport";
 import { SocialClip, DEFAULT_SOCIAL_PROPS } from "./SocialClip";
 import { ComingSoon, DEFAULT_COMING_SOON } from "./ComingSoon";
+import { Dispatch, DEFAULT_DISPATCH } from "./Dispatch";
 
 const FPS = 30;
 
@@ -30,6 +31,18 @@ export const RemotionRoot = () => {
         defaultProps={DEFAULT_SOCIAL_PROPS}
         calculateMetadata={({ props }) => ({
           durationInFrames: Math.round((props.seconds || 10) * FPS),
+        })}
+      />
+      <Composition
+        id="Dispatch"
+        component={Dispatch}
+        durationInFrames={Math.round(DEFAULT_DISPATCH.seconds * FPS)}
+        fps={FPS}
+        width={720}
+        height={1280}
+        defaultProps={DEFAULT_DISPATCH}
+        calculateMetadata={({ props }) => ({
+          durationInFrames: Math.round((props.seconds || 12) * FPS),
         })}
       />
       <Composition
