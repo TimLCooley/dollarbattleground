@@ -313,7 +313,20 @@ THE SHAPE OF EVERY CLIP — "here's how ${Side} is doing… come play": (1) how 
 THE PITCH (real, use it): ${Side} is looking for ${commissionsOpen} officers. ${full ? `${Side}'s spots are all taken — point people at taking a position on ${Side} anyway, or at ${Enemy}, which has ${enemyLeft} open.` : `${commissionsLeft} spots are still open${enemyLeft !== commissionsLeft ? ` (${Enemy} has ${enemyLeft})` : ""}.`} Your first position is free. One strike commissions you Second Lieutenant. Mention the officer spots in passing when it fits — "${commissionsLeft} spots still open" or "looking for ${commissionsOpen} officers" — one number is plenty; never recite both like a form.
 ${HOUSE_TIM}
 Don't say the site's name (it's on screen).`;
-    user = kind === "recruit"
+    // Two clips a day: the first is the status update, the second a direct ad —
+    // different shapes, so the numbers can tell us which one recruits.
+    let adToday = false;
+    try {
+      const since = `${today}T00:00:00Z`;
+      const prior = await fetch(`${SB}/rest/v1/agent_posts?faction=eq.${faction}&format=eq.video&status=in.(queued,posted)&created_at=gte.${since}&reason=ilike.*Tim Cooley*&select=id`, { headers: sbh }).then((r) => r.json());
+      adToday = Array.isArray(prior) && prior.length >= 1;
+    } catch {}
+    plan_topic = adToday ? "direct ad" : "status update";
+    user = kind === "recruit" && adToday
+      ? `Write today's DIRECT AD for ${SIDE}: 25-40 words, straight to camera. This one is the plain invitation — say the game's name (Dollar Battleground), what you do (claim a tile / pick a color / hold it), and ask them onto ${Side} straight, with feeling ("Join the ${Side} team — I need you"). Change the ORDER from the usual: lead with the side, or the action, or the stakes, or put the name last. Mention the officer spots once if it fits. No countdown. End on the side pick.
+Map right now: ${lead} — a passing aside at most.
+Respond ONLY JSON: {"headline":"<UPPERCASE, <=6 words>","spoken":"<what you say>","caption":"<the tweet from the ${SIDE} account: the ad in 2-3 short sentences as a person would write them, the link dollarbattleground.com; <=200 chars; no hashtags>","angle":"recruit","locator":"RECRUITING FOR ${SIDE}"}`
+      : kind === "recruit"
       ? `Write today's clip for ${SIDE}: 25-40 words, straight to camera, in the shape "here's how ${Side} is doing… come play". Open like a normal person giving a quick update (see the openers), one subtle clue from the map below, then the invitation as an action (claim your territory / flip a ${Enemy} territory / take a position / come play), with the officer spots mentioned once if it fits. End like a person ends a thought, not an ad read. Vary the opener and the action from clip to clip.
 Map right now: RED holds ${red} positions (${redPct}%) / BLUE ${blue} (${bluePct}%) — ${lead}.
 Respond ONLY JSON: {"headline":"<UPPERCASE, <=6 words, e.g. ${SIDE} WANTS ${commissionsOpen} OFFICERS · ${commissionsLeft} OPEN>","spoken":"<what you say>","caption":"<the tweet from the ${SIDE} account, 2-3 short sentences as a person would write them: looking for ${commissionsOpen} officers, ${commissionsLeft} open, the link dollarbattleground.com; <=200 chars; no hashtags>","angle":"recruit","locator":"RECRUITING FOR ${SIDE}"}`
