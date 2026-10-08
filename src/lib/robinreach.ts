@@ -14,9 +14,10 @@ export interface CrosspostConfig {
   brand_id: string;
   tiktok_profile_id: number;
   founder_profile_ids: number[]; // where the founder's own clips go
-  team_profile_ids: number[]; // where Red's and Blue's clips mirror to (TikTok + YouTube)
+  team_profile_ids: number[]; // where Red's and Blue's clips go (Tim's X, IG, TikTok, YouTube)
+  team_x_retired?: boolean; // the @RedBattleGround / @BluBattleGround X accounts are no longer posted to
 }
-const DEFAULTS: CrosspostConfig = { tiktok: false, brand_id: "a45588e3a3d18b3d", tiktok_profile_id: 15814, founder_profile_ids: [15814, 15815, 16861, 23144], team_profile_ids: [15814, 23144] };
+const DEFAULTS: CrosspostConfig = { tiktok: false, brand_id: "a45588e3a3d18b3d", tiktok_profile_id: 15814, founder_profile_ids: [15814, 15815, 16861, 23144], team_profile_ids: [15814, 15815, 16861, 23144], team_x_retired: true };
 
 export function isRobinReachConfigured(): boolean {
   return Boolean(KEY);
@@ -37,8 +38,8 @@ export async function setCrosspost(db: Db, patch: Partial<CrosspostConfig>): Pro
 export function tiktokCaption(faction: "red" | "blue", copy: string): { title: string; content: string } {
   const line = copy.replace(/\s*https?:\/\/\S+/g, "").replace(/\s*dollarbattleground\.com\S*/gi, "").trim();
   const side = faction === "red" ? "Red" : "Blue";
-  const title = line.split(/[.!?]/)[0].slice(0, 80) || `${side} dispatch`;
-  const content = `${line}\n\nI built this — a live map, Red vs Blue, one side wins. First position's free. dollarbattleground.com\n\n#indiegame #redvsblue #browsergame #gamedev #${side.toLowerCase()}team`;
+  const title = line.split(/[.!?]/)[0].slice(0, 80) || `${side} update`;
+  const content = `${line}\n\ndollarbattleground.com\n\n#redvsblue #indiegame #browsergame #${side.toLowerCase()}team`;
   return { title, content };
 }
 
