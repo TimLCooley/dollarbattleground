@@ -871,17 +871,22 @@ if (mode === "due") {
     try { if (await produce({ faction, kind, target: p })) made++; } catch (e) { console.log(`placeholder #${p.id} failed:`, e?.message ?? e); }
   }
   if (list.length) console.log(`\nDone — ${made}/${list.length} placeholder(s) rendered.`);
-  // Free map clips: up to two per side per day (one before 18:00 UTC, one after).
-  for (const f of ["red", "blue"]) {
-    try {
-      const since = `${today}T00:00:00Z`;
-      const made = await fetch(`${SB}/rest/v1/agent_posts?faction=eq.${f}&video_kind=eq.dispatch&status=in.(queued,posted)&created_at=gte.${since}&select=id`, { headers: sbh }).then((r) => r.json());
-      const n = Array.isArray(made) ? made.length : 0;
-      const want = new Date().getUTCHours() >= 18 ? 2 : 1;
-      if (n < want) await dispatchClip({ side: f, kind: await nextFreeShape(f), auto: true });
-      else console.log(`dispatch ${f}: ${n}/${want} already today`);
-    } catch (e) { console.log(`dispatch ${f} failed:`, e?.message ?? e); }
-  }
+  // Free text clips: ONE a day total (Tim, 2026-10-08), sides alternate by day,
+  // shape = the least-used of the last 7 days. The board is out of rotation.
+  try {
+    const dayStartMT = new Date(`${new Date().toLocaleDateString("en-CA", { timeZone: "America/Denver" })}T00:00:00-06:00`).toISOString();
+    const made = await fetch(`${SB}/rest/v1/agent_posts?video_kind=eq.dispatch&status=in.(queued,posted)&created_at=gte.${dayStartMT}&select=id`, { headers: sbh }).then((r) => r.json());
+    if (Array.isArray(made) && made.length >= 1) console.log(`free clip: ${made.length} already today`);
+    else if (new Date().getUTCHours() >= 17) {
+      const side = Math.floor(Date.now() / 86_400_000) % 2 === 0 ? "red" : "blue";
+      const week = new Date(Date.now() - 7 * 86_400_000).toISOString();
+      const recent = await fetch(`${SB}/rest/v1/agent_posts?video_kind=eq.dispatch&created_at=gte.${week}&select=video_spec`, { headers: sbh }).then((r) => r.json());
+      const used = (recent ?? []).map((r) => r.video_spec?.kind);
+      const shapes = ["hook", "explainer", "pickside", "spots", "recap"];
+      const kind = shapes.map((k) => [k, used.filter((u) => u === k).length]).sort((x, y) => x[1] - y[1])[0][0];
+      await dispatchClip({ side, kind, auto: true });
+    }
+  } catch (e) { console.log("free clip failed:", e?.message ?? e); }
   // The founder's daily clip: once a day, after 16:00 UTC (10am Mountain),
   // when today's doesn't exist yet. Reviewed on /admin/agents like the rest.
   if (new Date().getUTCHours() >= 16) {
