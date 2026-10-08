@@ -297,7 +297,13 @@ async function produce({ faction, kind, target = null }) {
     const rows = await fetch(`${SB}/rest/v1/agent_posts?${q}&status=eq.denied&select=deny_reason&order=created_at.desc&limit=5`, { headers: sbh }).then((r) => r.json());
     denyNotes = (rows ?? []).map((r) => r.deny_reason).filter((d) => d && !/superseded/i.test(d));
   } catch {}
-  const GUIDE = guideText || denyNotes.length ? `VOICE GUIDE — Tim's own words on how this character should feel (outranks every rule below):\n${guideText}${denyNotes.length ? `\nTim's notes on recent clips (fix these): ${denyNotes.map((d) => `"${d}"`).join(" | ")}` : ""}` : "";
+  // A time-boxed mood on top of the guide — e.g. the launch window: "the
+  // battle has begun" until the date passes or the founding spots are gone.
+  const mood = voices.launch ?? null;
+  // On for the window (until) — and past it, as long as founding spots remain.
+  const moodOn = !!mood?.text && ((!!mood.until && new Date(mood.until).getTime() > Date.now()) || (!!mood.while_founding_open && (tim ? commissionsLeft > 0 : true)));
+  const MOOD = moodOn && !founder ? `RIGHT NOW (this week's mood, on top of everything else): ${mood.text}\n` : moodOn && founder && mood.developer ? `RIGHT NOW: ${mood.developer}\n` : "";
+  const GUIDE = guideText || denyNotes.length || MOOD ? `${MOOD}VOICE GUIDE — Tim's own words on how this character should feel (outranks every rule below):\n${guideText}${denyNotes.length ? `\nTim's notes on recent clips (fix these): ${denyNotes.map((d) => `"${d}"`).join(" | ")}` : ""}` : "";
   let sys, user;
   if (tim) {
     // THE DEVELOPER, RECRUITING FOR A SIDE. Still Tim — the person who built
