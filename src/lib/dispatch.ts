@@ -439,15 +439,15 @@ export async function dailyScoreboard(db: Db): Promise<boolean> {
   if (!isEmailConfigured()) return false;
   const since = new Date(Date.now() - 24 * 3600_000).toISOString();
   const [{ data: posts }, { data: players }, { data: wl }, { data: act }, { data: tiles }] = await Promise.all([
-    db.from("agent_posts").select("faction,impressions,likes,clicks,video_spec,posted_at,format").eq("status", "posted"),
+    db.from("agent_posts").select("faction,impressions,likes,clicks,social_views,video_spec,posted_at,format").eq("status", "posted"),
     db.from("player_stats").select("side,spent_cents"),
     db.from("waitlist").select("side"),
     db.from("activity").select("kind,faction,created_at").gte("created_at", since),
     db.from("tiles").select("team"),
   ]);
-  const P = (posts ?? []) as { faction: string | null; impressions: number | null; likes: number | null; clicks: number | null; video_spec: { topic?: string; tim?: boolean } | null; posted_at: string | null; format: string }[];
+  const P = (posts ?? []) as { faction: string | null; impressions: number | null; likes: number | null; clicks: number | null; social_views: number | null; video_spec: { topic?: string; tim?: boolean } | null; posted_at: string | null; format: string }[];
   const day = P.filter((p) => p.posted_at && p.posted_at >= since);
-  const sum = (rows: typeof P, k: "impressions" | "likes" | "clicks") => rows.reduce((a, r) => a + Number(r[k] ?? 0), 0);
+  const sum = (rows: typeof P, k: "impressions" | "likes" | "clicks" | "social_views") => rows.reduce((a, r) => a + Number(r[k] ?? 0), 0);
   const side = (f: string) => {
     const pl = ((players ?? []) as { side: string | null; spent_cents: number | null }[]).filter((x) => x.side === f);
     return { players: pl.length, officers: pl.filter((x) => Number(x.spent_cents ?? 0) >= 500).length, waitlist: ((wl ?? []) as { side: string | null }[]).filter((x) => x.side === f).length };
@@ -463,7 +463,7 @@ export async function dailyScoreboard(db: Db): Promise<boolean> {
     if (p.format !== "video") continue;
     const k = p.video_spec?.tim ? `Tim · ${p.video_spec?.topic ?? "clip"}` : p.faction === "founder" ? `Developer · ${p.video_spec?.topic?.split(" — ")[0] ?? "clip"}` : `${p.faction} desk · ${p.video_spec?.topic ?? "clip"}`;
     const e = byShape.get(k) ?? { n: 0, views: 0, clicks: 0 };
-    e.n++; e.views += Number(p.impressions ?? 0); e.clicks += Number(p.clicks ?? 0);
+    e.n++; e.views += Number(p.impressions ?? 0) + Number(p.social_views ?? 0); e.clicks += Number(p.clicks ?? 0);
     byShape.set(k, e);
   }
   const shapes = [...byShape.entries()].sort((a, b) => b[1].clicks / b[1].n - a[1].clicks / a[1].n).slice(0, 8)
@@ -476,13 +476,13 @@ export async function dailyScoreboard(db: Db): Promise<boolean> {
      ${row("players", red.players, blue.players)}
      ${row("waitlist", red.waitlist, blue.waitlist)}
      ${row("map", `${tr}`, `${tb}`)}</table>
-     <p style="margin:12px 0 4px;font-size:14px;color:#efe4c4">Last 24h: <b>${day.length}</b> posts · <b>${sum(day, "impressions")}</b> views on X · <b>${sum(day, "clicks")}</b> link clicks · <b>${n("player_new") + n("waitlist_new")}</b> signups · <b>${n("purchase")}</b> purchases · <b>${n("takeover")}</b> takeovers</p>
-     <p style="margin:12px 0 4px;font-size:14px;color:#efe4c4">All time: ${P.length} posts · ${sum(P, "impressions")} views · ${sum(P, "clicks")} clicks</p>
+     <p style="margin:12px 0 4px;font-size:14px;color:#efe4c4">Last 24h: <b>${day.length}</b> posts · <b>${sum(day, "social_views")}</b> views on TikTok/IG/YouTube · <b>${sum(day, "impressions")}</b> on X · <b>${sum(day, "clicks")}</b> link clicks · <b>${n("player_new") + n("waitlist_new")}</b> signups · <b>${n("purchase")}</b> purchases · <b>${n("takeover")}</b> takeovers</p>
+     <p style="margin:12px 0 4px;font-size:14px;color:#efe4c4">All time: ${P.length} posts · ${sum(P, "social_views")} views on TikTok/IG/YouTube · ${sum(P, "impressions")} on X · ${sum(P, "clicks")} clicks</p>
      <p style="margin:14px 0 4px;font-size:13px;color:#f2c14e;letter-spacing:1px">WHICH SHAPES PULL (clicks per clip)</p>
      <table style="font-size:13px;border-collapse:collapse;color:#efe4c4"><tr><td></td><td style="padding:3px 8px">clips</td><td style="padding:3px 8px">views/clip</td><td style="padding:3px 8px">clicks/clip</td></tr>${shapes || "<tr><td>no video posts yet</td></tr>"}</table>`,
-    `Daily, from the autopilot. X views refresh hourly; TikTok/YouTube/Instagram views aren't counted here yet.`,
+    `Daily, from the autopilot. TikTok / Instagram / YouTube views come from RobinReach; X views from X; both refresh hourly.`,
   );
-  const res = await sendEmail({ to: SUPER_ADMIN_EMAIL, subject: `Scoreboard: ${red.officers + blue.officers}/100 officers · ${red.players + blue.players} players · ${sum(day, "impressions")} views today`, html });
+  const res = await sendEmail({ to: SUPER_ADMIN_EMAIL, subject: `Scoreboard: ${red.officers + blue.officers}/100 officers · ${red.players + blue.players} players · ${sum(day, "social_views") + sum(day, "impressions")} views today`, html });
   return res.ok;
 }
 

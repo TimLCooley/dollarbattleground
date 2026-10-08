@@ -120,3 +120,22 @@ async function publishViaRobinReach(
     return { ok: false, error };
   }
 }
+
+// Live views/likes from the platforms RobinReach published to (TikTok,
+// Instagram, YouTube; X isn't on this plan). Summed into agent_posts.social.
+export type SocialMetrics = Record<string, { views: number; likes: number; comments: number; shares: number }>;
+export async function postAnalytics(postId: number): Promise<SocialMetrics | null> {
+  if (!KEY) return null;
+  const cfg = DEFAULTS;
+  const r = await rr(`/posts/${postId}/analytics`, { brand: cfg.brand_id, method: "GET" });
+  if (!r.ok) return null;
+  const j = (await r.json().catch(() => null)) as { results?: { platform: string; analytics?: Record<string, number> }[] } | null;
+  const out: SocialMetrics = {};
+  for (const res of j?.results ?? []) {
+    const a = res.analytics;
+    if (!a) continue;
+    const platform = res.platform === "instagram_direct" ? "instagram" : res.platform;
+    out[platform] = { views: Number(a.views ?? 0), likes: Number(a.likes ?? 0), comments: Number(a.comments ?? 0), shares: Number(a.shares ?? 0) };
+  }
+  return out;
+}

@@ -293,7 +293,7 @@ export function Settings() {
                   </div>
                 ))}
               </div>
-              <h3 className="rk-sub">OFFICER CORPS · commission with a paid strike ($5+)</h3>
+              <h3 className="rk-sub">OFFICER CORPS · the first 100 to sign up are commissioned on the spot; after that, a paid strike ($5+)</h3>
               <div className="rk-list">
                 {OFFICER_RANKS.map((r) => (
                   <div className="rk-row" key={r.key}>
@@ -335,7 +335,7 @@ export function Settings() {
                 </div>
                 <p className="st-note">
                   Your rank climbs on points from the field — flips and showing up.
-                  Commission into the Officer Corps with your first paid strike ($5+).
+                  The first 100 players are commissioned as Founding Officers the moment they claim a position; everyone after commissions with a paid strike ($5+).
                 </p>
               </div>
             </div>

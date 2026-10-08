@@ -35,6 +35,8 @@ interface Post {
   replies: number | null;
   clicks: number | null;
   metrics_at: string | null;
+  social: Record<string, { views: number; likes: number }> | null;
+  social_views: number | null;
 }
 interface Msg {
   id?: number;
@@ -364,7 +366,12 @@ export function CommandCenter() {
         )}
         {p.status === "posted" && (
           <p className="cc-metrics" title={p.metrics_at ? `X metrics as of ${new Date(p.metrics_at).toLocaleTimeString()}` : "metrics refresh hourly"}>
-            👁 {p.impressions ?? 0} · ♥ {p.likes ?? 0} · 🔁 {p.reposts ?? 0} · 💬 {p.replies ?? 0} · 🔗 {p.clicks ?? 0} clicks
+            𝕏 {p.impressions ?? 0} · ♥ {p.likes ?? 0} · 🔁 {p.reposts ?? 0} · 💬 {p.replies ?? 0} · 🔗 {p.clicks ?? 0} clicks
+            {p.social_views != null && (
+              <span title={Object.entries(p.social ?? {}).map(([k, v]) => `${k}: ${v.views} views · ${v.likes} likes`).join("\n")}>
+                {" "}· 📱 {p.social_views} views{p.social ? ` (${Object.entries(p.social).map(([k, v]) => `${k[0].toUpperCase()}${v.views}`).join(" ")})` : ""}
+              </span>
+            )}
           </p>
         )}
         {p.external_id && f !== "founder" && (

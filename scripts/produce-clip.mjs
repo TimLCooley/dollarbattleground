@@ -94,6 +94,12 @@ async function cfgSet(key, value) {
 // (a strike commissions you Second Lieutenant). The real number behind
 // "N commissions still open".
 async function officersOn(faction) {
+  // Founding Officers (first 100 signups) or paid commissions — the server counts.
+  try {
+    const r = await fetch(`${SB}/rest/v1/rpc/officers_on`, { method: "POST", headers: { ...sbh, "Content-Type": "application/json" }, body: JSON.stringify({ p_side: faction }) });
+    const n = await r.json();
+    if (r.ok && Number.isFinite(Number(n))) return Number(n);
+  } catch {}
   try {
     const rows = await fetch(`${SB}/rest/v1/player_stats?side=eq.${faction}&spent_cents=gte.500&select=user_id`, { headers: sbh }).then((r) => r.json());
     return Array.isArray(rows) ? rows.length : 0;
@@ -310,7 +316,7 @@ NOT REPORTERY: no "reporting live", no "this just in", no "back to you", no sign
 SOUND NORMAL. Openers Tim actually says — start like one of these, in your own words: "Quick ${Side} update." / "Quick ${Side} check-in." / "Here's a ${Side} status update." / "Big movement today by ${Side} — you should join." / "${Side} needs people on the north side. That's it, that's the update." Plain words, short sentences, no slogans, no announcer rhythm. If a line would sound weird said out loud to a friend, cut it.
 NO COUNTDOWN: never mention days left, a deadline, a last day, a campaign, or a "founding class". Anyone can join any time — the map is open.
 THE SHAPE OF EVERY CLIP — "here's how ${Side} is doing… come play": (1) how ${Side} is doing right now, as a subtle clue of what's happening on the map — the lead, where the fight is, which front needs boots — territory language, a sentence or two, never a scoreboard read; (2) the invitation, as an action: "claim your territory", "flip a ${Enemy} territory", "take a position", "come play"; (3) the officers line when it fits.
-THE PITCH (real, use it): ${Side} is looking for ${commissionsOpen} officers. ${full ? `${Side}'s spots are all taken — point people at taking a position on ${Side} anyway, or at ${Enemy}, which has ${enemyLeft} open.` : `${commissionsLeft} spots are still open${enemyLeft !== commissionsLeft ? ` (${Enemy} has ${enemyLeft})` : ""}.`} Your first position is free. One strike commissions you Second Lieutenant. Mention the officer spots in passing when it fits — "${commissionsLeft} spots still open" or "looking for ${commissionsOpen} officers" — one number is plenty; never recite both like a form.
+THE PITCH (real, use it): the first ${commissionsOpen} people to sign up are commissioned as officers on the spot — no strike needed, just claim your first position. ${Side} is looking for ${commissionsOpen} officers. ${full ? `${Side}'s spots are all taken — point people at taking a position on ${Side} anyway, or at ${Enemy}, which has ${enemyLeft} open.` : `${commissionsLeft} spots are still open${enemyLeft !== commissionsLeft ? ` (${Enemy} has ${enemyLeft})` : ""}.`} Your first position is free. One strike commissions you Second Lieutenant. Mention the officer spots in passing when it fits — "${commissionsLeft} founding officer spots still open", "the first ${commissionsOpen} to sign up get commissioned" — one number is plenty; never recite both like a form.
 ${HOUSE_TIM}
 Don't say the site's name (it's on screen).`;
     // Two clips a day: the first is the status update, the second a direct ad —
@@ -416,7 +422,7 @@ Respond ONLY JSON: {"headline":"<UPPERCASE, <=6 words>","spoken":"<what you say 
         : `This is ${who.name}, ${SIDE} Team News — a character in a playful territory war. FAIL if it sounds corporate or like a template, if it invents mechanics or events, if it uses grid coordinates or prices, or if it's a score report when it's meant to be an invitation. PASS if it sounds like a person with a personality on ${Side}'s side.`;
     // The judge sees the same facts the writer had, so real numbers aren't "invented".
     const facts = tim
-      ? `FACTS IN THE BRIEF (these are real, not invented): the map is RED ${red} positions (${redPct}%) / BLUE ${blue} (${bluePct}%), ${lead}; ${Side} is looking for ${commissionsOpen} officers and ${commissionsLeft} spots are open; the first position is free; one strike commissions you Second Lieutenant; the game is Dollar Battleground at dollarbattleground.com.`
+      ? `FACTS IN THE BRIEF (these are real, not invented): the map is RED ${red} positions (${redPct}%) / BLUE ${blue} (${bluePct}%), ${lead}; the first ${commissionsOpen} people to sign up are commissioned as officers on the spot and ${commissionsLeft} of those spots are open; the first position is free; one strike commissions you Second Lieutenant; the game is Dollar Battleground at dollarbattleground.com.`
       : `FACTS IN THE BRIEF (real): the map is RED ${red} (${redPct}%) / BLUE ${blue} (${bluePct}%), ${lead}; ${recruits} people have enlisted; the game is Dollar Battleground at dollarbattleground.com.`;
     const ai = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
