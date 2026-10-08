@@ -875,7 +875,8 @@ if (mode === "due") {
   // shape = the least-used of the last 7 days. The board is out of rotation.
   try {
     const dayStartMT = new Date(`${new Date().toLocaleDateString("en-CA", { timeZone: "America/Denver" })}T00:00:00-06:00`).toISOString();
-    const made = await fetch(`${SB}/rest/v1/agent_posts?video_kind=eq.dispatch&status=in.(queued,posted)&created_at=gte.${dayStartMT}&select=id`, { headers: sbh }).then((r) => r.json());
+    // counted by when it goes out (scheduled/posted today), not when it was rendered
+    const made = await fetch(`${SB}/rest/v1/agent_posts?video_kind=eq.dispatch&status=in.(queued,posted)&or=(scheduled_for.gte.${dayStartMT},posted_at.gte.${dayStartMT})&select=id`, { headers: sbh }).then((r) => r.json());
     if (Array.isArray(made) && made.length >= 1) console.log(`free clip: ${made.length} already today`);
     else if (new Date().getUTCHours() >= 17) {
       const side = Math.floor(Date.now() / 86_400_000) % 2 === 0 ? "red" : "blue";
