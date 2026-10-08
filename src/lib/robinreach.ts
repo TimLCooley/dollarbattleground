@@ -94,7 +94,11 @@ async function publishViaRobinReach(
           tiktok: { title, content, privacy: "PUBLIC_TO_EVERYONE", is_aigc: true },
           // The founder's clip can also go to his personal X and Instagram:
           // X takes a ≤280 cut of the caption; Instagram publishes video as a Reel.
-          twitter: { content: content.length > 280 ? content.slice(0, 277).replace(/\s+\S*$/, "") + "…" : content },
+          // RobinReach refuses X posts containing links — the site goes in the bio.
+          twitter: (() => {
+            const t = content.replace(/\s*https?:\/\/\S+/g, "").replace(/\s*(www\.)?dollarbattleground\.com\S*/gi, "").replace(/\n{3,}/g, "\n\n").trim();
+            return { content: t.length > 280 ? t.slice(0, 277).replace(/\s+\S*$/, "") + "…" : t };
+          })(),
           instagram: { post_type: "reels", content },
           // A vertical clip under a minute lands as a YouTube Short; title is required.
           youtube: { title: title.slice(0, 100), content, privacy: "public" },
