@@ -309,9 +309,24 @@ export async function publishPost(db: Db, id: number): Promise<{ id: string; vid
   // with nothing rendered yet goes out as text.
   const produced = p.format === "video" ? await produceVideo(p.video_kind, p.media_url) : null;
   if (produced) {
-    const mediaId = await uploadVideo(f, produced.bytes);
-    tweet = await postTweetWithMedia(f, text, mediaId);
     mediaUrl = produced.url;
+    try {
+      const mediaId = await uploadVideo(f, produced.bytes);
+      tweet = await postTweetWithMedia(f, text, mediaId);
+    } catch (e) {
+      // X down/locked must not block the clip's real audience (TikTok,
+      // YouTube): mirror it anyway, mark it posted, keep the X error visible.
+      const xErr = e instanceof Error ? e.message : "X failed";
+      const cp = await getCrosspost(db);
+      if (!cp.tiktok) throw e;
+      const r = await crosspostToTikTok(db, { id: p.id, faction: f, copy: text, media_url: produced.url });
+      if (!r.ok) throw new Error(`${xErr}; mirror also failed: ${r.error}`);
+      await db
+        .from("agent_posts")
+        .update({ status: "posted", external_id: null, media_url: produced.url, posted_at: new Date().toISOString(), last_error: `posted to TikTok/YouTube only — X: ${xErr.slice(0, 160)}` })
+        .eq("id", id);
+      return { id: `rr:${r.postId}`, video: true, replyId: null };
+    }
   } else {
     tweet = await postTweet(f, text);
   }
