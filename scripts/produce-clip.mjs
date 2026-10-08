@@ -10,6 +10,12 @@
 //       before posting from that moment's data)
 //   node scripts/produce-clip.mjs red|blue [field|recruit] — make a clip now
 //       and queue it as a new post (manual)
+//
+// TEAM TIM (app_config.team_avatar): when a side has a photo-avatar group
+// configured there, that side's clips are fronted by Tim himself — the
+// Developer, recruiting for that colour in his own voice — instead of the
+// news cast. The pitch is the officer commissions: `commissions` per side
+// (default 100), and how many are still open, counted live.
 // Env: HEYGEN_API_KEY, ANTHROPIC_API_KEY, SUPABASE_URL, SUPABASE_SECRET_KEY
 // Flags: DRYRUN=1 (stop after the budget guard), PLAN_ONLY=1 (stop after the
 // script), FORCE=1 (ignore the mix / dedupe / unchanged-map skips)
@@ -46,7 +52,7 @@ const CAST = {
   },
 };
 
-const DEF_BUDGET = { per_team_daily_usd: 0.5, per_team_month_usd: 15, wallet_floor_usd: 0.25, founder_daily_usd: 1.5, founder_month_usd: 40 };
+const DEF_BUDGET = { per_team_daily_usd: 0.5, per_team_month_usd: 15, wallet_floor_usd: 0.25, founder_daily_usd: 1.5, founder_month_usd: 40, tim_team_daily_usd: 2, tim_team_month_usd: 40 };
 const ENGINE = process.env.HEYGEN_ENGINE || "avatar_iii"; // see the render step
 // The founder is a real person on camera — body language matters more there.
 const ENGINE_FOUNDER = process.env.HEYGEN_ENGINE_FOUNDER || "avatar_iv";
@@ -77,6 +83,34 @@ async function cfg(key) {
   const rows = await fetch(`${SB}/rest/v1/app_config?key=eq.${key}&select=value`, { headers: sbh }).then((r) => r.json());
   try { return JSON.parse(rows?.[0]?.value ?? "null"); } catch { return null; }
 }
+async function cfgSet(key, value) {
+  await fetch(`${SB}/rest/v1/app_config`, {
+    method: "POST",
+    headers: { ...sbh, "Content-Type": "application/json", Prefer: "resolution=merge-duplicates,return=minimal" },
+    body: JSON.stringify({ key, value: JSON.stringify(value), updated_at: new Date().toISOString() }),
+  });
+}
+// Officers on a side: anyone there who has spent at least a strike's worth
+// (a strike commissions you Second Lieutenant). The real number behind
+// "N commissions still open".
+async function officersOn(faction) {
+  try {
+    const rows = await fetch(`${SB}/rest/v1/player_stats?side=eq.${faction}&spent_cents=gte.500&select=user_id`, { headers: sbh }).then((r) => r.json());
+    return Array.isArray(rows) ? rows.length : 0;
+  } catch { return 0; }
+}
+// A photo-avatar group's looks, read live so deleting a bad one in the HeyGen
+// app drops it from the rotation without a deploy. Real photos (the ones Tim
+// named) animate as Tim's actual face — the HeyGen-generated stills ("Photo
+// Avatar") gave him a stranger's chin — so those win when there are enough.
+async function liveLooks(groupId, exclude = []) {
+  const gl = await fetch(`https://api.heygen.com/v2/avatar_group/${groupId}/avatars`, { headers: { "x-api-key": HG } }).then((r) => r.json());
+  const all = (gl.data?.avatar_list ?? []).filter((l) => l.id && l.id !== groupId && (l.status ?? "completed") === "completed" && !exclude.includes(l.id));
+  const real = all.filter((l) => l.name && !/^photo avatar$/i.test(l.name.trim()));
+  const ids = (real.length >= 3 ? real : all).map((l) => l.id);
+  console.log(`LOOKS ${ids.length} live from group ${groupId.slice(0, 6)} (${real.length} real photos, ${all.length} total)`);
+  return ids;
+}
 async function walletUsd() {
   const me = await fetch("https://api.heygen.com/v3/users/me", { headers: { "X-Api-Key": HG } }).then((r) => r.json());
   return Number(me.data?.wallet?.remaining_balance ?? 0);
@@ -103,28 +137,36 @@ async function recordSpend(faction, usd) {
 async function produce({ faction, kind, target = null }) {
   const team = CAST[faction];
   const founder = faction === "founder";
-  const who = founder ? team.founder : kind === "recruit" ? team.anchor : team.field;
+  let who = founder ? team.founder : kind === "recruit" ? team.anchor : team.field;
+  // TEAM TIM: a side whose photo-avatar group is set in app_config.team_avatar
+  // is fronted by Tim — the Developer, recruiting for that colour — in his
+  // own voice. {on, voice_id, engine, resolution, commissions,
+  //  red: {group_id, exclude_looks, backgrounds}, blue: {...}}
+  const ta = founder ? null : (await cfg("team_avatar")) ?? null;
+  const tim = !!(ta && ta.on !== false && ta[faction]?.group_id);
   // The founder's on-camera self can be swapped from app_config.founder_avatar
   // ({avatar_id, voice_id, engine}) — e.g. the video twin — without a deploy.
   // Several twins (different rooms, outfits, framings) rotate: founder_avatar.avatars = [{avatar_id, voice_id?}]
-  let fa = faction === "founder" ? (await cfg("founder_avatar")) ?? null : null;
+  let fa = founder ? (await cfg("founder_avatar")) ?? null : null;
+  if (tim) {
+    // Same shape the founder path reads (engine, backgrounds, voice).
+    fa = { ...ta[faction], voice_id: ta.voice_id || CAST.founder.founder.voice, engine: ta.engine || ENGINE_FOUNDER, resolution: ta.resolution || "720p" };
+    who = { name: "Tim Cooley", voice: fa.voice_id, looks: [...CAST.founder.founder.looks] };
+    try {
+      const ids = await liveLooks(fa.group_id, fa.exclude_looks ?? []);
+      if (ids.length) who.looks = ids;
+    } catch (e) { console.log("could not read the team group's looks — using the Developer's built-in list:", e?.message ?? e); }
+    console.log(`TEAM TIM — the Developer fronts ${faction.toUpperCase()}'s ${kind} clip`);
+  }
   const twins = fa?.avatars?.filter((a) => a?.avatar_id) ?? [];
-  if (twins.length) who.looks = twins.map((a) => a.avatar_id);
+  if (tim) { /* looks already loaded */ }
+  else if (twins.length) who.looks = twins.map((a) => a.avatar_id);
   else if (fa?.avatar_id) { who.looks = [fa.avatar_id]; if (fa.voice_id) who.voice = fa.voice_id; }
   else if (fa?.group_id) {
-    // Photo-avatar group: read its looks live, so deleting a bad one in the
-    // HeyGen app (the jawline one) drops it from the rotation without a deploy.
     try {
-      const gl = await fetch(`https://api.heygen.com/v2/avatar_group/${fa.group_id}/avatars`, { headers: { "x-api-key": HG } }).then((r) => r.json());
-      const all = (gl.data?.avatar_list ?? []).filter((l) => l.id && l.id !== fa.group_id && (l.status ?? "completed") === "completed" && !(fa.exclude_looks ?? []).includes(l.id));
-      // Real photos (the ones Tim named) animate as Tim's actual face — the
-      // HeyGen-generated stills ("Photo Avatar") gave him a stranger's chin.
-      // Use the real ones when there are enough of them.
-      const real = all.filter((l) => l.name && !/^photo avatar$/i.test(l.name.trim()));
-      const ids = (real.length >= 3 ? real : all).map((l) => l.id);
+      const ids = await liveLooks(fa.group_id, fa.exclude_looks ?? []);
       if (ids.length) who.looks = ids;
       if (fa.voice_id) who.voice = fa.voice_id;
-      console.log(`LOOKS ${ids.length} live from group ${fa.group_id.slice(0, 6)} (${real.length} real photos, ${all.length} total)`);
     } catch (e) { console.log("could not read the group's looks — using the built-in list:", e?.message ?? e); }
   }
   // The look used longest ago — the previous clips' specs remember which one
@@ -142,8 +184,9 @@ async function produce({ faction, kind, target = null }) {
   const used = await spentSoFar(faction);
   const blocks = [];
   if (wallet0 <= budget.wallet_floor_usd) blocks.push(`wallet $${wallet0.toFixed(2)} at/below floor $${budget.wallet_floor_usd}`);
-  const capDay = founder ? budget.founder_daily_usd : budget.per_team_daily_usd;
-  const capMonth = founder ? budget.founder_month_usd : budget.per_team_month_usd;
+  // Tim on the gesture engine costs ~3× an anchor, so a side he fronts gets its own caps.
+  const capDay = founder ? budget.founder_daily_usd : tim ? budget.tim_team_daily_usd : budget.per_team_daily_usd;
+  const capMonth = founder ? budget.founder_month_usd : tim ? budget.tim_team_month_usd : budget.per_team_month_usd;
   if (used.day >= capDay) blocks.push(`${faction} hit daily video cap $${capDay} (spent $${used.day.toFixed(2)} today)`);
   if (used.month >= capMonth) blocks.push(`${faction} hit monthly video cap $${capMonth} (spent $${used.month.toFixed(2)})`);
   if (blocks.length) { console.log(`SKIP ${SIDE} — ${blocks.join("; ")}`); return false; }
@@ -227,8 +270,32 @@ async function produce({ faction, kind, target = null }) {
     "Hey guys, I've been working on this weird game and something happened today that I did not expect.",
     "When I built this, I thought people would do one thing. You are absolutely not doing that.",
   ];
+  // Officer commissions per side — the Developer's pitch when he fronts a team.
+  const commissionsOpen = Number(ta?.commissions ?? 100);
+  const officers = tim ? await officersOn(faction) : 0;
+  const commissionsLeft = Math.max(0, commissionsOpen - officers);
+  const enemyLeft = tim ? Math.max(0, commissionsOpen - (await officersOn(faction === "red" ? "blue" : "red"))) : 0;
   let sys, user;
-  if (founder) {
+  if (tim) {
+    // THE DEVELOPER, RECRUITING FOR A SIDE. Still Tim — the person who built
+    // it, talking to his phone — but today he has picked a colour and he's
+    // filling that side's officer corps. The house rules still hold (no
+    // prices); the numbers are real.
+    const Enemy = faction === "red" ? "Blue" : "Red";
+    const full = commissionsLeft === 0;
+    sys = `You are THE DEVELOPER: Tim Cooley, the real person who built Dollar Battleground (a live territory war, Red vs Blue, one map, one side wins) — and you are running ${SIDE}. You're outside the fiction: the news desks are characters you built; you're the one building it and you've picked a side.
+WHO YOU ARE ON CAMERA: the maker, not a salesman. Warm, direct, a little amused that you care this much, honest about small numbers. A slight smile, not a grin. You talk to your own phone like a real person: contractions, short sentences, one thought.
+THE RULE ABOVE ALL: within the first two sentences it's obvious that YOU MADE THIS and that you're on ${SIDE} — some version of "I built this game and I'm running Red" / "so I made this thing and I picked Blue". A stranger must know in five seconds that the builder is recruiting for his own side.
+THE PITCH (real, use it): each side has ${commissionsOpen} officer commissions. ${full ? `${SIDE}'s are all taken — point people at ${Enemy}, which has ${enemyLeft} open, or at taking a position on ${SIDE} anyway.` : `${SIDE} has ${commissionsLeft} still open${enemyLeft !== commissionsLeft ? ` (${Enemy} has ${enemyLeft})` : ""}.`} Your first position is free. One strike commissions you Second Lieutenant. ${daysLeft != null ? `${daysLeft} days left in the recruiting campaign.` : ""} Say the number of open commissions out loud — that's the hook.
+${HOUSE}
+NEVER: money words, prices, "cheap", "$"; hashtags; coordinates; "flip". Don't say the site's name (it's on screen). It's a game; no real politics.`;
+    user = kind === "recruit"
+      ? `Write today's clip to camera for ${SIDE}: 30-50 words, ONE thought. Lead with you (built it, running ${SIDE}), land the open-commissions number, end like a person ends a thought — an invitation from the maker, not an ad read. Vary the hook from clip to clip.
+Map right now: ${lead} — passing context at most.
+Respond ONLY JSON: {"headline":"<UPPERCASE, <=6 words, e.g. ${commissionsLeft} ${SIDE} COMMISSIONS OPEN>","spoken":"<what you say>","caption":"<the tweet from the ${SIDE} account, 2-3 short sentences as a person would write them: the Developer is running ${SIDE}, the open-commissions number, the link dollarbattleground.com; <=200 chars; no hashtags>","angle":"recruit","locator":"RECRUITING FOR ${SIDE}"}`
+      : `Write today's clip to camera for ${SIDE}: 30-50 words, ONE thought, about the map as you see it from ${SIDE}'s side — RED holds ${red} positions (${redPct}%) / BLUE ${blue} (${bluePct}%), ${lead} — where ${Side} needs boots (a front, by direction), in territory language only. Lead with you (built it, running ${SIDE}); work the open-commissions number in once; end like a person ends a thought.
+Respond ONLY JSON: {"headline":"<UPPERCASE, <=6 words>","spoken":"<what you say>","caption":"<the tweet from the ${SIDE} account, <=200 chars, sounds like a person, the link dollarbattleground.com only if it's an invitation; no hashtags>","angle":"recruit|update|hype","locator":"<a front, e.g. EASTERN FRONT — never coordinates>"}`;
+  } else if (founder) {
     // Real material only.
     let built = [];
     try {
@@ -322,7 +389,9 @@ Respond ONLY JSON: {"headline":"<UPPERCASE, <=6 words>","spoken":"<what you say 
     if (founder && /\b(buy|bought|purchase|pay|paid|price|cost|spend|spent|revenue|cheap|dollars?|money|free)\b/i.test(`${p.spoken} ${p.caption}`)) bad.push("developer mentions money");
     if (founder && /founding class|\benlist|\brecruit|sign up|claim your|don'?t miss|last chance|wanna be the one|join (red|blue|us|now|the)|days left to|dollarbattleground\.com/i.test(`${p.spoken} ${p.caption}`)) bad.push("developer sounds like an ad");
     if (founder && ((p.spoken ?? "").match(/check it out|link'?s? in (the )?bio|hope you enjoy|what color|which side would you/gi) ?? []).length > 1) bad.push("more than one nod");
-    if (founder && !/\b(I'?ve been (working on|making|building)|I'?m (working on|making|building)|I (built|made|make)|(my|this) game (I|that I)|been building|been making)\b/i.test(p.spoken ?? "")) bad.push("never says he's making the game");
+    if ((founder || tim) && !/\b(I'?ve been (working on|making|building)|I'?m (working on|making|building)|I (built|made|make)|(my|this) game (I|that I)|been building|been making)\b/i.test(p.spoken ?? "")) bad.push("never says he's making the game");
+    if (tim && !new RegExp(`\\b${faction}\\b`, "i").test(p.spoken ?? "")) bad.push("never says which side he's on");
+    if (tim && commissionsLeft > 0 && !new RegExp(`\\b${commissionsLeft}\\b`).test(p.spoken ?? "")) bad.push("doesn't say the open-commissions number");
     if (founder && /(\d+\s?%|percent|up by|dead even|tied|fifty[- ]fifty|leads? by|nobody('s| has) moved)/i.test(p.spoken ?? "") && !/(built|building|making|made|wrote|coded|fixed|shipped)/i.test(p.spoken ?? "")) bad.push("commentates the score");
     if (/\b\d{1,2},\d{1,2}\b/.test(`${p.spoken} ${p.caption} ${p.locator}`)) bad.push("grid coordinates");
     if (!founder && /#\w+/.test(p.caption ?? "")) bad.push("hashtag"); // X rule; TikTok captions want them
@@ -346,10 +415,11 @@ Respond ONLY JSON: {"headline":"<UPPERCASE, <=6 words>","spoken":"<what you say 
   };
   if (fa?.engine === "none") delete body.engine; // let HeyGen pick for a video twin
   if (founder) body.resolution = "1080p";
+  if (tim && fa?.resolution) body.resolution = fa.resolution;
   // Backgrounds rotate behind the twin (founder_avatar.backgrounds = [image urls]):
   // HeyGen keys the recorded room out and drops him into a new one.
   let bg = null;
-  if (founder && fa?.backgrounds?.length) {
+  if ((founder || tim) && fa?.backgrounds?.length) {
     bg = pickFresh(fa.backgrounds, prevSpecs.map((v) => v.bg).filter(Boolean));
     body.background = { type: "image", url: bg };
     body.remove_background = true;
@@ -357,8 +427,8 @@ Respond ONLY JSON: {"headline":"<UPPERCASE, <=6 words>","spoken":"<what you say 
   }
   if (body.engine?.type === "avatar_iv") {
     // low = calmer mouth (less teeth) — Tim found medium a bit toothy.
-    body.expressiveness = founder ? (process.env.HEYGEN_EXPRESSIVENESS_FOUNDER || "low") : "medium";
-    body.motion_prompt = founder
+    body.expressiveness = founder || tim ? (process.env.HEYGEN_EXPRESSIVENESS_FOUNDER || "low") : "medium";
+    body.motion_prompt = founder || tim
       ? "A person talking to his own phone, not to an audience: a slight, warm smile as his resting face — never a grin; lips mostly together between phrases, minimal teeth, small mouth movements. Slightly unsure; glances away while thinking, looks down now and then, comes back to the lens. Small hand movements, small nods, no big gestures, no leaning in."
       : kind === "recruit"
         ? "A news anchor at the desk: natural presenter hand gestures, leans in on the key line, counts on fingers when listing, steady eye contact."
@@ -427,10 +497,11 @@ Respond ONLY JSON: {"headline":"<UPPERCASE, <=6 words>","spoken":"<what you say 
     console.log(`TRIM FAILED (${e?.message?.split("\n")[0] ?? e}) — falling back to ${clipSeconds}s from the word count`);
   }
   const props = {
-    network: team.network, accent: team.accent, anchorSrc: "_wr/clip.mp4", reporterName: who.name,
-    role: founder ? "founder" : kind === "recruit" ? "anchor" : "field", headline: plan.headline, redPct, bluePct,
-    locator: plan.locator || (founder ? "DEV LOG" : kind === "recruit" ? "RECRUITING" : "THE CENTER"), url: "dollarbattleground.com",
-    variant: founder ? "plain" : kind === "recruit" ? "breaking" : "field", seconds: clipSeconds,
+    network: tim ? `${SIDE} TEAM` : team.network, accent: team.accent, anchorSrc: "_wr/clip.mp4", reporterName: who.name,
+    role: founder || tim ? "founder" : kind === "recruit" ? "anchor" : "field", headline: plan.headline, redPct, bluePct,
+    locator: plan.locator || (founder ? "DEV LOG" : tim ? `RECRUITING FOR ${SIDE}` : kind === "recruit" ? "RECRUITING" : "THE CENTER"), url: "dollarbattleground.com",
+    variant: founder ? "plain" : tim ? "recruiter" : kind === "recruit" ? "breaking" : "field", seconds: clipSeconds,
+    ...(tim ? { side: faction, commissionsOpen, commissionsLeft, daysLeft: daysLeft ?? null } : {}),
   };
   await writeFile("/tmp/clip-props.json", JSON.stringify(props));
   execSync("npx remotion render src/remotion/index.ts SocialClip /tmp/social-clip.mp4 --props=/tmp/clip-props.json --concurrency=1", { stdio: "inherit" });
@@ -442,8 +513,8 @@ Respond ONLY JSON: {"headline":"<UPPERCASE, <=6 words>","spoken":"<what you say 
   console.log("HOSTED:", mediaUrl);
 
   const themeTag = target ? (target.reason?.match(/\[theme:\w+\]/)?.[0] ?? `[theme:${kind === "recruit" ? "countdown" : "update"}]`) : `[theme:${kind === "recruit" ? "countdown" : "update"}]`;
-  const spec = { ...(target?.video_spec ?? {}), kind, red, blue, redPct, bluePct, look, ...(bg ? { bg } : {}), who: who.name, rendered_at: new Date().toISOString(), placeholder: false, ...(plan_topic ? { topic: plan_topic } : {}) };
-  const reason = `${themeTag} ${kind === "recruit" ? `Recruiting spot — ${who.name} at the desk` : `Field report — ${who.name}, ${lead}`} (look ${look.slice(0, 6)}) · rendered from live data before posting`;
+  const spec = { ...(target?.video_spec ?? {}), kind, red, blue, redPct, bluePct, look, ...(bg ? { bg } : {}), who: who.name, ...(tim ? { tim: true, commissionsLeft } : {}), rendered_at: new Date().toISOString(), placeholder: false, ...(plan_topic ? { topic: plan_topic } : {}) };
+  const reason = `${themeTag} ${tim ? `The Developer for ${SIDE} — ${commissionsLeft} commissions open` : kind === "recruit" ? `Recruiting spot — ${who.name} at the desk` : `Field report — ${who.name}, ${lead}`} (look ${look.slice(0, 6)}) · rendered from live data before posting`;
 
   if (target) {
     // Attach to the placeholder: the caption, angle and clip are all fresh.
@@ -482,34 +553,63 @@ Respond ONLY JSON: {"headline":"<UPPERCASE, <=6 words>","spoken":"<what you say 
 // ── entry ───────────────────────────────────────────────────────────────────
 const mode = process.argv[2];
 if (mode === "looks") {
-  // Manage the Developer's photo-avatar looks without HeyGen's editor.
-  //   looks add            — every photo in the private bucket cast/tim/ → a look
-  //   looks train          — train the group on its looks (better generated looks)
-  //   looks status         — training status
-  //   looks generate "<prompt>" — HeyGen generates looks from the trained group and adds them
-  //   looks list           — the group's looks
-  const fa = (await cfg("founder_avatar")) ?? {};
-  const group = fa.group_id;
-  if (!group) { console.log("founder_avatar.group_id not set"); process.exit(1); }
-  const H = { "x-api-key": HG, "Content-Type": "application/json" };
+  // Manage Tim's photo-avatar looks without HeyGen's editor.
+  //   looks add [red|blue]       — every photo in the private bucket cast/tim/ (or
+  //                                cast/tim-red/, cast/tim-blue/) → a look in that group
+  //   looks create red|blue      — make that side's group from its photos and save the
+  //                                group id into app_config.team_avatar (TEAM TIM switches on)
+  //   looks train [red|blue]     — train the group on its looks (better generated looks)
+  //   looks status [red|blue]    — training status
+  //   looks generate [red|blue] "<prompt>" — HeyGen generates looks and adds them
+  //   looks list [red|blue]      — the group's looks
+  // Without a side it's the Developer's own group (founder_avatar).
   const sub = process.argv[3] ?? "list";
+  const team = ["red", "blue"].includes(process.argv[4]) ? process.argv[4] : null;
+  const cfgKey = team ? "team_avatar" : "founder_avatar";
+  const fa = (await cfg(cfgKey)) ?? {};
+  let group = team ? fa[team]?.group_id : fa.group_id;
+  const prefix = team ? `tim-${team}/` : "tim/";
+  const lookName = team ? `Tim Cooley (${team})` : "Tim Cooley";
+  if (!group && sub !== "create") { console.log(`${cfgKey}${team ? `.${team}` : ""}.group_id not set${team ? ` — run: looks create ${team}` : ""}`); process.exit(1); }
+  const H = { "x-api-key": HG, "Content-Type": "application/json" };
   const jsonOf = async (r) => { const t = await r.text(); try { return JSON.parse(t); } catch { return { raw: t, status: r.status }; } };
-  if (sub === "add") {
-    const list = await fetch(`${SB}/storage/v1/object/list/cast`, { method: "POST", headers: { ...sbh, "Content-Type": "application/json" }, body: JSON.stringify({ prefix: "tim/", limit: 100 }) }).then(jsonOf);
+  // The photos in the bucket → HeyGen image keys.
+  const uploadPhotos = async () => {
+    const list = await fetch(`${SB}/storage/v1/object/list/cast`, { method: "POST", headers: { ...sbh, "Content-Type": "application/json" }, body: JSON.stringify({ prefix, limit: 100 }) }).then(jsonOf);
     const files = (Array.isArray(list) ? list : []).map((f) => f.name).filter((n) => /\.(jpe?g|png)$/i.test(n));
-    console.log(`photos in cast/tim: ${files.length}`);
+    console.log(`photos in cast/${prefix}: ${files.length}`);
     const keys = [];
     for (const name of files) {
-      const bytes = await fetch(`${SB}/storage/v1/object/cast/tim/${name}`, { headers: sbh }).then((r) => r.arrayBuffer());
+      const bytes = await fetch(`${SB}/storage/v1/object/cast/${prefix}${name}`, { headers: sbh }).then((r) => r.arrayBuffer());
       const up = await fetch("https://upload.heygen.com/v1/asset", { method: "POST", headers: { "x-api-key": HG, "Content-Type": name.toLowerCase().endsWith(".png") ? "image/png" : "image/jpeg" }, body: Buffer.from(bytes) }).then(jsonOf);
       const key = up.data?.image_key;
       console.log(`  ${name} → ${key ?? JSON.stringify(up)}`);
       if (key) keys.push(key);
     }
+    return keys;
+  };
+  const addLooks = async (keys) => {
     for (let i = 0; i < keys.length; i += 4) { // HeyGen takes at most 4 per call
-      const add = await fetch("https://api.heygen.com/v2/photo_avatar/avatar_group/add", { method: "POST", headers: H, body: JSON.stringify({ group_id: group, image_keys: keys.slice(i, i + 4), name: "Tim Cooley" }) }).then(jsonOf);
+      const add = await fetch("https://api.heygen.com/v2/photo_avatar/avatar_group/add", { method: "POST", headers: H, body: JSON.stringify({ group_id: group, image_keys: keys.slice(i, i + 4), name: lookName }) }).then(jsonOf);
       console.log("ADD:", JSON.stringify(add.error ?? add.data ?? add).slice(0, 300));
     }
+  };
+  if (sub === "create") {
+    if (!team) { console.log("looks create needs a side: red | blue"); process.exit(1); }
+    if (group) { console.log(`${team} already has group ${group} — use: looks add ${team}`); process.exit(1); }
+    const keys = await uploadPhotos();
+    if (!keys.length) { console.log(`no photos in cast/${prefix} — upload jpg/png there first`); process.exit(1); }
+    const made = await fetch("https://api.heygen.com/v2/photo_avatar/avatar_group/create", { method: "POST", headers: H, body: JSON.stringify({ name: lookName, image_key: keys[0] }) }).then(jsonOf);
+    group = made.data?.group_id ?? made.data?.id;
+    console.log("CREATE:", JSON.stringify(made.error ?? made.data ?? made).slice(0, 300));
+    if (!group) process.exit(1);
+    await addLooks(keys.slice(1));
+    // Save it: from the next run that side's clips are fronted by Tim.
+    const voice = fa.voice_id ?? ((await cfg("founder_avatar"))?.voice_id ?? CAST.founder.founder.voice);
+    await cfgSet("team_avatar", { ...fa, voice_id: voice, [team]: { ...(fa[team] ?? {}), group_id: group } });
+    console.log(`SAVED app_config.team_avatar.${team}.group_id = ${group} — TEAM TIM is on for ${team.toUpperCase()}`);
+  } else if (sub === "add") {
+    await addLooks(await uploadPhotos());
   } else if (sub === "train") {
     const t = await fetch("https://api.heygen.com/v2/photo_avatar/train", { method: "POST", headers: H, body: JSON.stringify({ group_id: group }) }).then(jsonOf);
     console.log("TRAIN:", JSON.stringify(t).slice(0, 400));
@@ -517,7 +617,7 @@ if (mode === "looks") {
     const t = await fetch(`https://api.heygen.com/v2/photo_avatar/train/status/${group}`, { headers: H }).then(jsonOf);
     console.log("STATUS:", JSON.stringify(t).slice(0, 400));
   } else if (sub === "generate") {
-    const prompt = process.argv.slice(4).join(" ") || process.env.LOOK_PROMPT;
+    const prompt = process.argv.slice(team ? 5 : 4).join(" ") || process.env.LOOK_PROMPT;
     if (!prompt) { console.log("no prompt"); process.exit(1); }
     const g = await fetch("https://api.heygen.com/v2/photo_avatar/look/generate", { method: "POST", headers: H, body: JSON.stringify({ group_id: group, prompt, orientation: "vertical", pose: "half_body", style: "Realistic" }) }).then(jsonOf);
     console.log("GENERATE:", JSON.stringify(g).slice(0, 400));
@@ -533,11 +633,7 @@ if (mode === "looks") {
     }
     if (!done) { console.log("generation timed out"); process.exit(1); }
     console.log("IMAGES:", (done.image_url_list ?? []).join("\n        "));
-    const gk = done.image_key_list ?? [];
-    for (let i = 0; i < gk.length; i += 4) {
-      const add = await fetch("https://api.heygen.com/v2/photo_avatar/avatar_group/add", { method: "POST", headers: H, body: JSON.stringify({ group_id: group, image_keys: gk.slice(i, i + 4), name: "Tim Cooley" }) }).then(jsonOf);
-      console.log("ADDED TO GROUP:", JSON.stringify(add.error ?? add.data ?? add).slice(0, 300));
-    }
+    await addLooks(done.image_key_list ?? []);
   } else {
     const gl = await fetch(`https://api.heygen.com/v2/avatar_group/${group}/avatars`, { headers: H }).then(jsonOf);
     for (const l of gl.data?.avatar_list ?? []) console.log(`LOOK ${l.name ?? "-"} id=${l.id} status=${l.status ?? "-"} ${l.image_url ?? l.preview_image_url ?? ""}`);
