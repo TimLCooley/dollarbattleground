@@ -276,6 +276,22 @@ async function produce({ faction, kind, target = null }) {
   const officers = tim ? await officersOn(faction) : 0;
   const commissionsLeft = Math.max(0, commissionsOpen - filled - officers);
   const enemyLeft = tim ? Math.max(0, commissionsOpen - filled - (await officersOn(faction === "red" ? "blue" : "red"))) : 0;
+  // VOICE GUIDES (app_config.voices.<character>.text + .notes[]): the feel of
+  // each character in Tim's own words. Outranks everything in the prompt below;
+  // the judge (further down) grades every draft against it. Edit in the
+  // database, no deploy.
+  const voices = (await cfg("voices")) ?? {};
+  const voiceKey = tim ? "team_tim" : founder ? "developer" : kind === "recruit" ? "anchor" : "field";
+  const guide = voices[voiceKey] ?? {};
+  const guideText = [guide.text, ...((guide.notes ?? []).map((n) => `• ${n}`))].filter(Boolean).join("\n");
+  // Tim's deny notes on this character's recent clips join the guide automatically.
+  let denyNotes = [];
+  try {
+    const q = tim ? `faction=eq.${faction}&format=eq.video&reason=ilike.*Tim Cooley*` : founder ? `faction=eq.founder` : `faction=eq.${faction}&format=eq.video&reason=not.ilike.*Tim Cooley*`;
+    const rows = await fetch(`${SB}/rest/v1/agent_posts?${q}&status=eq.denied&select=deny_reason&order=created_at.desc&limit=5`, { headers: sbh }).then((r) => r.json());
+    denyNotes = (rows ?? []).map((r) => r.deny_reason).filter((d) => d && !/superseded/i.test(d));
+  } catch {}
+  const GUIDE = guideText || denyNotes.length ? `VOICE GUIDE — Tim's own words on how this character should feel (outranks every rule below):\n${guideText}${denyNotes.length ? `\nTim's notes on recent clips (fix these): ${denyNotes.map((d) => `"${d}"`).join(" | ")}` : ""}` : "";
   let sys, user;
   if (tim) {
     // THE DEVELOPER, RECRUITING FOR A SIDE. Still Tim — the person who built
@@ -288,7 +304,7 @@ async function produce({ faction, kind, target = null }) {
     // reporters (partisan, territory language, lively) but talking, not
     // anchoring — and never the producer. No countdown, no founding class.
     const HOUSE_TIM = `HOUSE RULES: Territory language only — positions, ground, fronts, compass directions ("the eastern front", "pushing up from the south"). NEVER grid coordinates, NEVER "flip"/"tiles flipping". NEVER mention spending money or prices — no dollar amounts ("your first position is free" is fine; "one strike commissions you Second Lieutenant" is fine). Never invent mechanics, events or deadlines: the game is one map, two sides, positions, strikes, barrages, first position free, a strike commissions you Second Lieutenant. A quiet map is just a quiet map. No hashtags.`;
-    sys = `You are Tim, ${SIDE}'s recruiter on Dollar Battleground (a live territory war, Red vs Blue, one map, one side wins). You've picked ${Side} and you want the best people on it. It's a GAME — no real politics, no real-world harm.
+    sys = `${GUIDE}\nYou are Tim, ${SIDE}'s recruiter on Dollar Battleground (a live territory war, Red vs Blue, one map, one side wins). You've picked ${Side} and you want the best people on it. It's a GAME — no real politics, no real-world harm.
 WHO YOU ARE ON CAMERA: one of ${Side}'s own, talking to your phone — not a news anchor, not the game's producer, not a salesman. Partisan for ${Side} the way the ${SIDE} news desk is, but conversational: contractions, short sentences, a little swagger, a slight smile. You never mention building or making the game, never say "I built" / "I made" / "I'm running" / "developer" — you're just on ${Side}.
 NOT REPORTERY: no "reporting live", no "this just in", no "back to you", no sign-off with a name or a network, no reading the score like a broadcast. You talk the way a person talks when they're recruiting friends for their team.
 SOUND NORMAL. Openers Tim actually says — start like one of these, in your own words: "Quick ${Side} update." / "Quick ${Side} check-in." / "Here's a ${Side} status update." / "Big movement today by ${Side} — you should join." / "${Side} needs people on the north side. That's it, that's the update." Plain words, short sentences, no slogans, no announcer rhythm. If a line would sound weird said out loud to a friend, cut it.
@@ -339,7 +355,7 @@ Respond ONLY JSON: {"headline":"<UPPERCASE, <=6 words>","spoken":"<what you say>
     const pool = freshT.length ? freshT : DEV_THEMES;
     const topic = pool[Math.floor(Math.random() * pool.length)];
     plan_topic = topic;
-    sys = `You are THE DEVELOPER: Tim Cooley, the real person MAKING Dollar Battleground (a live territory war, Red vs Blue, one map, one side wins). You are OUTSIDE the fiction and can break the fourth wall — the Red/Blue commanders, field reporters and news desks are characters you built; you're the one building the stage.
+    sys = `${GUIDE}\nYou are THE DEVELOPER: Tim Cooley, the real person MAKING Dollar Battleground (a live territory war, Red vs Blue, one map, one side wins). You are OUTSIDE the fiction and can break the fourth wall — the Red/Blue commanders, field reporters and news desks are characters you built; you're the one building the stage.
 WHO YOU ARE ON CAMERA: a producer whose game isn't working yet, and who's honest about that. Slightly unsure, curious, a little amused, warm — a slight smile, not a grin. Not a salesman, not a commander, not a spokesperson. You know it's a strange little internet war and you find it funny that anyone (including you) cares this much.
 THE ONE RULE ABOVE ALL: every clip makes it obvious that YOU MADE THIS. In the first sentence or two you say some version of "I've been working on this game" / "so I'm making this game where…" / "I built…". A stranger scrolling past must know within five seconds that this is the person building it — otherwise you're just another anchor, and that reads fake.
 YOUR SUBJECT IS THE MAKING, NEVER THE MATCH: what you built, what broke, what surprised you, what you're testing, why you're doing this, what it's like directing AI characters that go off-script, how hard the marketing and business side is. The map/score is at most a one-line aside ("board's still dead even, by the way") — never the topic. You never commentate the war; that's the news desks' job.
@@ -354,13 +370,13 @@ Write today's clip to camera: 35-55 words, ONE thought, and it must be clear in 
 THE GOLD STANDARD (Tim's words: "this is gold — stuff like this makes ME interesting"): "Okay, weird thing about building a game with AI news anchors. They lie. Not on purpose — they just… invent stuff. One of them made up a 24-hour freeze rule that doesn't exist." — a builder telling on his own robots: specific, true, a little amused, no pitch. Aim for that.
 Respond ONLY JSON: {"headline":"<short, unused>","spoken":"<what you say>","caption":"<the TikTok caption as a person would write it: one or two casual lines, lowercase is fine, no pitch, no site name (it's on screen); 0-3 hashtags at most; <=200 chars>","angle":"founder","locator":"DEV LOG"}`;
   } else if (kind === "recruit") {
-    sys = `You are ${who.name}, the ${SIDE} team's anchor at the ${team.network} desk on Dollar Battleground (a live territory war, Red vs Blue; site dollarbattleground.com). Composed, direct, on camera. It's a GAME — no real-world harm, no real politics.`;
+    sys = `${GUIDE}\nYou are ${who.name}, the ${SIDE} team's anchor at the ${team.network} desk on Dollar Battleground (a live territory war, Red vs Blue; site dollarbattleground.com). Composed, direct, on camera. It's a GAME — no real-world harm, no real politics.`;
     user = `Write a RECRUITING SPOT for ${Side}, delivered straight to camera. This is an ad: clear offer, real urgency, call to action. Every spot is an experiment — vary the hook and the wording; don't sound like the last one.
 Ingredients (use two or three, not all): ${daysLeft != null ? `${daysLeft} days left to join ${Side}'s founding class;` : ""} pick your side; your first position is free; join as an officer — one strike commissions you Second Lieutenant; we're looking for the best; where ${Side} needs boots (a front, by direction). Map right now: ${lead} — background only, don't lead with it.
 ${HOUSE}
 Respond ONLY JSON: {"headline":"<UPPERCASE, <=6 words, e.g. ${SIDE} IS RECRUITING · ${daysLeft ?? 15} DAYS LEFT>","spoken":"<20-28 words to camera, ending with your name and network, e.g. 'I'm ${who.name}, ${team.network}.'>","caption":"<the tweet: an ad in 2-4 short sentences with the countdown and the link dollarbattleground.com, <=200 chars>","angle":"recruit","locator":"<a front, e.g. EASTERN FRONT, or RECRUITING>"}`;
   } else {
-    sys = `You are ${who.name}, the ${SIDE} team's field correspondent for Dollar Battleground (a live territory war, Red vs Blue; site dollarbattleground.com). You report from the front — urgent, present tense, pro-${faction}, playful. It's a GAME, no real-world harm.`;
+    sys = `${GUIDE}\nYou are ${who.name}, the ${SIDE} team's field correspondent for Dollar Battleground (a live territory war, Red vs Blue; site dollarbattleground.com). You report from the front — urgent, present tense, pro-${faction}, playful. It's a GAME, no real-world harm.`;
     user = `Map right now: RED holds ${red} positions (${redPct}%) / BLUE ${blue} (${bluePct}%) — ${lead}. Write a short field report. You are LIVE from the field; ${who.partner} is back at the desk. NEVER use the word "anchor" or "reporter" on air — always use real names. End by tossing back to ${who.partner} BY NAME (e.g. "back to you, ${who.partner.split(" ")[0]}"). Use only the numbers above.
 ${HOUSE}
 CAPTION rules (the tweet): ≤ 200 chars, at most one emoji, sounds like a person not a campaign. Pick the angle first: "recruit" = an invitation to a newcomer with the link dollarbattleground.com; "update"/"hype"/"taunt" = NO link at all.
@@ -377,8 +393,26 @@ Respond ONLY JSON: {"headline":"<UPPERCASE, <=6 words>","spoken":"<what you say 
     if (!text) console.log("CLAUDE: no text block —", JSON.stringify({ error: ai.error ?? null, stop_reason: ai.stop_reason, blocks: ai.content?.map((b) => b.type) }));
     return text ?? "";
   }
+  // THE JUDGE: grades a draft against the voice guide — would a real person say
+  // this, in this character, to a friend? Taste lives here, not in regexes.
+  async function judge(p) {
+    const rubric = tim
+      ? `This is Tim, one of ${Side}'s own, giving friends a quick ${Side} update and inviting them to play. FAIL if it sounds like a news anchor (reporting live / back to you / sign-offs / broadcast cadence), like the game's producer or builder ("I built this", "I'm running ${Side}"), like an ad or a slogan, if it mentions any deadline, countdown, last day, campaign or founding class (anyone can join any time), if it invents facts not in the brief, or if it doesn't make clear which side he's on. PASS if a normal person could say it out loud to a friend without cringing.`
+      : founder
+        ? `This is The Developer — the real person building the game, talking to his phone, outside the fiction. FAIL if he never makes it clear he's the one making the game, if it's a pitch or an ad, if it reads the scoreboard like an anchor, if it mentions money, or if it invents something. PASS if it sounds like a curious, slightly unsure builder telling a friend what happened.`
+        : `This is ${who.name}, ${SIDE} Team News — a character in a playful territory war. FAIL if it sounds corporate or like a template, if it invents mechanics or events, if it uses grid coordinates or prices, or if it's a score report when it's meant to be an invitation. PASS if it sounds like a person with a personality on ${Side}'s side.`;
+    const ai = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: { "x-api-key": AI, "anthropic-version": "2023-06-01", "content-type": "application/json" },
+      body: JSON.stringify({ model: "claude-sonnet-5", max_tokens: 300, system: `You judge short social scripts for feel. Be strict about tone, lenient about style. ${GUIDE ? `\n${GUIDE}` : ""}`, messages: [{ role: "user", content: `${rubric}\n\nSPOKEN: "${p.spoken}"\nCAPTION: "${p.caption}"\n\nRespond ONLY JSON: {"ok": true|false, "why": "<one sentence; if not ok, what to change>"}` }] }),
+    }).then((r) => r.json()).catch(() => null);
+    const text = ai?.content?.find((b) => b.type === "text")?.text ?? "";
+    try { const j = JSON.parse(text.slice(text.indexOf("{"), text.lastIndexOf("}") + 1)); return { ok: !!j.ok, why: j.why ?? "" }; } catch { return { ok: true, why: "judge unavailable" }; }
+  }
   let plan = {};
-  for (let attempt = 0; attempt < 3 && !plan.spoken; attempt++) {
+  let lastWhy = "";
+  for (let attempt = 0; attempt < 4 && !plan.spoken; attempt++) {
+    if (lastWhy) user = `${user}\n\nYOUR LAST DRAFT WAS REJECTED: ${lastWhy} — write a different one.`;
     let raw = await askClaude();
     raw = raw.slice(raw.indexOf("{"), raw.lastIndexOf("}") + 1);
     let p = {};
@@ -399,15 +433,15 @@ Respond ONLY JSON: {"headline":"<UPPERCASE, <=6 words>","spoken":"<what you say 
     if (founder && /founding class|\benlist|\brecruit|sign up|claim your|don'?t miss|last chance|wanna be the one|join (red|blue|us|now|the)|days left to|dollarbattleground\.com/i.test(`${p.spoken} ${p.caption}`)) bad.push("developer sounds like an ad");
     if (founder && ((p.spoken ?? "").match(/check it out|link'?s? in (the )?bio|hope you enjoy|what color|which side would you/gi) ?? []).length > 1) bad.push("more than one nod");
     if (founder && !/\b(I'?ve been (working on|making|building)|I'?m (working on|making|building)|I (built|made|make)|(my|this) game (I|that I)|been building|been making)\b/i.test(p.spoken ?? "")) bad.push("never says he's making the game");
-    if (tim && !new RegExp(`\\b${faction}\\b`, "i").test(p.spoken ?? "")) bad.push("never says which side he's on");
-    if (tim && kind === "recruit" && !new RegExp(`\\b(${commissionsLeft}|${commissionsOpen}|officers?)\\b`, "i").test(p.spoken ?? "")) bad.push("never mentions the officer spots");
-    if (tim && /\b(I built|I made|I'?m running|I'?ve been (building|making|working)|developer|producer|founding class|days? left|last day|deadline|countdown|campaign)\b/i.test(`${p.spoken} ${p.caption}`)) bad.push("producer / countdown language");
-    if (tim && /\b(reporting live|this just in|back to you|signing off|for (red|blue) team news|(red|blue) team news)\b/i.test(p.spoken ?? "")) bad.push("too reportery");
+
     if (founder && /(\d+\s?%|percent|up by|dead even|tied|fifty[- ]fifty|leads? by|nobody('s| has) moved)/i.test(p.spoken ?? "") && !/(built|building|making|made|wrote|coded|fixed|shipped)/i.test(p.spoken ?? "")) bad.push("commentates the score");
     if (/\b\d{1,2},\d{1,2}\b/.test(`${p.spoken} ${p.caption} ${p.locator}`)) bad.push("grid coordinates");
     if (!founder && /#\w+/.test(p.caption ?? "")) bad.push("hashtag"); // X rule; TikTok captions want them
     if (founder && /#\w+/.test(p.spoken ?? "")) bad.push("hashtag spoken aloud");
-    if (bad.length) { console.log(`script rejected (${bad.join(", ")}) — retrying`); continue; }
+    if (bad.length) { lastWhy = bad.join(", "); console.log(`script rejected (${lastWhy}) — retrying`); continue; }
+    const verdict = await judge(p);
+    if (!verdict.ok) { lastWhy = verdict.why; console.log(`judge rejected: ${verdict.why} — retrying`); continue; }
+    console.log(`judge: ok${verdict.why ? ` — ${verdict.why}` : ""}`);
     plan = p;
   }
   if (!plan.spoken) { console.log(`PLAN FAIL — no usable script for ${SIDE}; NOT spending on HeyGen.`); return false; }
