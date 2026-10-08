@@ -6,7 +6,7 @@ import { produceVideo } from "@/lib/producer";
 import { getStripeMode } from "@/lib/stripe-mode";
 import { intelBrief } from "@/lib/intel";
 import { getCommanderNotes, getOrders, planOrders } from "@/lib/general";
-import { runDispatches } from "@/lib/dispatch";
+import { runDispatches, dailyScoreboard } from "@/lib/dispatch";
 import { openGatesIfDue } from "@/lib/gate";
 import { crosspostToTikTok, getCrosspost, publishFounderClip } from "@/lib/robinreach";
 
@@ -51,6 +51,7 @@ export interface AutopilotState {
   published?: number;
   drafted?: number;
   failed?: number;
+  last_scoreboard_at?: string;
 }
 
 export async function getAutopilot(db: Db): Promise<{ config: AutopilotConfig; state: AutopilotState }> {
@@ -428,6 +429,16 @@ export async function runAutopilot(db: Db, opts: { force?: boolean } = {}): Prom
     notes.push(`email: ${e instanceof Error ? e.message : "failed"}`);
   }
 
+  // The scoreboard: once a day, after 14:00 UTC (8am Mountain).
+  let last_scoreboard_at = state.last_scoreboard_at;
+  if (new Date().getUTCHours() >= 14 && (!last_scoreboard_at || last_scoreboard_at.slice(0, 10) !== started.slice(0, 10))) {
+    try {
+      if (await dailyScoreboard(db)) { last_scoreboard_at = started; notes.push("scoreboard sent"); }
+    } catch (e) {
+      notes.push(`scoreboard: ${e instanceof Error ? e.message : "failed"}`);
+    }
+  }
+
   // The gate opens itself when the campaign clock runs out (midnight Mountain
   // on the last day) and the launch signal drains to the waitlist by side —
   // also regardless of the switch.
@@ -563,5 +574,5 @@ export async function runAutopilot(db: Db, opts: { force?: boolean } = {}): Prom
     `published ${published}, drafted ${drafted}` +
     (failed ? `, ${failed} failed` : "") +
     (notes.length ? ` — ${notes.join("; ")}` : "");
-  return save(summary, { last_metrics_at, last_plan_at });
+  return save(summary, { last_metrics_at, last_plan_at, last_scoreboard_at });
 }

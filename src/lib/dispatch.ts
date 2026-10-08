@@ -431,6 +431,61 @@ export async function sendLaunchEmails(db: Db, limit: number): Promise<{ sent: n
   return { sent, remaining: pending.length - batch.length };
 }
 
+// ── Daily scoreboard ────────────────────────────────────────────────────────
+// Once a day, the funnel in one email: reach → clicks → signups → positions →
+// officers, per side, plus which clip shapes are pulling. The recruiting
+// experiment lives or dies on these numbers, so they arrive without asking.
+export async function dailyScoreboard(db: Db): Promise<boolean> {
+  if (!isEmailConfigured()) return false;
+  const since = new Date(Date.now() - 24 * 3600_000).toISOString();
+  const [{ data: posts }, { data: players }, { data: wl }, { data: act }, { data: tiles }] = await Promise.all([
+    db.from("agent_posts").select("faction,impressions,likes,clicks,video_spec,posted_at,format").eq("status", "posted"),
+    db.from("player_stats").select("side,spent_cents"),
+    db.from("waitlist").select("side"),
+    db.from("activity").select("kind,faction,created_at").gte("created_at", since),
+    db.from("tiles").select("team"),
+  ]);
+  const P = (posts ?? []) as { faction: string | null; impressions: number | null; likes: number | null; clicks: number | null; video_spec: { topic?: string; tim?: boolean } | null; posted_at: string | null; format: string }[];
+  const day = P.filter((p) => p.posted_at && p.posted_at >= since);
+  const sum = (rows: typeof P, k: "impressions" | "likes" | "clicks") => rows.reduce((a, r) => a + Number(r[k] ?? 0), 0);
+  const side = (f: string) => {
+    const pl = ((players ?? []) as { side: string | null; spent_cents: number | null }[]).filter((x) => x.side === f);
+    return { players: pl.length, officers: pl.filter((x) => Number(x.spent_cents ?? 0) >= 500).length, waitlist: ((wl ?? []) as { side: string | null }[]).filter((x) => x.side === f).length };
+  };
+  const red = side("red"), blue = side("blue");
+  const A = (act ?? []) as { kind: string }[];
+  const n = (k: string) => A.filter((a) => a.kind === k).length;
+  let tr = 0, tb = 0;
+  for (const t of (tiles ?? []) as { team: string | null }[]) { if (t.team === "red") tr++; else if (t.team === "blue") tb++; }
+  // which shapes pull: views + clicks per clip by shape, all time
+  const byShape = new Map<string, { n: number; views: number; clicks: number }>();
+  for (const p of P) {
+    if (p.format !== "video") continue;
+    const k = p.video_spec?.tim ? `Tim · ${p.video_spec?.topic ?? "clip"}` : p.faction === "founder" ? `Developer · ${p.video_spec?.topic?.split(" — ")[0] ?? "clip"}` : `${p.faction} desk · ${p.video_spec?.topic ?? "clip"}`;
+    const e = byShape.get(k) ?? { n: 0, views: 0, clicks: 0 };
+    e.n++; e.views += Number(p.impressions ?? 0); e.clicks += Number(p.clicks ?? 0);
+    byShape.set(k, e);
+  }
+  const shapes = [...byShape.entries()].sort((a, b) => b[1].clicks / b[1].n - a[1].clicks / a[1].n).slice(0, 8)
+    .map(([k, v]) => `<tr><td style="padding:3px 8px 3px 0">${k}</td><td style="padding:3px 8px">${v.n}</td><td style="padding:3px 8px">${(v.views / v.n).toFixed(0)}</td><td style="padding:3px 8px">${(v.clicks / v.n).toFixed(1)}</td></tr>`).join("");
+  const row = (label: string, r: string | number, b: string | number) => `<tr><td style="padding:3px 8px 3px 0;color:#efe4c4">${label}</td><td style="padding:3px 8px;color:#ff8a8a"><b>${r}</b></td><td style="padding:3px 8px;color:#8ab4ff"><b>${b}</b></td></tr>`;
+  const html = wrap(
+    `<p style="margin:0 0 10px;font-size:17px;font-weight:700;color:#f2c14e">Scoreboard — last 24h</p>
+     <table style="font-size:14px;border-collapse:collapse"><tr><td></td><td style="padding:3px 8px;color:#ff8a8a">RED</td><td style="padding:3px 8px;color:#8ab4ff">BLUE</td></tr>
+     ${row("officers (goal 100)", red.officers, blue.officers)}
+     ${row("players", red.players, blue.players)}
+     ${row("waitlist", red.waitlist, blue.waitlist)}
+     ${row("map", `${tr}`, `${tb}`)}</table>
+     <p style="margin:12px 0 4px;font-size:14px;color:#efe4c4">Last 24h: <b>${day.length}</b> posts · <b>${sum(day, "impressions")}</b> views on X · <b>${sum(day, "clicks")}</b> link clicks · <b>${n("player_new") + n("waitlist_new")}</b> signups · <b>${n("purchase")}</b> purchases · <b>${n("takeover")}</b> takeovers</p>
+     <p style="margin:12px 0 4px;font-size:14px;color:#efe4c4">All time: ${P.length} posts · ${sum(P, "impressions")} views · ${sum(P, "clicks")} clicks</p>
+     <p style="margin:14px 0 4px;font-size:13px;color:#f2c14e;letter-spacing:1px">WHICH SHAPES PULL (clicks per clip)</p>
+     <table style="font-size:13px;border-collapse:collapse;color:#efe4c4"><tr><td></td><td style="padding:3px 8px">clips</td><td style="padding:3px 8px">views/clip</td><td style="padding:3px 8px">clicks/clip</td></tr>${shapes || "<tr><td>no video posts yet</td></tr>"}</table>`,
+    `Daily, from the autopilot. X views refresh hourly; TikTok/YouTube/Instagram views aren't counted here yet.`,
+  );
+  const res = await sendEmail({ to: SUPER_ADMIN_EMAIL, subject: `Scoreboard: ${red.officers + blue.officers}/100 officers · ${red.players + blue.players} players · ${sum(day, "impressions")} views today`, html });
+  return res.ok;
+}
+
 // ── Commander notifications ─────────────────────────────────────────────────
 // One digest per tick listing what happened since the last one: signups,
 // purchases, takeovers, dispatches that went out, posts that published.
