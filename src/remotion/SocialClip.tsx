@@ -29,7 +29,7 @@ export const SAFE = {
   railBottom: 0.92, // …to here, as fractions of the height
 };
 
-export type ClipVariant = "lower" | "breaking" | "score" | "field" | "plain";
+export type ClipVariant = "lower" | "breaking" | "score" | "field" | "plain" | "recruiter";
 
 export type SocialClipProps = {
   network: string; // "RED TEAM NEWS"
@@ -45,6 +45,11 @@ export type SocialClipProps = {
   variant: ClipVariant;
   seconds: number;
   safeGuide?: boolean; // Studio only: draw the bands the feeds cover
+  // recruiter variant: the Developer fronting a side — the officer commissions pitch
+  side?: "red" | "blue";
+  commissionsOpen?: number;
+  commissionsLeft?: number;
+  daysLeft?: number | null;
 }
 
 export const DEFAULT_SOCIAL_PROPS: SocialClipProps = {
@@ -228,8 +233,174 @@ const PlainClip = (props: SocialClipProps) => {
   );
 };
 
+// The Developer, recruiting for a side: no news dressing — him, his colour,
+// and the one number that matters (officer commissions still open). Same
+// SAFE box as everything else.
+const RecruiterClip = (props: SocialClipProps) => {
+  const frame = useCurrentFrame();
+  const { fps, durationInFrames } = useVideoConfig();
+  const side = props.side ?? "red";
+  const SIDE = side.toUpperCase();
+  const accent = side === "red" ? "#d23b3b" : "#356fd0";
+  const open = props.commissionsOpen ?? 100;
+  const left = Math.max(0, Math.min(open, props.commissionsLeft ?? open));
+  const drop = spring({ frame: frame - 4, fps, config: { damping: 200 } });
+  const rise = spring({ frame: frame - 10, fps, config: { damping: 200 } });
+  // the counter fills from zero so the eye lands on it
+  const fill = spring({ frame: frame - 18, fps, config: { damping: 30, stiffness: 60 } });
+  const shownLeft = Math.round(left * Math.min(1, fill));
+  const outroStart = Math.max(0, durationInFrames - Math.round(2.2 * fps));
+  const outro = spring({ frame: frame - outroStart, fps, config: { damping: 18, stiffness: 120 } });
+  const inOutro = frame >= outroStart;
+  const dressing = inOutro ? 1 - outro : 1;
+  return (
+    <AbsoluteFill style={{ background: "#0a0f1e", fontFamily: "Arial, Helvetica, sans-serif" }}>
+      <OffthreadVideo src={staticFile(props.anchorSrc)} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+      <AbsoluteFill
+        style={{
+          background: "linear-gradient(to top, rgba(0,0,0,.35) 0%, rgba(0,0,0,.7) 30%, rgba(0,0,0,.7) 50%, transparent 66%)",
+        }}
+      />
+
+      {/* top: the side he's on, under the feed's top band */}
+      <div
+        style={{
+          position: "absolute",
+          top: SAFE.top,
+          left: SAFE.left,
+          display: "flex",
+          alignItems: "center",
+          gap: 10,
+          opacity: dressing * drop,
+          transform: `translateX(${interpolate(drop, [0, 1], [-24, 0])}px)`,
+        }}
+      >
+        <div
+          style={{
+            width: 40,
+            height: 40,
+            borderRadius: 8,
+            background: accent,
+            color: "#fff",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            fontWeight: 900,
+            fontSize: 26,
+          }}
+        >
+          {SIDE.charAt(0)}
+        </div>
+        <div style={{ color: "#fff", textShadow: "0 2px 6px rgba(0,0,0,.7)" }}>
+          <div style={{ fontWeight: 900, fontSize: 19, letterSpacing: 0.5 }}>{SIDE} TEAM</div>
+          <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: 1.5, color: "#f2c14e", marginTop: 2 }}>THE DEVELOPER · RECRUITING</div>
+        </div>
+      </div>
+
+      {/* lower third: who, the headline, the commissions counter, the site */}
+      <div
+        style={{
+          position: "absolute",
+          left: SAFE.left,
+          right: SAFE.right,
+          bottom: SAFE.bottom,
+          opacity: dressing,
+          transform: `translateY(${interpolate(rise, [0, 1], [50, 0])}px)`,
+        }}
+      >
+        <div style={{ color: "#fff", fontSize: 15, fontWeight: 700, opacity: 0.9, marginBottom: 6, textShadow: "0 2px 6px rgba(0,0,0,.7)" }}>
+          {props.reporterName} · I BUILT THIS · I&apos;M ON {SIDE}
+        </div>
+        <div style={{ color: "#fff", fontSize: 34, fontWeight: 900, lineHeight: 1.08, textShadow: "0 3px 10px rgba(0,0,0,.7)", marginBottom: 14 }}>
+          {props.headline}
+        </div>
+
+        <div
+          style={{
+            background: "rgba(10,15,30,.72)",
+            border: `2px solid ${accent}`,
+            borderRadius: 12,
+            padding: "10px 14px 12px",
+            marginBottom: 14,
+            boxShadow: "0 6px 18px rgba(0,0,0,.4)",
+          }}
+        >
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", color: "#fff" }}>
+            <span style={{ fontSize: 12, letterSpacing: 2.5, fontWeight: 800, opacity: 0.85 }}>{SIDE} OFFICER COMMISSIONS</span>
+            {props.daysLeft != null && (
+              <span style={{ fontSize: 12, letterSpacing: 1.5, fontWeight: 800, color: "#f2c14e" }}>{props.daysLeft} DAYS LEFT</span>
+            )}
+          </div>
+          <div style={{ display: "flex", alignItems: "baseline", gap: 8, color: "#fff", marginTop: 4 }}>
+            <span style={{ fontSize: 44, fontWeight: 900, lineHeight: 1, color: left === 0 ? "#ff8f8f" : "#fff" }}>{left === 0 ? "FULL" : shownLeft}</span>
+            {left > 0 && <span style={{ fontSize: 16, fontWeight: 800, opacity: 0.85 }}>OF {open} STILL OPEN</span>}
+          </div>
+          <div style={{ height: 10, borderRadius: 5, overflow: "hidden", background: "rgba(255,255,255,.18)", marginTop: 8 }}>
+            <div style={{ width: `${open ? (shownLeft / open) * 100 : 0}%`, height: "100%", background: accent }} />
+          </div>
+        </div>
+
+        <div
+          style={{
+            display: "inline-block",
+            background: "#f2c14e",
+            color: "#0a0f1e",
+            fontWeight: 900,
+            fontSize: 20,
+            padding: "11px 16px",
+            borderRadius: 10,
+            boxShadow: "0 6px 18px rgba(0,0,0,.5)",
+          }}
+        >
+          ▶ {props.url}
+        </div>
+      </div>
+
+      {inOutro && (
+        <>
+          <AbsoluteFill style={{ background: "rgba(0,0,0,.62)", opacity: outro }} />
+          <div
+            style={{
+              position: "absolute",
+              left: 0,
+              right: SAFE.right,
+              top: "44%",
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              gap: 10,
+              opacity: outro,
+              transform: `translateY(${interpolate(outro, [0, 1], [40, 0])}px) scale(${interpolate(outro, [0, 1], [0.92, 1])})`,
+            }}
+          >
+            <span style={{ fontSize: 40, fontWeight: 900, letterSpacing: 4, color: accent, textShadow: "0 3px 12px rgba(0,0,0,.9)" }}>JOIN {SIDE}</span>
+            <span style={{ fontSize: 18, fontWeight: 800, letterSpacing: 2, color: "#fff", textShadow: "0 2px 8px rgba(0,0,0,.9)" }}>
+              {left === 0 ? "COMMISSIONS FULL · POSITIONS OPEN" : `${left} OFFICER COMMISSIONS OPEN`}
+            </span>
+            <span
+              style={{
+                fontSize: 40,
+                fontWeight: 900,
+                color: "#0a0f1e",
+                background: "#f2c14e",
+                padding: "12px 24px",
+                borderRadius: 14,
+                boxShadow: "0 10px 30px rgba(0,0,0,.5)",
+              }}
+            >
+              {props.url}
+            </span>
+          </div>
+        </>
+      )}
+      {props.safeGuide && <SafeGuide />}
+    </AbsoluteFill>
+  );
+};
+
 export const SocialClip = (props: SocialClipProps) => {
   if (props.variant === "plain") return <PlainClip {...props} />;
+  if (props.variant === "recruiter") return <RecruiterClip {...props} />;
   const frame = useCurrentFrame();
   const { fps, height, durationInFrames } = useVideoConfig();
   const letter = props.network.charAt(0);

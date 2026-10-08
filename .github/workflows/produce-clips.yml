@@ -12,11 +12,14 @@ on:
   workflow_dispatch:
     inputs:
       mode:
-        description: "due (render placeholders) | red | blue | founder | cast (list HeyGen ids)"
+        description: "due (render placeholders) | red | blue | founder | cast (list HeyGen ids) | looks (Tim's photo groups)"
         default: "due"
       kind:
-        description: "for red/blue: field | recruit; for looks: add | train | status | generate | list"
+        description: "for red/blue: field | recruit; for looks: create | add | train | status | generate | list"
         default: "recruit"
+      team:
+        description: "for looks: red | blue (that side's Tim group; blank = the Developer's own group)"
+        default: ""
       force:
         description: "Ignore the mix / dedupe / unchanged-map skips (1 = yes)"
         default: ""
@@ -59,4 +62,4 @@ jobs:
         if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.mode == 'looks' }}
         env:
           LOOK_PROMPT: ${{ github.event.inputs.prompt }}
-        run: node scripts/produce-clip.mjs looks ${{ github.event.inputs.kind }}
+        run: node scripts/produce-clip.mjs looks ${{ github.event.inputs.kind }} ${{ github.event.inputs.team }}
