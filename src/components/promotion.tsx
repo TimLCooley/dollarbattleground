@@ -7,12 +7,15 @@ export function PromotionModal({
   rank,
   side,
   onClose,
+  foundingNumber,
 }: {
   rank: Rank;
   side: Team;
   onClose: () => void;
+  foundingNumber?: number | null;
 }) {
   const commissioned = rank.tier === "officer";
+  const founding = commissioned && foundingNumber != null;
   return (
     <div
       className="promo-overlay"
@@ -23,7 +26,7 @@ export function PromotionModal({
     >
       <div className={"promo-card " + side}>
         <div className="promo-kicker">
-          {commissioned ? "◆ COMMISSIONED ◆" : "◆ FIELD PROMOTION ◆"}
+          {founding ? `◆ FOUNDING OFFICER #${foundingNumber} ◆` : commissioned ? "◆ COMMISSIONED ◆" : "◆ FIELD PROMOTION ◆"}
         </div>
         <div className="promo-insignia">
           {rank.insignia.kind === "none" ? (
@@ -34,9 +37,11 @@ export function PromotionModal({
         </div>
         <h2 className="promo-rank">{rank.name.toUpperCase()}</h2>
         <p className="promo-body">
-          {commissioned
-            ? `You bought your way to the top brass. Report for duty, ${rank.name}.`
-            : `You've earned your stripe. Welcome to the ranks, ${rank.name} — now hold the line.`}
+          {founding
+            ? `One of the first hundred. Commissioned on the spot — report for duty, ${rank.name}.`
+            : commissioned
+              ? `You bought your way to the top brass. Report for duty, ${rank.name}.`
+              : `You've earned your stripe. Welcome to the ranks, ${rank.name} — now hold the line.`}
         </p>
         <button className="ob-btn" onClick={onClose} autoFocus>
           HOORAH →

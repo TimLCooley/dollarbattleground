@@ -8,7 +8,7 @@ import { intelBrief } from "@/lib/intel";
 import { getCommanderNotes, getOrders, planOrders } from "@/lib/general";
 import { runDispatches, dailyScoreboard } from "@/lib/dispatch";
 import { openGatesIfDue } from "@/lib/gate";
-import { crosspostToTikTok, getCrosspost, publishFounderClip } from "@/lib/robinreach";
+import { crosspostToTikTok, getCrosspost, publishFounderClip, postAnalytics } from "@/lib/robinreach";
 
 export type { Db };
 
@@ -355,6 +355,25 @@ export async function publishPost(db: Db, id: number): Promise<{ id: string; vid
   return { id: tweet.id, video: !!produced, replyId };
 }
 
+// Views on TikTok / Instagram / YouTube for every clip that went through
+// RobinReach (the cards and the scoreboard read agent_posts.social).
+export async function refreshSocial(db: Db): Promise<number> {
+  const { data } = await db.from("agent_posts").select("id,tiktok_post_id").eq("status", "posted").not("tiktok_post_id", "is", null).order("id", { ascending: false }).limit(60);
+  let n = 0;
+  for (const r of (data ?? []) as { id: number; tiktok_post_id: number }[]) {
+    try {
+      const m = await postAnalytics(r.tiktok_post_id);
+      if (!m) continue;
+      const views = Object.values(m).reduce((a, x) => a + x.views, 0);
+      await db.from("agent_posts").update({ social: m, social_views: views, social_at: new Date().toISOString() }).eq("id", r.id);
+      n++;
+    } catch {
+      /* next */
+    }
+  }
+  return n;
+}
+
 // Pull fresh public metrics from X for everything posted. Returns rows updated.
 export async function refreshMetrics(db: Db): Promise<number> {
   const { data } = await db
@@ -565,6 +584,8 @@ export async function runAutopilot(db: Db, opts: { force?: boolean } = {}): Prom
       const n = await refreshMetrics(db);
       last_metrics_at = started;
       if (n) notes.push(`metrics refreshed on ${n}`);
+      const sN = await refreshSocial(db);
+      if (sN) notes.push(`social views refreshed on ${sN}`);
     } catch {
       /* non-fatal */
     }

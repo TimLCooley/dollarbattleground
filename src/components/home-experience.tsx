@@ -6,6 +6,7 @@ import { useAdminFreePlay } from "./use-admin-freeplay";
 import { Onboarding } from "./onboarding";
 import { PromotionModal } from "./promotion";
 import { rankFor, RANKS, type Rank } from "@/lib/ranks";
+import { createClient } from "@/utils/supabase/client";
 
 const KEY = "bg_player_v1";
 
@@ -15,6 +16,7 @@ interface Player {
   logins: number;
   spent: number; // total $ spent
   isOfficer: boolean;
+  foundingNumber?: number | null; // Founding Officer #N (first 100 signups)
   placedFirst: boolean;
   captures: number; // total positions taken
   reclaimed: number; // positions flipped from the enemy
@@ -91,6 +93,7 @@ export function HomeExperience() {
           next.rankKey = nr.key;
           setPlayer(next);
           localStorage.setItem(KEY, JSON.stringify(next));
+          syncStatus(next);
         }
       }
     } catch {
@@ -98,6 +101,30 @@ export function HomeExperience() {
     }
     setReady(true);
   }, []);
+
+  // The server knows whether this player is a Founding Officer (first 100 to
+  // sign up) or bought a commission; the browser copy follows it.
+  async function syncStatus(p: Player) {
+    try {
+      const { data } = await createClient().rpc("my_status");
+      const st = data as { founding_officer?: boolean; paid_officer?: boolean; founding_number?: number } | null;
+      if (st && (st.founding_officer || st.paid_officer) && !p.isOfficer) {
+        const next: Player = { ...p, isOfficer: true, foundingNumber: st.founding_officer ? st.founding_number ?? null : null };
+        const nr = rankFor(next);
+        next.rankKey = nr.key;
+        next.lastPromotionAt = nowISO();
+        setPlayer(next);
+        persist(next);
+        setPromotionRank(nr);
+      } else if (st?.founding_officer && p.foundingNumber == null) {
+        const next = { ...p, foundingNumber: st.founding_number ?? null };
+        setPlayer(next);
+        persist(next);
+      }
+    } catch {
+      /* offline or anonymous */
+    }
+  }
 
   function persist(p: Player) {
     try {
@@ -168,6 +195,9 @@ export function HomeExperience() {
       persist(promoted);
       firstThreat.current = true;
       setPromotionRank(nr);
+      // Founding Officer? The server decides on the claim; this upgrades the
+      // promotion to a commission a beat later.
+      window.setTimeout(() => syncStatus(promoted), 400);
     }
   }
 
@@ -243,6 +273,7 @@ export function HomeExperience() {
           rank={promotionRank}
           side={player.side}
           onClose={dismissPromotion}
+          foundingNumber={player?.foundingNumber ?? null}
         />
       )}
     </>
