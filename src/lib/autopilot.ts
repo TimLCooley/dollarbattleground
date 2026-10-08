@@ -255,6 +255,25 @@ export async function publishPost(db: Db, id: number): Promise<{ id: string; vid
   const f = (p.faction === "blue" || p.x_account === "blue" ? "blue" : "red") as Faction;
   const { config } = await getAutopilot(db);
 
+  // The Red/Blue X accounts are retired (2026-10-08: locked, ~no views).
+  // Team clips go out on Tim's own channels via RobinReach — his X,
+  // Instagram, TikTok and YouTube Shorts. Text-only team posts are off.
+  const cp0 = await getCrosspost(db);
+  if (cp0.team_x_retired !== false) {
+    if (!p.media_url) {
+      if (p.format === "video") throw new NotReady("clip renders before posting — waiting");
+      await db.from("agent_posts").update({ status: "denied", deny_reason: "text posts retired with the team X accounts", decided_at: new Date().toISOString() }).eq("id", id);
+      return { id: "skipped", video: false, replyId: null };
+    }
+    const r = await crosspostToTikTok(db, { id: p.id, faction: f, copy: stripLink(p.copy), media_url: p.media_url });
+    if (!r.ok) throw new Error(r.error ?? "RobinReach refused the clip");
+    await db
+      .from("agent_posts")
+      .update({ status: "posted", external_id: null, posted_at: new Date().toISOString(), last_error: null })
+      .eq("id", id);
+    return { id: `rr:${r.postId}`, video: true, replyId: null };
+  }
+
   // A video placeholder whose clip hasn't rendered yet: wait (the producer
   // checks every 30 min), and only after the grace period go out as text.
   const unrendered = p.format === "video" && p.video_kind === "social_clip" && !p.media_url;
