@@ -532,12 +532,16 @@ export async function runAutopilot(db: Db, opts: { force?: boolean } = {}): Prom
         .select("id", { count: "exact", head: true })
         .eq("faction", f)
         .eq("format", "video")
+        .neq("video_kind", "dispatch") // free text clips don't use up the person-clip slots
         .in("status", ["queued", "posted"])
         .gte("created_at", dayStart),
     ]);
     const need = Math.max(0, config.min_queued_per_team - (count ?? 0));
     let videoLeft = Math.max(0, config.video_per_day_per_team - (videos ?? 0));
+    const xRetired = (await getCrosspost(db)).team_x_retired !== false;
     for (let i = 0; i < need; i++) {
+      // With the team X accounts retired there's nowhere for a text post to go.
+      if (xRetired && videoLeft <= 0) break;
       const video = videoLeft > 0;
       try {
         const d = await draftPost(db, f, DEFAULT_GOAL, { video });
