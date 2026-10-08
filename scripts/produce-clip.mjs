@@ -570,7 +570,9 @@ Respond ONLY JSON: {"headline":"<UPPERCASE, <=6 words>","spoken":"<what you say 
     clipSeconds = Math.min(60, Math.ceil(plan.spoken.split(/\s+/).length / 2.4) + 1);
     console.log(`TRIM FAILED (${e?.message?.split("\n")[0] ?? e}) — falling back to ${clipSeconds}s from the word count`);
   }
+  const bedSrc = await musicBed(clipSeconds, "voicebed", -30);
   const props = {
+    bedSrc, bedVolume: 0.16,
     network: tim ? `${SIDE} TEAM` : team.network, accent: team.accent, anchorSrc: "_wr/clip.mp4", reporterName: who.name,
     role: founder || tim ? "founder" : kind === "recruit" ? "anchor" : "field", headline: plan.headline, redPct, bluePct,
     locator: plan.locator || (founder ? "DEV LOG" : tim ? `RECRUITING FOR ${SIDE}` : kind === "recruit" ? "RECRUITING" : "THE CENTER"), url: "dollarbattleground.com",
@@ -629,6 +631,42 @@ const mode = process.argv[2];
 // ── free clips: the map + words, no HeyGen ──────────────────────────────────
 // dispatch red|blue [dispatch|launch]   — a side's map report, in the recruiter's voice
 // dispatch both launch                  — "the battle has begun", neutral, for both X accounts
+// One of Tim's songs as a bed: a random section, loudness-normalized (quiet is
+// the whole point — "they can't be too loud"), faded in and out, written to
+// public/_wr/<name>.mp3 for Remotion. Returns the staticFile path or null.
+async function musicBed(seconds, name = "bed", lufs = -24) {
+  try {
+    const list = await fetch(`${SB}/storage/v1/object/list/cast`, { method: "POST", headers: { ...sbh, "Content-Type": "application/json" }, body: JSON.stringify({ prefix: "music/", limit: 50 }) }).then((r) => r.json());
+    const songs = (Array.isArray(list) ? list : []).map((f) => f.name).filter((n) => /\.(mp3|m4a|wav)$/i.test(n));
+    if (!songs.length) return null;
+    const pick = songs[Math.floor(Math.random() * songs.length)];
+    const bytes = await fetch(`${SB}/storage/v1/object/cast/music/${pick}`, { headers: sbh }).then((r) => r.arrayBuffer());
+    await mkdir("public/_wr", { recursive: true });
+    await writeFile("/tmp/song-src.mp3", Buffer.from(bytes));
+    const total = parseFloat(execSync("ffprobe -v error -show_entries format=duration -of csv=p=0 /tmp/song-src.mp3", { encoding: "utf8" }).trim()) || 60;
+    const start = Math.max(0, Math.floor(Math.random() * Math.max(1, total - seconds - 8)) + 4);
+    const fadeOut = Math.max(0, seconds - 1.8).toFixed(2);
+    execSync(`ffmpeg -v error -y -ss ${start} -t ${seconds + 0.5} -i /tmp/song-src.mp3 -af "loudnorm=I=${lufs}:TP=-3:LRA=9,afade=t=in:st=0:d=0.8,afade=t=out:st=${fadeOut}:d=1.8" -c:a libmp3lame -b:a 128k public/_wr/${name}.mp3`, { stdio: "inherit" });
+    console.log(`MUSIC ${pick} from ${start}s, ${seconds}s, ${lufs} LUFS`);
+    return `_wr/${name}.mp3`;
+  } catch (e) { console.log("music bed skipped:", e?.message ?? e); return null; }
+}
+
+// Which free clip to make next: least-used shape for the side today.
+// The hook is the workhorse; the map once a day; the rest rotate.
+const FREE_SHAPES = ["hook", "hook", "explainer", "pickside", "spots", "dispatch", "recap"];
+async function nextFreeShape(side) {
+  try {
+    const since = `${today}T00:00:00Z`;
+    const rows = await fetch(`${SB}/rest/v1/agent_posts?faction=eq.${side}&video_kind=eq.dispatch&created_at=gte.${since}&select=video_spec`, { headers: sbh }).then((r) => r.json());
+    const used = (rows ?? []).map((r) => r.video_spec?.kind).filter(Boolean);
+    const quota = {}; for (const k of FREE_SHAPES) quota[k] = (quota[k] ?? 0) + 1;
+    const open = Object.keys(quota).filter((k) => used.filter((u) => u === k).length < quota[k]);
+    const pool = open.length ? open : ["hook"];
+    return pool[Math.floor(Math.random() * pool.length)];
+  } catch { return "hook"; }
+}
+
 async function dispatchClip({ side, kind = "dispatch", auto = false }) {
   const tiles = await fetch(`${SB}/rest/v1/tiles?select=x,y,team&order=y.asc,x.asc`, { headers: sbh }).then((r) => r.json());
   const board = new Array(225).fill(null);
@@ -644,10 +682,25 @@ async function dispatchClip({ side, kind = "dispatch", auto = false }) {
   const mood = voices.launch?.text ? `RIGHT NOW: ${voices.launch.text}\n` : "";
   const launch = kind === "launch";
   const Side = side === "red" ? "Red" : side === "blue" ? "Blue" : null;
+  const SHAPE = {
+    hook: `THE HOOK — three giant lines, one at a time, each <=6 words, over the map. The FIRST line must make a stranger stop scrolling: a curiosity gap, a provocation, a confession, a POV, an honest tiny number, a dare. Archetypes (vary them, don't copy): "A dollar started a war." / "Someone just took this square." / "Nobody is holding the north." / "225 squares. Four people own them." / "POV: you own one square of the internet." / "The internet is red vs blue. This one you can win." / "Pick a side. Hold it. Lose it. Take it back." / "Everyone who plays today becomes an officer. That ends at 100." Line 2 turns the hook into the game; line 3 is the ask for ${Side}. Headline unused.`,
+    explainer: `THE EXPLAINER — for someone who's never seen it. HEADLINE like "WHAT IS THIS"; three lines <=8 words: one map, two colors, whoever holds more wins / you take a square, it's yours until the other side takes it back / pick ${Side}, your first one's free.`,
+    pickside: `PICK A SIDE — HEADLINE "PICK A SIDE" or "RED OR BLUE?"; three lines <=8 words: a line about Red, a line about Blue (fair, playful), then the ask for ${Side}.`,
+    spots: `SPOTS LEFT — the big number on screen is ${open}. HEADLINE like "FOUNDING OFFICERS"; three lines <=8 words: the first 100 to sign up are commissioned on the spot / that's an officer rank, no strike needed / claim your square on ${Side} before it hits zero.`,
+    recap: `THE RECAP — HEADLINE like "DAY ONE" / "TODAY ON THE MAP"; three lines <=8 words on what actually happened (only the facts given), ending with the ask for ${Side}.`,
+    dispatch: `THE MAP — HEADLINE is the invitation (JOIN THE BATTLE / CLAIM YOUR TERRITORY); three lines <=9 words: what this is, one plain map fact, the ask for ${Side}.`,
+  }[kind] ?? "";
   const sys = launch
     ? `${mood}You write the on-screen text for a short launch clip for Dollar Battleground — a live territory war, Red vs Blue, one map, one side wins. The map is live for the first time today. Neutral — both sides. The viewer has NEVER seen this game: the HEADLINE is the invitation (THE BATTLE HAS BEGUN / JOIN THE BATTLE / PICK A SIDE), line 1 says what this is in plain words (one map, two colors, whoever holds more wins), line 2 one plain fact (the first 100 to take a position are commissioned as officers / it's dead even), line 3 the ask (pick a side, claim your territory). Plain, punchy, true. No prices, no money, no hashtags, no coordinates, no invented events.`
-    : `${mood}VOICE GUIDE (Tim's words): ${guide}\nYou write the on-screen text for ${Side}'s short map clip on Dollar Battleground. The viewer has NEVER seen this game — nothing on screen may assume they know what Red, Blue, fronts or positions mean. The HEADLINE is the invitation, in words anyone understands: "JOIN THE BATTLE", "PICK A SIDE", "CLAIM YOUR TERRITORY", "THE MAP IS LIVE". The lines explain in one breath: what this is (one map, two colors, whoever holds more wins), one plain fact about today's map (${Side}'s up by one / it's dead even), and the ask for ${Side}. Plain words, no insider talk, no coordinates, no prices, no hashtags, no deadlines, no invented events.`;
-  const user = `Map right now: RED holds ${red} positions (${redPct}%) / BLUE ${blue} (${bluePct}%) — ${lead}. Founding officer spots open: ${open} of 100 (the first 100 to sign up are commissioned on the spot).
+    : `${mood}VOICE GUIDE (Tim's words): ${guide}\nSHAPE OF THIS CLIP: ${SHAPE}\nYou write the on-screen text for ${Side}'s short free clip on Dollar Battleground. The viewer has NEVER seen this game — nothing on screen may assume they know what Red, Blue, fronts or positions mean. The HEADLINE is the invitation, in words anyone understands: "JOIN THE BATTLE", "PICK A SIDE", "CLAIM YOUR TERRITORY", "THE MAP IS LIVE". The lines explain in one breath: what this is (one map, two colors, whoever holds more wins), one plain fact about today's map (${Side}'s up by one / it's dead even), and the ask for ${Side}. Plain words, no insider talk, no coordinates, no prices, no hashtags, no deadlines, no invented events.`;
+  let stats = null;
+  try {
+    const gate = (await cfg("gate")) ?? {};
+    const day = gate.opened_at ? Math.max(1, Math.ceil((Date.now() - new Date(gate.opened_at).getTime()) / 86_400_000)) : 1;
+    const fc = await fetch(`${SB}/rest/v1/free_claims?select=user_id`, { headers: sbh }).then((r) => r.json());
+    stats = { day, enlisted: Array.isArray(fc) ? fc.length : 0, officers: 100 - open };
+  } catch {}
+  const user = `Map right now: RED holds ${red} positions (${redPct}%) / BLUE ${blue} (${bluePct}%) — ${lead}. Founding officer spots open: ${open} of 100 (the first 100 to sign up are commissioned on the spot).${stats ? ` Day ${stats.day} since the gates opened; ${stats.enlisted} enlisted so far; ${stats.officers} commissioned.` : ""}
 Respond ONLY JSON: {"headline":"<UPPERCASE invitation a stranger understands, <=4 words, e.g. JOIN THE BATTLE / PICK A SIDE / CLAIM YOUR TERRITORY>","lines":["<line 1, <=9 words: what this is, for someone who's never seen it>","<line 2, <=9 words: one plain fact about today's map>","<line 3, <=9 words: the ask${Side ? ` — join ${Side}, claim your territory, come play` : ""}>"],"caption":"<the post text: 2 short sentences a stranger understands${launch ? ", the battle has begun" : ""}, the link dollarbattleground.com; <=200 chars; no hashtags>"}`;
   const ai = await fetch("https://api.anthropic.com/v1/messages", { method: "POST", headers: { "x-api-key": AI, "anthropic-version": "2023-06-01", "content-type": "application/json" }, body: JSON.stringify({ model: "claude-sonnet-5", max_tokens: 800, system: sys, messages: [{ role: "user", content: user }] }) }).then((r) => r.json());
   const text = ai.content?.find((b) => b.type === "text")?.text ?? "";
@@ -657,11 +710,13 @@ Respond ONLY JSON: {"headline":"<UPPERCASE invitation a stranger understands, <=
   if (/\$\s?\d|#\w+|\b\d{1,2},\d{1,2}\b/.test(`${plan.headline} ${plan.lines.join(" ")} ${plan.caption}`)) { console.log("DISPATCH rejected (price/hashtag/coordinates)"); return false; }
   console.log("DISPATCH PLAN:", plan);
   if (process.env.PLAN_ONLY) return false;
-  const seconds = Math.min(16, 7.5 + plan.lines.length * 1.1 + 2.4);
-  const props = { variant: launch ? "launch" : "dispatch", side: launch ? null : side, headline: plan.headline, lines: plan.lines.slice(0, 3), board, redPct, bluePct, openSpots: open, url: "dollarbattleground.com", seconds };
+  const shape = launch ? "launch" : kind;
+  const seconds = shape === "hook" ? 1.9 * Math.min(3, plan.lines.length) + 2.6 : Math.min(16, 7.5 + plan.lines.length * 1.1 + 2.4);
+  const audioSrc = await musicBed(seconds, "bed", -24);
+  const props = { variant: shape, side: launch ? null : side, headline: plan.headline, lines: plan.lines.slice(0, 3), board, redPct, bluePct, openSpots: open, url: "dollarbattleground.com", seconds, audioSrc, audioVolume: 0.5, stats };
   await writeFile("/tmp/dispatch-props.json", JSON.stringify(props));
   execSync("npx remotion render src/remotion/index.ts Dispatch /tmp/dispatch.mp4 --props=/tmp/dispatch-props.json --concurrency=1", { stdio: "inherit" });
-  const key = `dispatch-${launch ? "launch" : side}-${Date.now()}.mp4`;
+  const key = `dispatch-${shape}-${launch ? "both" : side}-${Date.now()}.mp4`;
   await fetch(`${SB}/storage/v1/object/media/${key}`, { method: "POST", headers: { ...sbh, "Content-Type": "video/mp4" }, body: await readFile("/tmp/dispatch.mp4") });
   const mediaUrl = `${SB}/storage/v1/object/public/media/${key}`;
   console.log("HOSTED:", mediaUrl);
@@ -671,9 +726,9 @@ Respond ONLY JSON: {"headline":"<UPPERCASE invitation a stranger understands, <=
   for (const f of sides) {
     await fetch(`${SB}/rest/v1/agent_posts`, { method: "POST", headers: { ...sbh, "Content-Type": "application/json", Prefer: "return=minimal" }, body: JSON.stringify({
       agent: `${f}_recruiter`, faction: f, status: "queued", format: "video", angle: "recruit", network: f, x_account: f, video_kind: "dispatch", media_url: mediaUrl, copy: plan.caption,
-      reason: `${auto ? "" : "MANUAL TEST — posts only if you press Post now · "}[theme:${launch ? "launch" : "dispatch"}] Map clip (free, no HeyGen) — ${plan.headline}`,
+      reason: `${auto ? "" : "MANUAL TEST — posts only if you press Post now · "}[theme:${shape}] Free clip (${shape}, no HeyGen) — ${plan.headline || plan.lines[0]}`,
       scheduled_for: auto ? new Date(Date.now() + reviewMin * 60_000).toISOString() : null,
-      video_spec: { kind: launch ? "launch" : "dispatch", topic: launch ? "launch card" : "map dispatch", red, blue, redPct, bluePct, rendered_at: new Date().toISOString(), placeholder: false, free: true },
+      video_spec: { kind: shape, topic: `free · ${shape}`, red, blue, redPct, bluePct, rendered_at: new Date().toISOString(), placeholder: false, free: true, music: !!audioSrc },
     }) });
     console.log(`QUEUED ${launch ? "launch" : "dispatch"} clip for ${f.toUpperCase()}${auto ? "" : " (manual test)"}`);
   }
@@ -682,7 +737,7 @@ Respond ONLY JSON: {"headline":"<UPPERCASE invitation a stranger understands, <=
 
 if (mode === "dispatch") {
   const side = ["red", "blue", "both"].includes(process.argv[3]) ? process.argv[3] : "red";
-  const kind = process.argv[4] === "launch" ? "launch" : "dispatch";
+  const kind = ["launch", "hook", "explainer", "pickside", "spots", "recap", "dispatch"].includes(process.argv[4]) ? process.argv[4] : "hook";
   await dispatchClip({ side, kind });
   process.exit(0);
 }
@@ -823,7 +878,7 @@ if (mode === "due") {
       const made = await fetch(`${SB}/rest/v1/agent_posts?faction=eq.${f}&video_kind=eq.dispatch&status=in.(queued,posted)&created_at=gte.${since}&select=id`, { headers: sbh }).then((r) => r.json());
       const n = Array.isArray(made) ? made.length : 0;
       const want = new Date().getUTCHours() >= 18 ? 2 : 1;
-      if (n < want) await dispatchClip({ side: f, auto: true });
+      if (n < want) await dispatchClip({ side: f, kind: await nextFreeShape(f), auto: true });
       else console.log(`dispatch ${f}: ${n}/${want} already today`);
     } catch (e) { console.log(`dispatch ${f} failed:`, e?.message ?? e); }
   }
