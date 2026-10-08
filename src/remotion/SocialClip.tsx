@@ -1,5 +1,6 @@
 import {
   AbsoluteFill,
+  Audio,
   OffthreadVideo,
   staticFile,
   useCurrentFrame,
@@ -44,6 +45,8 @@ export type SocialClipProps = {
   url: string;
   variant: ClipVariant;
   seconds: number;
+  bedSrc?: string | null; // a quiet song under the voice (staticFile path)
+  bedVolume?: number;
   safeGuide?: boolean; // Studio only: draw the bands the feeds cover
   // recruiter variant: the Developer fronting a side — the officer commissions pitch
   side?: "red" | "blue";
@@ -163,6 +166,7 @@ const PlainClip = (props: SocialClipProps) => {
   const inOutro = frame >= outroStart;
   return (
     <AbsoluteFill style={{ background: "#0a0f1e" }}>
+      <Bed {...props} />
       <OffthreadVideo src={staticFile(props.anchorSrc)} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
       {/* Upper-left, just under the feed's top band, clear of the rail. */}
       <div
@@ -400,6 +404,12 @@ const RecruiterClip = (props: SocialClipProps) => {
 
 export const SocialClip = (props: SocialClipProps) => {
   if (props.variant === "plain") return <PlainClip {...props} />;
+  return <ClipWithBed {...props} />;
+};
+
+const Bed = (props: SocialClipProps) => (props.bedSrc ? <Audio src={staticFile(props.bedSrc)} volume={props.bedVolume ?? 0.16} /> : null);
+
+const ClipWithBed = (props: SocialClipProps) => {
   if (props.variant === "recruiter") return <RecruiterClip {...props} />;
   const frame = useCurrentFrame();
   const { fps, height, durationInFrames } = useVideoConfig();
@@ -415,6 +425,7 @@ export const SocialClip = (props: SocialClipProps) => {
 
   return (
     <AbsoluteFill style={{ backgroundColor: "#000", fontFamily: "Arial, Helvetica, sans-serif" }}>
+      <Bed {...props} />
       <OffthreadVideo
         src={staticFile(props.anchorSrc)}
         style={{ width: "100%", height: "100%", objectFit: "cover" }}
