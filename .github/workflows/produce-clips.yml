@@ -26,6 +26,9 @@ on:
       prompt:
         description: "for looks generate: the look to generate"
         default: ""
+      plan_only:
+        description: "1 = write the script and stop (no HeyGen, no spend) — for reading drafts"
+        default: ""
 
 concurrency: produce-clips
 
@@ -39,6 +42,7 @@ jobs:
       SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
       SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
       FORCE: ${{ github.event.inputs.force }}
+      PLAN_ONLY: ${{ github.event.inputs.plan_only }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
