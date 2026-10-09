@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import type { PlayerRow } from "@/app/api/admin/players/route";
 
 // USERS: every player and waitlist address — side, founder #, joined, last
@@ -16,6 +16,9 @@ function ago(iso: string | null): string {
   return `${Math.round(h / 24)}d ago`;
 }
 
+type SortKey = "email" | "side" | "status" | "rank" | "joined" | "lastActive" | "held" | "strikes" | "blocks" | "singles";
+const STATUS_ORDER: Record<PlayerRow["status"], number> = { active: 0, verified: 1, pending: 2, waitlist: 3 };
+
 export function AdminUsers() {
   const [rows, setRows] = useState<PlayerRow[] | null>(null);
   const [err, setErr] = useState<string | null>(null);
@@ -24,6 +27,8 @@ export function AdminUsers() {
   const [subject, setSubject] = useState("");
   const [message, setMessage] = useState("");
   const [note, setNote] = useState<string | null>(null);
+  const [q, setQ] = useState("");
+  const [sort, setSort] = useState<{ key: SortKey; dir: 1 | -1 }>({ key: "status", dir: 1 });
 
   const load = useCallback(async () => {
     const r = await fetch("/api/admin/players");
@@ -64,6 +69,39 @@ export function AdminUsers() {
   const others = rows?.filter((r) => r.status === "verified" || r.status === "pending") ?? [];
   const waitlist = rows?.filter((r) => r.status === "waitlist") ?? [];
 
+  // search (any column, as you type) + click-to-sort headers
+  const shown = useMemo(() => {
+    const needle = q.trim().toLowerCase();
+    const list = (rows ?? []).filter((p) =>
+      !needle ||
+      [p.email, p.side, p.status, p.rank, p.nextRank, p.founder ? `founder #${p.founder}` : ""].some((v) => (v ?? "").toString().toLowerCase().includes(needle)),
+    );
+    const val = (p: PlayerRow): string | number => {
+      switch (sort.key) {
+        case "email": return p.email.toLowerCase();
+        case "side": return p.side ?? "~";
+        case "status": return STATUS_ORDER[p.status];
+        case "rank": return p.rank ? (p.founder ? 1000 : 0) + p.points : -1;
+        case "joined": return p.joined ? new Date(p.joined).getTime() : 0;
+        case "lastActive": return p.lastActive ? new Date(p.lastActive).getTime() : 0;
+        default: return p[sort.key];
+      }
+    };
+    return [...list].sort((a, b) => {
+      const x = val(a), y = val(b);
+      return (x < y ? -1 : x > y ? 1 : 0) * sort.dir;
+    });
+  }, [rows, q, sort]);
+  const th = (key: SortKey, label: string) => (
+    <th
+      className="au-sort"
+      onClick={() => setSort((s0) => ({ key, dir: s0.key === key ? (s0.dir === 1 ? -1 : 1) : key === "email" || key === "side" || key === "status" ? 1 : -1 }))}
+    >
+      {label}
+      {sort.key === key ? (sort.dir === 1 ? " ▲" : " ▼") : ""}
+    </th>
+  );
+
   return (
     <div className="au-wrap">
       {err && <p className="cc-denied">⚠ {err}</p>}
@@ -75,25 +113,27 @@ export function AdminUsers() {
           <p className="cc-mini">
             {players.length} active · {players.filter((p) => p.founder).length} Founding Officers · {others.filter((p) => p.status === "verified").length} verified, no position · {others.filter((p) => p.status === "pending").length} never entered the code · {waitlist.length} waitlist
           </p>
+          <input className="cc-goal au-search" placeholder="Search players — email, side, status, rank…" value={q} onChange={(e) => setQ(e.target.value)} />
+          {q && <p className="cc-mini">{shown.length} of {rows.length} match</p>}
           <div className="adm-table-wrap">
             <table className="adm-table au-table">
               <thead>
                 <tr>
-                  <th>PLAYER</th>
-                  <th>SIDE</th>
-                  <th>STATUS</th>
-                  <th>RANK</th>
-                  <th>JOINED</th>
-                  <th>LAST ACTIVE</th>
-                  <th>TILES</th>
-                  <th>3×3</th>
-                  <th>2×2</th>
-                  <th>1×1</th>
+                  {th("email", "PLAYER")}
+                  {th("side", "SIDE")}
+                  {th("status", "STATUS")}
+                  {th("rank", "RANK")}
+                  {th("joined", "JOINED")}
+                  {th("lastActive", "LAST ACTIVE")}
+                  {th("held", "TILES")}
+                  {th("strikes", "3×3")}
+                  {th("blocks", "2×2")}
+                  {th("singles", "1×1")}
                   <th></th>
                 </tr>
               </thead>
               <tbody>
-                {[...players, ...others, ...waitlist].map((p) => (
+                {shown.map((p) => (
                   <tr key={p.email}>
                     <td>{p.email}</td>
                     <td className={p.side ?? ""}>{p.side ? p.side.toUpperCase() : "—"}</td>
