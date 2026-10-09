@@ -106,6 +106,12 @@ export function HomeExperience() {
   // sign up) or bought a commission; the browser copy follows it.
   async function syncStatus(p: Player) {
     try {
+      // Come back daily: a free 1×1 once per day after the first (server decides).
+      createClient()
+        .rpc("daily_return")
+        .then(({ data }) => {
+          if (data === 1) flashMsg("🎁 Welcome back — a free square is waiting on the board.");
+        });
       const { data } = await createClient().rpc("my_status");
       const st = data as { founding_officer?: boolean; paid_officer?: boolean; founding_number?: number } | null;
       if (st && (st.founding_officer || st.paid_officer) && !p.isOfficer) {
