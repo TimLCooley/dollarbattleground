@@ -16,7 +16,13 @@ export default function SignInAs() {
     }
     (async () => {
       const supabase = createClient();
-      await supabase.auth.signOut().catch(() => {});
+      // Keep the admin's own session so "Back to admin" can restore it; sign
+      // out locally only (a global sign-out would revoke it).
+      const { data: cur } = await supabase.auth.getSession();
+      if (cur.session && !localStorage.getItem("bg_admin_return")) {
+        localStorage.setItem("bg_admin_return", JSON.stringify({ access_token: cur.session.access_token, refresh_token: cur.session.refresh_token }));
+      }
+      await supabase.auth.signOut({ scope: "local" }).catch(() => {});
       try {
         localStorage.removeItem("bg_player_v1");
       } catch {
