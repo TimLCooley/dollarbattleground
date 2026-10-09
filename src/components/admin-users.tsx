@@ -178,15 +178,19 @@ export function AdminUsers() {
                         )}
                       </td>
                     ))}
-                    <td className="au-acts">
-                      {p.status !== "waitlist" && (
-                        <button className="cc-btn sm ghost" title="View / play as this player" disabled={busy === `as-${p.email}`} onClick={() => viewAs(p)}>
-                          👁
+                    <td>
+                      <div className="au-acts">
+                        {p.status !== "waitlist" ? (
+                          <button className="au-icon" title="View / play as this player" disabled={busy === `as-${p.email}`} onClick={() => viewAs(p)}>
+                            👁
+                          </button>
+                        ) : (
+                          <span className="au-icon-space" />
+                        )}
+                        <button className="au-icon" title={`Message ${p.email}`} onClick={() => { setMsgFor(p); setNote(null); }}>
+                          ✉
                         </button>
-                      )}
-                      <button className="cc-btn sm ghost" onClick={() => { setMsgFor(p); setNote(null); }}>
-                        ✉ Message
-                      </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
