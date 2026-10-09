@@ -519,7 +519,9 @@ export function BoardView({
   const showCfg = useShowConfig();
   const { preview: showPreview } = useShowPreview();
   const { isAdmin } = useAdminFreePlay();
-  const showOn = showCfg.on && !adminPaint && !asPlayer && !placementMode && (!isAdmin || showPreview);
+  // The War Show (a simulated war for visitors) is retired — the board is
+  // always the real board. Kept wired but off; see src/lib/war-show.ts.
+  const showOn = false && showCfg.on && !adminPaint && !asPlayer && !placementMode && (!isAdmin || showPreview);
   const [simFlash, setSimFlash] = useState<string | null>(null);
   const simFlashTimer = useRef<number | null>(null);
   const fireSim = useCallback(
