@@ -4,6 +4,7 @@ import { useState } from "react";
 import type { Team } from "./board";
 import { resolveTestEmail } from "@/lib/test-email";
 import { createClient } from "@/utils/supabase/client";
+import { ResendCode } from "./resend-code";
 
 import { CampaignCountdown } from "./campaign-countdown";
 
@@ -208,7 +209,8 @@ export function ClaimTile({
             <button className="ob-btn" onClick={verifyAndClaim} disabled={busy}>
               {busy ? "VERIFYING…" : "CLAIM POSITION →"}
             </button>
-            <button
+            <ResendCode email={email} />
+      <button
               className="ob-skip"
               onClick={() => {
                 setStep("email");

@@ -3585,3 +3585,8 @@ a.cc-pill-x:hover { color: #f2c14e; text-decoration: underline; }
 .au-plus { font: inherit; font-weight: 900; padding: 0 7px; background: #f2c14e; color: #0a0f1e; border: 2px solid #0c3c21; cursor: pointer; }
 .au-plus:disabled { opacity: .5; cursor: wait; }
 .au-msg { display: grid; gap: 8px; max-width: 560px; padding: 12px; border: 2px solid #0c3c21; background: rgba(0,0,0,.15); }
+
+/* resend code */
+.resend-code { display: grid; gap: 4px; justify-items: center; margin-top: 4px; }
+.resend-hint { margin: 0; font-size: 13px; opacity: .8; }
+.resend-msg { margin: 0; font-size: 13px; color: #9ff0bd; text-align: center; }

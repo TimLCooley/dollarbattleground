@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { createClient } from "@/utils/supabase/client";
+import { ResendCode } from "./resend-code";
 import { resolveTestEmail } from "@/lib/test-email";
 
 import { CampaignCountdown } from "./campaign-countdown";
@@ -150,6 +151,7 @@ export function LoginOtp({
       <button className="ob-btn" onClick={verify} disabled={busy}>
         {busy ? "VERIFYING…" : "RE-JOIN →"}
       </button>
+      <ResendCode email={email} />
       <button
         className="ob-skip"
         onClick={() => {
