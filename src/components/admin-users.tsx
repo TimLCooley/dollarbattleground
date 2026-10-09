@@ -50,18 +50,10 @@ export function AdminUsers() {
     else load();
   }
 
-  async function viewAs(p: PlayerRow) {
-    // open the tab now (inside the click) so the browser doesn't block it
-    const win = window.open("about:blank", "_blank");
-    setBusy(`as-${p.email}`);
-    const r = await fetch("/api/admin/players", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "impersonate", id: p.id, email: p.email }) });
-    const d = await r.json();
-    setBusy(null);
-    if (!r.ok) {
-      win?.close();
-      setErr(d.error ?? "Failed");
-    } else if (win) win.location.href = d.url;
-    else window.location.href = d.url;
+  function viewAs(p: PlayerRow) {
+    // The new tab does the work (mints the sign-in while you're still admin,
+    // then switches), so errors show there instead of a tab that blinks shut.
+    window.open(`/auth/as?email=${encodeURIComponent(p.email)}`, "_blank");
   }
 
   async function send() {
