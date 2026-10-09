@@ -8,6 +8,7 @@ import type { ReactNode } from "react";
 // browser back/forward buttons page between them.
 const TABS = [
   { href: "/admin", label: "ROSTER" },
+  { href: "/admin/users", label: "USERS" },
   { href: "/admin/tiles", label: "TILE LOG" },
   { href: "/admin/agents", label: "AGENTS" },
   { href: "/admin/calendar", label: "CALENDAR" },
