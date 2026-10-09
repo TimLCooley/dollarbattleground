@@ -6,7 +6,7 @@ import { produceVideo } from "@/lib/producer";
 import { getStripeMode } from "@/lib/stripe-mode";
 import { intelBrief } from "@/lib/intel";
 import { getCommanderNotes, getOrders, planOrders } from "@/lib/general";
-import { runDispatches, dailyScoreboard } from "@/lib/dispatch";
+import { runDispatches, dailyScoreboard, sendBroadcast } from "@/lib/dispatch";
 import { openGatesIfDue } from "@/lib/gate";
 import { crosspostToTikTok, getCrosspost, publishFounderClip, postAnalytics } from "@/lib/robinreach";
 
@@ -480,6 +480,13 @@ export async function runAutopilot(db: Db, opts: { force?: boolean } = {}): Prom
     if (d.notified) notes.push(`digest sent (${d.notified} events)`);
   } catch (e) {
     notes.push(`email: ${e instanceof Error ? e.message : "failed"}`);
+  }
+
+  try {
+    const b = await sendBroadcast(db);
+    if (b) notes.push(`broadcast sent to ${b}`);
+  } catch (e) {
+    notes.push(`broadcast: ${e instanceof Error ? e.message : "failed"}`);
   }
 
   // The scoreboard: once a day, after 14:00 UTC (8am Mountain).
