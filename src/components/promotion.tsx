@@ -38,7 +38,7 @@ export function PromotionModal({
         <h2 className="promo-rank">{rank.name.toUpperCase()}</h2>
         <p className="promo-body">
           {founding
-            ? `One of the first hundred. Commissioned on the spot — and a free 2×2 strike plus an extra square are waiting in your FREE tool. Report for duty, ${rank.name}.`
+            ? `One of the first hundred. Commissioned on the spot — and a free 3×3 barrage, a 2×2 strike and an extra square are waiting on the board. Report for duty, ${rank.name}.`
             : commissioned
               ? `You bought your way to the top brass. Report for duty, ${rank.name}.`
               : `You've earned your stripe. Welcome to the ranks, ${rank.name} — now hold the line.`}
