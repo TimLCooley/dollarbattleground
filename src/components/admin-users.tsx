@@ -60,8 +60,9 @@ export function AdminUsers() {
     }
   }
 
-  const players = rows?.filter((r) => !r.waitlistOnly) ?? [];
-  const waitlist = rows?.filter((r) => r.waitlistOnly) ?? [];
+  const players = rows?.filter((r) => r.status === "active") ?? [];
+  const others = rows?.filter((r) => r.status === "verified" || r.status === "pending") ?? [];
+  const waitlist = rows?.filter((r) => r.status === "waitlist") ?? [];
 
   return (
     <div className="au-wrap">
@@ -72,7 +73,7 @@ export function AdminUsers() {
       ) : (
         <>
           <p className="cc-mini">
-            {players.length} players · {players.filter((p) => p.founder).length} Founding Officers · {waitlist.length} on the waitlist only
+            {players.length} active · {players.filter((p) => p.founder).length} Founding Officers · {others.filter((p) => p.status === "verified").length} verified, no position · {others.filter((p) => p.status === "pending").length} never entered the code · {waitlist.length} waitlist
           </p>
           <div className="adm-table-wrap">
             <table className="adm-table au-table">
@@ -80,6 +81,7 @@ export function AdminUsers() {
                 <tr>
                   <th>PLAYER</th>
                   <th>SIDE</th>
+                  <th>STATUS</th>
                   <th>RANK</th>
                   <th>JOINED</th>
                   <th>LAST ACTIVE</th>
@@ -91,11 +93,12 @@ export function AdminUsers() {
                 </tr>
               </thead>
               <tbody>
-                {[...players, ...waitlist].map((p) => (
+                {[...players, ...others, ...waitlist].map((p) => (
                   <tr key={p.email}>
                     <td>{p.email}</td>
                     <td className={p.side ?? ""}>{p.side ? p.side.toUpperCase() : "—"}</td>
-                    <td>{p.waitlistOnly ? "waitlist" : p.founder ? `★ Founder #${p.founder}` : "player"}</td>
+                    <td className={`au-st ${p.status}`}>{p.status === "active" ? "ACTIVE" : p.status === "verified" ? "VERIFIED" : p.status === "pending" ? "INACTIVE · no code" : "WAITLIST"}</td>
+                    <td>{p.status === "waitlist" ? "—" : p.founder ? `★ Founder #${p.founder}` : p.status === "active" ? "player" : "—"}</td>
                     <td>{ago(p.joined)}</td>
                     <td>{ago(p.lastActive)}</td>
                     <td>{p.held}</td>

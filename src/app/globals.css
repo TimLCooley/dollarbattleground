@@ -3590,3 +3590,8 @@ a.cc-pill-x:hover { color: #f2c14e; text-decoration: underline; }
 .resend-code { display: grid; gap: 4px; justify-items: center; margin-top: 4px; }
 .resend-hint { margin: 0; font-size: 13px; opacity: .8; }
 .resend-msg { margin: 0; font-size: 13px; color: #9ff0bd; text-align: center; }
+.au-st { font-size: 11px; font-weight: 900; letter-spacing: 1px; }
+.au-st.active { color: #9ff0bd; }
+.au-st.verified { color: #f2c14e; }
+.au-st.pending { color: #ff8a8a; }
+.au-st.waitlist { color: #efe4c4; opacity: .7; }
