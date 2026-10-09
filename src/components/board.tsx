@@ -333,9 +333,10 @@ function HeaderMenu() {
 
 // The signed-in player's server-side bank of banked bonus pieces, kept live.
 function useFlipBank(active: boolean) {
-  const [bank, setBank] = useState<{ singles: number; blocks: number }>({
+  const [bank, setBank] = useState<{ singles: number; blocks: number; strikes: number }>({
     singles: 0,
     blocks: 0,
+    strikes: 0,
   });
   useEffect(() => {
     if (!active) return;
@@ -349,11 +350,11 @@ function useFlipBank(active: boolean) {
       if (!user || !alive) return;
       const { data } = await supabase
         .from("flip_bank")
-        .select("singles,blocks")
+        .select("singles,blocks,strikes")
         .eq("user_id", user.id)
         .maybeSingle();
       if (alive && data) {
-        setBank({ singles: data.singles ?? 0, blocks: data.blocks ?? 0 });
+        setBank({ singles: data.singles ?? 0, blocks: data.blocks ?? 0, strikes: data.strikes ?? 0 });
       }
       channel = supabase
         .channel(`flip-bank-${user.id}-${Math.random().toString(36).slice(2)}`)
@@ -366,8 +367,8 @@ function useFlipBank(active: boolean) {
             filter: `user_id=eq.${user.id}`,
           },
           (payload) => {
-            const r = payload.new as { singles?: number; blocks?: number } | null;
-            setBank({ singles: r?.singles ?? 0, blocks: r?.blocks ?? 0 });
+            const r = payload.new as { singles?: number; blocks?: number; strikes?: number } | null;
+            setBank({ singles: r?.singles ?? 0, blocks: r?.blocks ?? 0, strikes: r?.strikes ?? 0 });
           },
         )
         .subscribe();
@@ -425,9 +426,10 @@ export function BoardView({
   // blocks and single tiles the player still gets to place. Drives the FREE tool
   // labels + placement flow. (God-mode paints them via the admin route today;
   // the paid flow will bank them server-side next.)
-  const [bank, setBank] = useState<{ singles: number; blocks: number }>({
+  const [bank, setBank] = useState<{ singles: number; blocks: number; strikes: number }>({
     singles: 0,
     blocks: 0,
+    strikes: 0,
   });
   // Real (paid) players get their bank from the server; god-mode uses the local
   // demo bank above. effBank is whichever applies to this view.
@@ -608,18 +610,18 @@ export function BoardView({
   // pre-placed on the best spot so the player instantly sees there's something
   // to do. Fires only when the bank changes, so a manual ✕ isn't re-forced.
   useEffect(() => {
-    const key = `${effBank.blocks}:${effBank.singles}`;
+    const key = `${effBank.strikes}:${effBank.blocks}:${effBank.singles}`;
     if (key === lastBankKey.current) return;
     lastBankKey.current = key;
     if (aim != null || placementMode) return;
     const kind: Tool | null =
-      effBank.blocks > 0 ? "x" : effBank.singles > 0 ? "flip" : null;
+      effBank.strikes > 0 ? "strike" : effBank.blocks > 0 ? "x" : effBank.singles > 0 ? "flip" : null;
     if (!kind) return;
     setTool(kind);
     const spot = bestAim(kind);
     if (spot != null) setAim(spot);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [effBank.blocks, effBank.singles, bestAim, placementMode]);
+  }, [effBank.strikes, effBank.blocks, effBank.singles, bestAim, placementMode]);
 
   // How many of these tiles are currently the enemy's (i.e. reclaimed on flip).
   const enemyIn = (idxs: number[]) =>
@@ -671,7 +673,7 @@ export function BoardView({
             adminPaint(i, "x", side);
             setBank((b) =>
               b.blocks > 0
-                ? { singles: b.singles + overlap, blocks: b.blocks - 1 } // placing a banked block
+                ? { ...b, singles: b.singles + overlap, blocks: b.blocks - 1 } // placing a banked block
                 : { ...b, singles: b.singles + 2 + overlap }, // new $5 buy
             );
           });
@@ -679,7 +681,7 @@ export function BoardView({
           const overlap = ownIn(strikePattern(i));
           runStrike(i, "strike", () => {
             adminPaint(i, "strike", side);
-            setBank((b) => ({ singles: b.singles + 1 + overlap, blocks: b.blocks + 1 }));
+            setBank((b) => ({ ...b, singles: b.singles + 1 + overlap, blocks: b.blocks + 1 }));
           });
         }
         return;
@@ -703,6 +705,18 @@ export function BoardView({
             });
         });
         onPurchase?.(0, cells[i] ? took : 0, took); // banked single: no charge, +points
+        return;
+      }
+      if (tool === "strike" && serverBank.strikes > 0) {
+        const flipped = patternFor("strike", i).filter((k) => cells[k] !== side);
+        runStrike(i, "strike", () => {
+          createClient()
+            .rpc("claim_banked", { p_center: i, p_kind: "strike", p_team: side })
+            .then(({ error }) => {
+              if (error) console.error("claim_banked:", error.message);
+            });
+        });
+        onPurchase?.(0, flipped.filter((k) => cells[k]).length, flipped.length);
         return;
       }
       if (tool === "x" && serverBank.blocks > 0) {
@@ -969,10 +983,15 @@ export function BoardView({
         </div>
       </div>
 
-      {(effBank.singles > 0 || effBank.blocks > 0) && (
+      {(effBank.singles > 0 || effBank.blocks > 0 || effBank.strikes > 0) && (
         <div className="bank-tray" role="status">
           <span className="bank-tray-title">🎁 FREE TO PLACE</span>
           <span className="bank-tray-items">
+            {effBank.strikes > 0 && (
+              <span className="bank-chip">
+                <span className="chip-ico chip-block" aria-hidden="true" /> 3×3 barrage ×{effBank.strikes}
+              </span>
+            )}
             {effBank.blocks > 0 && (
               <span className="bank-chip">
                 <span className="chip-ico chip-block" aria-hidden="true" /> 2×2 block ×{effBank.blocks}
@@ -984,7 +1003,7 @@ export function BoardView({
               </span>
             )}
           </span>
-          <span className="bank-tray-why">from your purchase — tap the board to place</span>
+          <span className="bank-tray-why">yours to place — tap the board</span>
         </div>
       )}
 
@@ -1004,8 +1023,8 @@ export function BoardView({
             title = fb > 0 ? "Place free 2×2" : "2×2 strike here";
             cost = fb > 0 ? `FREE · ${fb} left` : "$5";
           } else if (tool === "strike") {
-            title = "3×3 barrage here";
-            cost = "$10";
+            title = effBank.strikes > 0 ? "Place free 3×3" : "3×3 barrage here";
+            cost = effBank.strikes > 0 ? `FREE · ${effBank.strikes} left` : "$10";
           }
           // Free Play / god-mode: no charge.
           if (adminPaint && !cost.startsWith("FREE")) cost = "FREE (admin)";
@@ -1102,7 +1121,9 @@ export function BoardView({
               }
             }}
           >
-            <span className="t-price">$10</span>
+            <span className={"t-price" + (effBank.strikes > 0 ? " free" : "")}>
+              {effBank.strikes > 0 ? `FREE ×${effBank.strikes}` : "$10"}
+            </span>
             <Burst />
             <span className="t-title">3×3 BARRAGE</span>
             <span className="t-sub">Seize a 3×3 block</span>
