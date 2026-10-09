@@ -51,9 +51,8 @@ export function AdminUsers() {
   }
 
   function viewAs(p: PlayerRow) {
-    // The new tab does the work (mints the sign-in while you're still admin,
-    // then switches), so errors show there instead of a tab that blinks shut.
-    window.open(`/auth/as?email=${encodeURIComponent(p.email)}`, "_blank");
+    // You stay signed in as you; the board loads as this player (?as=).
+    if (p.id) window.open(`/?as=${encodeURIComponent(p.id)}`, "_blank");
   }
 
   async function send() {

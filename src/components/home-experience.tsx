@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { BoardView, useBattleground, ViewNav, postAdminPaint, type Team } from "./board";
 import { useAdminFreePlay } from "./use-admin-freeplay";
 import { Onboarding } from "./onboarding";
@@ -51,8 +51,34 @@ export function HomeExperience() {
   const [flash, setFlash] = useState<string | null>(null);
   const [promotionRank, setPromotionRank] = useState<Rank | null>(null);
   const firstThreat = useRef(false);
+  // Admin "play as" (?as=<user id>): the admin stays signed in as themself.
+  const [asP, setAsP] = useState<{ id: string; email: string | null; bank: { singles: number; blocks: number; strikes: number } } | null>(null);
+  const asId = typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("as") : null;
+  const loadAs = useCallback(async () => {
+    if (!asId) return;
+    const r = await fetch(`/api/admin/as?id=${encodeURIComponent(asId)}`);
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok) {
+      setFlash(`⚠ ${d.error ?? "Couldn't load that player"}`);
+      setReady(true);
+      return;
+    }
+    const p: Player = {
+      side: d.side, email: d.email ?? "", logins: 1, spent: 0, isOfficer: !!d.isOfficer, foundingNumber: d.foundingNumber ?? null,
+      placedFirst: true, captures: d.captures ?? 0, reclaimed: 0, xStrikes: 0, officerActions: 0, days: 1, lastLoginDay: today(),
+      enlistedAt: d.joined ?? nowISO(), lastActionAt: null, lastPromotionAt: null, lastSeenAt: nowISO(), rankKey: "recruit",
+    };
+    p.rankKey = rankFor(p).key;
+    setPlayer(p);
+    setAsP({ id: d.id, email: d.email, bank: d.bank });
+    setReady(true);
+  }, [asId]);
 
   useEffect(() => {
+    if (asId) {
+      loadAs();
+      return;
+    }
     try {
       const raw = localStorage.getItem(KEY);
       if (raw) {
@@ -182,6 +208,7 @@ export function HomeExperience() {
   }
 
   function persist(p: Player) {
+    if (asId) return; // play-as never touches the admin's own saved record
     try {
       localStorage.setItem(KEY, JSON.stringify(p));
     } catch {
@@ -299,15 +326,22 @@ export function HomeExperience() {
 
   return (
     <>
+      {asP && (
+        <div className="playas-bar">
+          Playing as <b>{asP.email}</b> — moves count for them ·{" "}
+          <a href="/admin/users">back to USERS</a>
+        </div>
+      )}
       <BoardView
         board={board}
+        asPlayer={asP ? { id: asP.id, bank: asP.bank, refresh: loadAs } : undefined}
         lockedSide={player?.side}
         title={title}
         insignia={rank?.insignia}
         placementMode={placing}
         onPlace={handlePlace}
-        isOfficer={player?.isOfficer || freePlay}
-        adminPaint={freePlay ? postAdminPaint : undefined}
+        isOfficer={player?.isOfficer || (freePlay && !asP)}
+        adminPaint={freePlay && !asP ? postAdminPaint : undefined}
         onPurchase={handlePurchase}
         record={player ? { captures: player.captures } : undefined}
         flash={flash}

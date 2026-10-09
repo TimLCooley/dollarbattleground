@@ -3612,3 +3612,5 @@ a.cc-pill-x:hover { color: #f2c14e; text-decoration: underline; }
 .au-icon-space { display: inline-block; width: 32px; }
 .au-wrap .adm-table-wrap { overflow-x: auto; }
 .admin-return { position: fixed; z-index: 9999; left: 12px; bottom: 12px; font: inherit; font-weight: 800; padding: 8px 12px; background: #f2c14e; color: #0a0f1e; border: 2px solid #0c3c21; box-shadow: 0 4px 12px rgba(0,0,0,.4); cursor: pointer; }
+.playas-bar { position: sticky; top: 0; z-index: 50; padding: 8px 12px; background: #f2c14e; color: #0a0f1e; font-weight: 700; text-align: center; }
+.playas-bar a { color: #0a0f1e; text-decoration: underline; }
