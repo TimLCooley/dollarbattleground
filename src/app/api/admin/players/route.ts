@@ -135,6 +135,16 @@ export async function POST(req: Request) {
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
     return NextResponse.json({ ok: true });
   }
+  if (body.action === "impersonate") {
+    // A one-time sign-in for this player (no email is sent). The admin opens
+    // it — ideally in a private window — and is that player until sign-out.
+    const email = (body.email ?? "").trim();
+    if (!email) return NextResponse.json({ error: "email required" }, { status: 400 });
+    const { data, error } = await db.auth.admin.generateLink({ type: "magiclink", email });
+    if (error || !data?.properties?.hashed_token) return NextResponse.json({ error: error?.message ?? "couldn't make a sign-in link" }, { status: 500 });
+    const origin = new URL(req.url).origin;
+    return NextResponse.json({ url: `${origin}/auth/as?token_hash=${encodeURIComponent(data.properties.hashed_token)}&to=${encodeURIComponent(body.id ? "/" : "/")}` });
+  }
   if (body.action === "message") {
     const email = (body.email ?? "").trim();
     const subject = (body.subject ?? "").trim();
