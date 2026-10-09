@@ -168,6 +168,7 @@ export function HomeExperience() {
             p.rankKey = rankFor(p).key;
             setPlayer(p);
             persist(p);
+            syncStatus(p);
           }
         }
       } catch {
@@ -185,7 +186,8 @@ export function HomeExperience() {
       createClient()
         .rpc("daily_return")
         .then(({ data }) => {
-          if (data === 1) flashMsg("🎁 Welcome back — a free square is waiting on the board.");
+          if (data === 2) flashMsg("🎁 Reporting for duty, Officer — a free 2×2 and a square are waiting on the board.");
+          else if (data === 1) flashMsg("🎁 Welcome back — a free square is waiting on the board.");
         });
       const { data } = await createClient().rpc("my_status");
       const st = data as { founding_officer?: boolean; paid_officer?: boolean; founding_number?: number } | null;
