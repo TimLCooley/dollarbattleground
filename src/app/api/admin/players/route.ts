@@ -3,6 +3,7 @@ import type { User } from "@supabase/supabase-js";
 import { requireAdmin } from "@/lib/admin-auth";
 import { createAdminClient } from "@/utils/supabase/admin";
 import { sendEmail } from "@/lib/email";
+import { rankFor, nextRank, progressOf } from "@/lib/ranks";
 
 // Players for the USERS tab: everyone who took a position or joined the
 // waitlist — side, founder #, joined, last active, tiles held, and the power-
@@ -24,6 +25,10 @@ export interface PlayerRow {
   // active = has a position · verified = entered the code, no position yet ·
   // pending = entered an email but never the code · waitlist = pre-launch list
   status: "active" | "verified" | "pending" | "waitlist";
+  rank: string | null; // e.g. "Second Lieutenant"
+  points: number;
+  nextRank: string | null;
+  toNext: number | null; // points still needed
 }
 
 export async function GET() {
@@ -44,6 +49,23 @@ export async function GET() {
     db.from("player_stats").select("user_id,last_action_at"),
     db.from("waitlist").select("email,side,created_at"),
   ]);
+  const [{ data: events }, { data: paid }] = await Promise.all([
+    db.from("tile_events").select("owner_id,created_at").not("owner_id", "is", null),
+    db.from("player_stats").select("user_id,spent_cents"),
+  ]);
+  const caps = new Map<string, number>();
+  for (const e of (events ?? []) as { owner_id: string }[]) caps.set(e.owner_id, (caps.get(e.owner_id) ?? 0) + 1);
+  const paidOfficer = new Set(((paid ?? []) as { user_id: string; spent_cents: number | null }[]).filter((x) => Number(x.spent_cents ?? 0) >= 500).map((x) => x.user_id));
+  // Points the way the game counts them: 3 per tile taken + 1 per return day.
+  // Returns are only known server-side via the daily bonus, so this is a floor.
+  const standing = (id: string, founder: boolean, joined: string | null, lastDaily: string | null) => {
+    const captures = caps.get(id) ?? 0;
+    const logins = 1 + (lastDaily && joined && lastDaily > joined.slice(0, 10) ? 1 : 0);
+    const p = { placedFirst: true, isOfficer: founder || paidOfficer.has(id), captures, logins };
+    const r = rankFor(p);
+    const n = nextRank(p);
+    return { rank: r.name, points: progressOf(p), nextRank: n?.rank.name ?? null, toNext: n?.needed ?? null };
+  };
   const held = new Map<string, number>();
   for (const t of (tiles ?? []) as { owner_id: string }[]) held.set(t.owner_id, (held.get(t.owner_id) ?? 0) + 1);
   const bankBy = new Map(((bank ?? []) as { user_id: string; singles: number; blocks: number; strikes: number; last_daily_on: string | null }[]).map((b) => [b.user_id, b]));
@@ -71,6 +93,7 @@ export async function GET() {
       lastDaily: b?.last_daily_on ?? null,
       waitlistOnly: false,
       status: "active",
+      ...standing(c.user_id, !!c.founding_officer, c.created_at, b?.last_daily_on ?? null),
     });
   }
   // Everyone who entered an email to sign in, even if they never typed the code.
@@ -85,11 +108,12 @@ export async function GET() {
       strikes: bankBy.get(u.id)?.strikes ?? 0, blocks: bankBy.get(u.id)?.blocks ?? 0, singles: bankBy.get(u.id)?.singles ?? 0,
       lastDaily: null, waitlistOnly: false,
       status: u.email_confirmed_at ? "verified" : "pending",
+      rank: null, points: 0, nextRank: null, toNext: null,
     });
   }
   for (const w of (wl ?? []) as { email: string; side: string | null; created_at: string }[]) {
     if (seen.has(w.email.toLowerCase())) continue;
-    rows.push({ id: null, email: w.email, side: w.side, founder: null, joined: w.created_at, lastActive: null, held: 0, strikes: 0, blocks: 0, singles: 0, lastDaily: null, waitlistOnly: true, status: "waitlist" });
+    rows.push({ id: null, email: w.email, side: w.side, founder: null, joined: w.created_at, lastActive: null, held: 0, strikes: 0, blocks: 0, singles: 0, lastDaily: null, waitlistOnly: true, status: "waitlist", rank: null, points: 0, nextRank: null, toNext: null });
   }
   return NextResponse.json({ players: rows });
 }
