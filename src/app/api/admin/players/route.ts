@@ -21,6 +21,9 @@ export interface PlayerRow {
   singles: number; // 1×1
   lastDaily: string | null;
   waitlistOnly: boolean;
+  // active = has a position · verified = entered the code, no position yet ·
+  // pending = entered an email but never the code · waitlist = pre-launch list
+  status: "active" | "verified" | "pending" | "waitlist";
 }
 
 export async function GET() {
@@ -67,11 +70,26 @@ export async function GET() {
       singles: b?.singles ?? 0,
       lastDaily: b?.last_daily_on ?? null,
       waitlistOnly: false,
+      status: "active",
+    });
+  }
+  // Everyone who entered an email to sign in, even if they never typed the code.
+  for (const u of users) {
+    if (!u.email || u.is_anonymous) continue;
+    const key = u.email.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    rows.push({
+      id: u.id, email: u.email, side: null, founder: null, joined: u.created_at,
+      lastActive: u.last_sign_in_at ?? null, held: held.get(u.id) ?? 0,
+      strikes: bankBy.get(u.id)?.strikes ?? 0, blocks: bankBy.get(u.id)?.blocks ?? 0, singles: bankBy.get(u.id)?.singles ?? 0,
+      lastDaily: null, waitlistOnly: false,
+      status: u.email_confirmed_at ? "verified" : "pending",
     });
   }
   for (const w of (wl ?? []) as { email: string; side: string | null; created_at: string }[]) {
     if (seen.has(w.email.toLowerCase())) continue;
-    rows.push({ id: null, email: w.email, side: w.side, founder: null, joined: w.created_at, lastActive: null, held: 0, strikes: 0, blocks: 0, singles: 0, lastDaily: null, waitlistOnly: true });
+    rows.push({ id: null, email: w.email, side: w.side, founder: null, joined: w.created_at, lastActive: null, held: 0, strikes: 0, blocks: 0, singles: 0, lastDaily: null, waitlistOnly: true, status: "waitlist" });
   }
   return NextResponse.json({ players: rows });
 }
