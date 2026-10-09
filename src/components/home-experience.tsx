@@ -99,7 +99,56 @@ export function HomeExperience() {
     } catch {
       /* first visit / storage blocked */
     }
-    setReady(true);
+    // No local record but signed in as a real player (new browser, or the
+    // admin's view-as): rebuild the record from the server before deciding.
+    let local = false;
+    try {
+      local = !!localStorage.getItem(KEY);
+    } catch {
+      /* ignore */
+    }
+    if (local) {
+      setReady(true);
+      return;
+    }
+    (async () => {
+      try {
+        const supabase = createClient();
+        const { data: u } = await supabase.auth.getUser();
+        if (u.user && !u.user.is_anonymous) {
+          const { data } = await supabase.rpc("my_status");
+          const st = data as { side?: string | null; joined?: string | null; captures?: number; founding_officer?: boolean; paid_officer?: boolean; founding_number?: number } | null;
+          if (st?.side === "red" || st?.side === "blue") {
+            const p: Player = {
+              side: st.side,
+              email: u.user.email ?? "",
+              logins: 1,
+              spent: 0,
+              isOfficer: !!(st.founding_officer || st.paid_officer),
+              foundingNumber: st.founding_officer ? st.founding_number ?? null : null,
+              placedFirst: true,
+              captures: st.captures ?? 1,
+              reclaimed: 0,
+              xStrikes: 0,
+              officerActions: 0,
+              days: 1,
+              lastLoginDay: today(),
+              enlistedAt: st.joined ?? nowISO(),
+              lastActionAt: null,
+              lastPromotionAt: null,
+              lastSeenAt: nowISO(),
+              rankKey: "recruit",
+            };
+            p.rankKey = rankFor(p).key;
+            setPlayer(p);
+            persist(p);
+          }
+        }
+      } catch {
+        /* anonymous / offline */
+      }
+      setReady(true);
+    })();
   }, []);
 
   // The server knows whether this player is a Founding Officer (first 100 to

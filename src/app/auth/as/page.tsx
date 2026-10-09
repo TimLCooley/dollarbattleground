@@ -44,8 +44,8 @@ export default function SignInAs() {
         setMsg(`Couldn't sign in: ${error?.message ?? "unknown error"} (links work once and expire in an hour).`);
         return;
       }
-      const { data: fc } = await supabase.from("free_claims").select("side").eq("user_id", data.user.id).maybeSingle();
-      const side = (fc as { side?: string } | null)?.side;
+      const { data: st } = await supabase.rpc("my_status");
+      const side = (st as { side?: string } | null)?.side;
       window.location.replace(side === "red" || side === "blue" ? `/${side}` : "/");
     })();
   }, []);
