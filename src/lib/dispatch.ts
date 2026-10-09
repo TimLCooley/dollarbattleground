@@ -431,6 +431,69 @@ export async function sendLaunchEmails(db: Db, limit: number): Promise<{ sent: n
   return { sent, remaining: pending.length - batch.length };
 }
 
+// ── One-off broadcasts from the General ─────────────────────────────────────
+// app_config.broadcast = {id, send: true} → once, to every waitlist address and
+// every player: founders hear their supplies are on the board; everyone else
+// hears what's waiting when they take their first position. email_log kind
+// `broadcast:<id>` is the ledger, so nobody gets it twice.
+export async function sendBroadcast(db: Db): Promise<number> {
+  if (!isEmailConfigured()) return 0;
+  const cfg = await cfgGet<{ id?: string; send?: boolean; done?: boolean }>(db, "broadcast");
+  if (!cfg?.send || cfg.done || !cfg.id) return 0;
+  const kind = `broadcast:${cfg.id}`;
+  const [{ data: wl }, { data: fc }, { data: logged }] = await Promise.all([
+    db.from("waitlist").select("email,side"),
+    db.from("free_claims").select("user_id,side,founding_officer"),
+    db.from("email_log").select("email").eq("kind", kind),
+  ]);
+  const claims = (fc ?? []) as { user_id: string; side: string | null; founding_officer: boolean }[];
+  const emails = await emailsFor(db, claims.map((c) => c.user_id));
+  const people = new Map<string, { side: Side | null; founder: boolean; userId: string | null }>();
+  for (const w of (wl ?? []) as { email: string; side: string | null }[]) {
+    people.set(w.email.toLowerCase(), { side: w.side === "red" || w.side === "blue" ? w.side : null, founder: false, userId: null });
+  }
+  for (const c of claims) {
+    const e = emails.get(c.user_id);
+    if (!e) continue;
+    people.set(e.toLowerCase(), { side: c.side === "red" || c.side === "blue" ? c.side : null, founder: !!c.founding_officer, userId: c.user_id });
+  }
+  const done = new Set(((logged ?? []) as { email: string }[]).map((r) => r.email.toLowerCase()));
+  let sent = 0;
+  for (const [email, p] of people) {
+    if (done.has(email)) continue;
+    const s: Side = p.side ?? "red";
+    const S = p.side ? NAME[p.side] : null;
+    const subject = p.founder ? "Orders from the General: supplies issued, Officer" : "Orders from the General: supplies are waiting for you";
+    const id = await logAndSend(db, {
+      userId: p.userId,
+      email,
+      kind,
+      subject,
+      target: p.side ? `${SITE}/${p.side}` : SITE,
+      html: (url) =>
+        wrap(
+          p.founder
+            ? `<p style="margin:0 0 10px;font-size:16px;font-weight:700;color:${COLOR[s]}">Officer — the General has issued your battle supplies.</p>
+               <p style="margin:0 0 10px;font-size:14px;color:#efe4c4">As one of the first hundred, you're a Founding Officer. Waiting on the board for you right now:</p>
+               <p style="margin:0 0 10px;font-size:15px;color:#fff"><b>1 × 3×3 barrage</b><br><b>1 × 2×2 strike</b><br><b>1 × single square</b></p>
+               <p style="margin:0 0 10px;font-size:14px;color:#efe4c4">They're free. Open the board and they're armed — pick your spot and fire. And report in tomorrow: every day you come back, there's another square waiting.</p>
+               ${cta(url, "DEPLOY YOUR SUPPLIES →", s)}
+               <p style="margin:14px 0 0;font-size:13px;color:#efe4c4">— The General</p>`
+            : `<p style="margin:0 0 10px;font-size:16px;font-weight:700;color:${COLOR[s]}">Recruit — the gates are open, and the General is holding supplies for you.</p>
+               <p style="margin:0 0 10px;font-size:14px;color:#efe4c4">The map is live. Take your first position${S ? ` for ${S}` : ""} and you're issued, free:</p>
+               <p style="margin:0 0 10px;font-size:15px;color:#fff"><b>1 × 2×2 strike</b><br><b>1 × single square</b><br>and while spots last, a <b>3×3 barrage</b> and a Founding Officer commission — the first hundred only.</p>
+               <p style="margin:0 0 10px;font-size:14px;color:#efe4c4">Report in daily and there's a free square waiting each time.</p>
+               ${cta(url, "CLAIM YOUR SUPPLIES →", s)}
+               <p style="margin:14px 0 0;font-size:13px;color:#efe4c4">— The General</p>`,
+          "You're getting this because you signed up at dollarbattleground.com.",
+        ),
+    });
+    if (id) sent++;
+  }
+  await cfgSet(db, "broadcast", { ...cfg, done: true, sent, sent_at: new Date().toISOString() });
+  return sent;
+}
+
 // ── Daily scoreboard ────────────────────────────────────────────────────────
 // Once a day, the funnel in one email: reach → clicks → signups → positions →
 // officers, per side, plus which clip shapes are pulling. The recruiting
