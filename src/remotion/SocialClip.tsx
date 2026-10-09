@@ -249,9 +249,13 @@ const RecruiterClip = (props: SocialClipProps) => {
   const open = props.commissionsOpen ?? 100;
   const left = Math.max(0, Math.min(open, props.commissionsLeft ?? open));
   const drop = spring({ frame: frame - 4, fps, config: { damping: 200 } });
-  const rise = spring({ frame: frame - 10, fps, config: { damping: 200 } });
+  // The lower third waits: just him talking first, the graphic comes in
+  // around 10 s (or 60% through a shorter clip) — Tim: "weird being there the whole time".
+  const showAt = Math.round(Math.min(10 * fps, durationInFrames * 0.6));
+  const rise = spring({ frame: frame - showAt, fps, config: { damping: 200 } });
+  const shown = frame >= showAt;
   // the counter fills from zero so the eye lands on it
-  const fill = spring({ frame: frame - 18, fps, config: { damping: 30, stiffness: 60 } });
+  const fill = spring({ frame: frame - showAt - 8, fps, config: { damping: 30, stiffness: 60 } });
   const shownLeft = Math.round(left * Math.min(1, fill));
   const outroStart = Math.max(0, durationInFrames - Math.round(2.2 * fps));
   const outro = spring({ frame: frame - outroStart, fps, config: { damping: 18, stiffness: 120 } });
@@ -263,6 +267,7 @@ const RecruiterClip = (props: SocialClipProps) => {
       <AbsoluteFill
         style={{
           background: "linear-gradient(to top, rgba(0,0,0,.35) 0%, rgba(0,0,0,.7) 30%, rgba(0,0,0,.7) 50%, transparent 66%)",
+          opacity: shown ? rise * dressing : 0,
         }}
       />
 
@@ -297,7 +302,7 @@ const RecruiterClip = (props: SocialClipProps) => {
         </div>
         <div style={{ color: "#fff", textShadow: "0 2px 6px rgba(0,0,0,.7)" }}>
           <div style={{ fontWeight: 900, fontSize: 19, letterSpacing: 0.5 }}>{SIDE} TEAM</div>
-          <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: 1.5, color: "#f2c14e", marginTop: 2 }}>THE DEVELOPER · RECRUITING</div>
+          <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: 1.5, color: "#f2c14e", marginTop: 2 }}>RECRUITING</div>
         </div>
       </div>
 
@@ -308,12 +313,12 @@ const RecruiterClip = (props: SocialClipProps) => {
           left: SAFE.left,
           right: SAFE.right,
           bottom: SAFE.bottom,
-          opacity: dressing,
+          opacity: shown ? dressing * rise : 0,
           transform: `translateY(${interpolate(rise, [0, 1], [50, 0])}px)`,
         }}
       >
         <div style={{ color: "#fff", fontSize: 15, fontWeight: 700, opacity: 0.9, marginBottom: 6, textShadow: "0 2px 6px rgba(0,0,0,.7)" }}>
-          {props.reporterName} · I BUILT THIS · I&apos;M ON {SIDE}
+          {props.reporterName} · ON {SIDE}
         </div>
         <div style={{ color: "#fff", fontSize: 34, fontWeight: 900, lineHeight: 1.08, textShadow: "0 3px 10px rgba(0,0,0,.7)", marginBottom: 14 }}>
           {props.headline}
@@ -330,10 +335,7 @@ const RecruiterClip = (props: SocialClipProps) => {
           }}
         >
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", color: "#fff" }}>
-            <span style={{ fontSize: 12, letterSpacing: 2.5, fontWeight: 800, opacity: 0.85 }}>{SIDE} OFFICER COMMISSIONS</span>
-            {props.daysLeft != null && (
-              <span style={{ fontSize: 12, letterSpacing: 1.5, fontWeight: 800, color: "#f2c14e" }}>{props.daysLeft} DAYS LEFT</span>
-            )}
+            <span style={{ fontSize: 12, letterSpacing: 2.5, fontWeight: 800, opacity: 0.85 }}>FOUNDING OFFICER SPOTS</span>
           </div>
           <div style={{ display: "flex", alignItems: "baseline", gap: 8, color: "#fff", marginTop: 4 }}>
             <span style={{ fontSize: 44, fontWeight: 900, lineHeight: 1, color: left === 0 ? "#ff8f8f" : "#fff" }}>{left === 0 ? "FULL" : shownLeft}</span>
