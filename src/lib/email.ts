@@ -22,6 +22,13 @@ function stripHtml(html: string): string {
     .trim();
 }
 
+// Every email carries the website, visibly — a clickable line at the very
+// bottom — whatever template sent it (Tim, 2026-10-09).
+const SITE_FOOTER = `<div style="font-family:system-ui,Arial,sans-serif;text-align:center;padding:14px 0 6px;font-size:14px"><a href="https://dollarbattleground.com" style="color:#f2c14e;font-weight:700;text-decoration:none;letter-spacing:.5px">dollarbattleground.com</a></div>`;
+function withSite(html: string): string {
+  return /<\/body>/i.test(html) ? html.replace(/<\/body>/i, `${SITE_FOOTER}</body>`) : `${html}${SITE_FOOTER}`;
+}
+
 export async function sendEmail(opts: {
   to: string;
   subject: string;
@@ -48,8 +55,8 @@ export async function sendEmail(opts: {
         from: `${FROM_NAME} <${FROM_EMAIL}>`,
         to: opts.to,
         subject: opts.subject,
-        html: opts.html,
-        text: opts.text ?? stripHtml(opts.html),
+        html: withSite(opts.html),
+        text: `${opts.text ?? stripHtml(opts.html)}\n\ndollarbattleground.com`,
         ...(opts.replyTo ? { reply_to: opts.replyTo } : {}),
       }),
     });
