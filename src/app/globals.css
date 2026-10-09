@@ -3599,3 +3599,4 @@ a.cc-pill-x:hover { color: #f2c14e; text-decoration: underline; }
 .au-sort { cursor: pointer; user-select: none; white-space: nowrap; }
 .au-sort:hover { color: #f2c14e; }
 .au-search { max-width: 420px; }
+.au-acts { display: flex; gap: 6px; align-items: center; }

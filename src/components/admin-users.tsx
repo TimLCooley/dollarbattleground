@@ -50,6 +50,23 @@ export function AdminUsers() {
     else load();
   }
 
+  const [asLink, setAsLink] = useState<{ email: string; url: string } | null>(null);
+  async function viewAs(p: PlayerRow) {
+    setBusy(`as-${p.email}`);
+    const r = await fetch("/api/admin/players", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "impersonate", id: p.id, email: p.email }) });
+    const d = await r.json();
+    setBusy(null);
+    if (!r.ok) setErr(d.error ?? "Failed");
+    else {
+      setAsLink({ email: p.email, url: d.url });
+      try {
+        await navigator.clipboard.writeText(d.url);
+      } catch {
+        /* shown below */
+      }
+    }
+  }
+
   async function send() {
     if (!msgFor) return;
     setBusy("msg");
@@ -161,7 +178,12 @@ export function AdminUsers() {
                         )}
                       </td>
                     ))}
-                    <td>
+                    <td className="au-acts">
+                      {p.status !== "waitlist" && (
+                        <button className="cc-btn sm ghost" title="View / play as this player" disabled={busy === `as-${p.email}`} onClick={() => viewAs(p)}>
+                          👁
+                        </button>
+                      )}
                       <button className="cc-btn sm ghost" onClick={() => { setMsgFor(p); setNote(null); }}>
                         ✉ Message
                       </button>
@@ -172,6 +194,20 @@ export function AdminUsers() {
             </table>
           </div>
         </>
+      )}
+
+      {asLink && (
+        <div className="au-msg">
+          <h3 className="cc-goals-h">👁 VIEW / PLAY AS {asLink.email}</h3>
+          <p className="cc-mini">
+            Link copied. Paste it into a <b>private / incognito window</b> — opening it here would sign <i>this</i> browser out of your admin account.
+            Anything you do there is done as them (their squares, their power-ups). Works once, expires in an hour.
+          </p>
+          <input className="cc-goal" readOnly value={asLink.url} onFocus={(e) => e.currentTarget.select()} />
+          <div className="cc-card-acts">
+            <button className="cc-btn sm ghost" onClick={() => setAsLink(null)}>Close</button>
+          </div>
+        </div>
       )}
 
       {msgFor && (
