@@ -182,13 +182,13 @@ export function AdminUsers() {
                       <div className="au-acts">
                         {p.status !== "waitlist" ? (
                           <button className="au-icon" title="View / play as this player" disabled={busy === `as-${p.email}`} onClick={() => viewAs(p)}>
-                            👁
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z" /><circle cx="12" cy="12" r="3" /></svg>
                           </button>
                         ) : (
                           <span className="au-icon-space" />
                         )}
                         <button className="au-icon" title={`Message ${p.email}`} onClick={() => { setMsgFor(p); setNote(null); }}>
-                          ✉
+                          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2" /><path d="M3 7l9 6 9-6" /></svg>
                         </button>
                       </div>
                     </td>
@@ -202,7 +202,7 @@ export function AdminUsers() {
 
       {asLink && (
         <div className="au-msg">
-          <h3 className="cc-goals-h">👁 VIEW / PLAY AS {asLink.email}</h3>
+          <h3 className="cc-goals-h">VIEW / PLAY AS {asLink.email}</h3>
           <p className="cc-mini">
             Link copied. Paste it into a <b>private / incognito window</b> — opening it here would sign <i>this</i> browser out of your admin account.
             Anything you do there is done as them (their squares, their power-ups). Works once, expires in an hour.
@@ -216,7 +216,7 @@ export function AdminUsers() {
 
       {msgFor && (
         <div className="au-msg">
-          <h3 className="cc-goals-h">✉ MESSAGE {msgFor.email}</h3>
+          <h3 className="cc-goals-h">MESSAGE {msgFor.email}</h3>
           <input className="cc-goal" placeholder="Subject" value={subject} onChange={(e) => setSubject(e.target.value)} />
           <textarea className="cc-goal" rows={6} placeholder="Your message (blank line = new paragraph)" value={message} onChange={(e) => setMessage(e.target.value)} />
           <div className="cc-card-acts">
