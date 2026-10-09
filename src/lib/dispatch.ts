@@ -494,6 +494,59 @@ export async function sendBroadcast(db: Db): Promise<number> {
   return sent;
 }
 
+// ── Supplies arrived ────────────────────────────────────────────────────────
+// Tell a player new attacks are on the board for them: the morning's daily
+// supplies, or pieces the admin granted. Respects the reminders opt-out.
+export async function notifySupplies(
+  db: Db,
+  p: { userId: string; side: string | null; pieces: { strikes?: number; blocks?: number; singles?: number }; reason: "daily" | "gift" },
+): Promise<boolean> {
+  if (!isEmailConfigured()) return false;
+  const prefs = await prefsFor(db, p.userId);
+  if (prefs && (prefs as { reminders?: boolean }).reminders === false) return false;
+  const email = (await emailsFor(db, [p.userId])).get(p.userId);
+  if (!email) return false;
+  const s: Side = p.side === "blue" ? "blue" : "red";
+  const list = [
+    p.pieces.strikes ? `<b>${p.pieces.strikes} × 3×3 barrage</b>` : "",
+    p.pieces.blocks ? `<b>${p.pieces.blocks} × 2×2 strike</b>` : "",
+    p.pieces.singles ? `<b>${p.pieces.singles} × single square</b>` : "",
+  ].filter(Boolean).join("<br>");
+  const subject = p.reason === "daily" ? "Your daily supplies are on the board" : "The General sent you new attacks";
+  const id = await logAndSend(db, {
+    userId: p.userId,
+    email,
+    kind: p.reason === "daily" ? "supplies_daily" : "supplies_gift",
+    subject,
+    target: `${SITE}/${s}`,
+    meta: { pieces: p.pieces },
+    html: (url) =>
+      wrap(
+        `<p style="margin:0 0 10px;font-size:16px;font-weight:700;color:${COLOR[s]}">${p.reason === "daily" ? "Reporting for duty — today's supplies are in." : "New attacks issued to you."}</p>
+         <p style="margin:0 0 10px;font-size:15px;color:#fff">${list}</p>
+         <p style="margin:0 0 6px;font-size:14px;color:#efe4c4">They're free and already on your board. Pick your spot and fire${p.reason === "daily" ? " — another round arrives tomorrow" : ""}.</p>
+         ${cta(url, "DEPLOY THEM →", s)}`,
+        prefs ? unsubFooter((prefs as { unsub_token: string }).unsub_token, "reminders") : "",
+      ),
+  });
+  return !!id;
+}
+
+// Each morning (MT), issue everyone's daily supplies and email them.
+export async function dailySupplies(db: Db): Promise<number> {
+  const { data, error } = await db.rpc("issue_daily_supplies");
+  if (error) throw new Error(error.message);
+  let sent = 0;
+  for (const r of (data ?? []) as { user_id: string; side: string | null; officer: boolean }[]) {
+    try {
+      if (await notifySupplies(db, { userId: r.user_id, side: r.side, pieces: r.officer ? { blocks: 1, singles: 1 } : { singles: 1 }, reason: "daily" })) sent++;
+    } catch {
+      /* next */
+    }
+  }
+  return sent;
+}
+
 // ── Daily scoreboard ────────────────────────────────────────────────────────
 // Once a day, the funnel in one email: reach → clicks → signups → positions →
 // officers, per side, plus which clip shapes are pulling. The recruiting
