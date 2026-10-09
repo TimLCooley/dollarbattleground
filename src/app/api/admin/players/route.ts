@@ -3,6 +3,7 @@ import type { User } from "@supabase/supabase-js";
 import { requireAdmin } from "@/lib/admin-auth";
 import { createAdminClient } from "@/utils/supabase/admin";
 import { sendEmail } from "@/lib/email";
+import { notifySupplies } from "@/lib/dispatch";
 import { rankFor, nextRank, progressOf } from "@/lib/ranks";
 
 // Players for the USERS tab: everyone who took a position or joined the
@@ -133,6 +134,14 @@ export async function POST(req: Request) {
       p_strikes: Math.max(0, Math.floor(body.strikes ?? 0)),
     });
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    // let them know new attacks are waiting
+    const { data: fc } = await db.from("free_claims").select("side").eq("user_id", body.id).maybeSingle();
+    await notifySupplies(db, {
+      userId: body.id,
+      side: (fc as { side?: string } | null)?.side ?? null,
+      pieces: { strikes: body.strikes ?? 0, blocks: body.blocks ?? 0, singles: body.singles ?? 0 },
+      reason: "gift",
+    }).catch(() => false);
     return NextResponse.json({ ok: true });
   }
   if (body.action === "impersonate") {

@@ -6,7 +6,7 @@ import { produceVideo } from "@/lib/producer";
 import { getStripeMode } from "@/lib/stripe-mode";
 import { intelBrief } from "@/lib/intel";
 import { getCommanderNotes, getOrders, planOrders } from "@/lib/general";
-import { runDispatches, dailyScoreboard, sendBroadcast } from "@/lib/dispatch";
+import { runDispatches, dailyScoreboard, sendBroadcast, dailySupplies } from "@/lib/dispatch";
 import { openGatesIfDue } from "@/lib/gate";
 import { crosspostToTikTok, getCrosspost, publishFounderClip, postAnalytics } from "@/lib/robinreach";
 
@@ -487,6 +487,17 @@ export async function runAutopilot(db: Db, opts: { force?: boolean } = {}): Prom
     if (b) notes.push(`broadcast sent to ${b}`);
   } catch (e) {
     notes.push(`broadcast: ${e instanceof Error ? e.message : "failed"}`);
+  }
+
+  // Daily supplies: from 7am Mountain, issue today's pieces and email players.
+  try {
+    const mtHour = Number(new Intl.DateTimeFormat("en-US", { timeZone: "America/Denver", hour: "numeric", hour12: false }).format(new Date()));
+    if (mtHour >= 7) {
+      const n = await dailySupplies(db);
+      if (n) notes.push(`daily supplies emailed to ${n}`);
+    }
+  } catch (e) {
+    notes.push(`daily supplies: ${e instanceof Error ? e.message : "failed"}`);
   }
 
   // The scoreboard: once a day, after 14:00 UTC (8am Mountain).
