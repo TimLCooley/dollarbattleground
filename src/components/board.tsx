@@ -241,6 +241,9 @@ function CrossedSwords() {
 
 interface BoardViewProps {
   board: Battleground;
+  // Admin "play as": the admin stays signed in; the board shows this player's
+  // banked pieces and places them for the player through the admin API.
+  asPlayer?: { id: string; bank: { singles: number; blocks: number; strikes: number }; refresh: () => void };
   lockedSide?: Team; // /red and /blue (and a chosen player) lock you to a faction
   title?: string; // rank/command label shown in the header
   placementMode?: boolean; // onboarding "plant your flag" — next tap is a free claim
@@ -394,6 +397,7 @@ export function BoardView({
   record,
   flash,
   adminPaint,
+  asPlayer,
 }: BoardViewProps) {
   const { cells, loaded, counts, popping, claimFree, owned } = board;
   const [internalSide, setInternalSide] = useState<Team>("blue");
@@ -433,7 +437,8 @@ export function BoardView({
   });
   // Real (paid) players get their bank from the server; god-mode uses the local
   // demo bank above. effBank is whichever applies to this view.
-  const serverBank = useFlipBank(!adminPaint);
+  const ownBank = useFlipBank(!adminPaint && !asPlayer);
+  const serverBank = asPlayer ? asPlayer.bank : ownBank;
   const effBank = adminPaint ? bank : serverBank;
 
   // reacts only to bank changes (grant / consume), so a manual cancel isn't
@@ -657,6 +662,30 @@ export function BoardView({
     [patternFor, animateHit],
   );
 
+  // Place a banked piece: as yourself (RPC) or, in admin play-as, for the player.
+  const banked = useCallback(
+    (kind: "flip" | "x" | "strike", center: number) => {
+      if (asPlayer) {
+        fetch("/api/admin/as", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ id: asPlayer.id, center, kind, team: side }),
+        })
+          .then(async (r) => {
+            if (!r.ok) console.error("play-as:", (await r.json().catch(() => ({}))).error);
+          })
+          .finally(() => asPlayer.refresh());
+        return;
+      }
+      createClient()
+        .rpc("claim_banked", { p_center: center, p_kind: kind, p_team: side })
+        .then(({ error }) => {
+          if (error) console.error("claim_banked:", error.message);
+        });
+    },
+    [asPlayer, side],
+  );
+
   const commitAt = useCallback(
     (i: number) => {
       // God-mode: paint free + run the real bundle math (2×2 = +2 singles,
@@ -698,11 +727,7 @@ export function BoardView({
       if (tool === "flip" && serverBank.singles > 0) {
         const took = cells[i] !== side ? 1 : 0; // 0 only if you tapped your own tile
         runStrike(i, "flip", () => {
-          createClient()
-            .rpc("claim_banked", { p_center: i, p_kind: "flip", p_team: side })
-            .then(({ error }) => {
-              if (error) console.error("claim_banked:", error.message);
-            });
+          banked("flip", i)
         });
         onPurchase?.(0, cells[i] ? took : 0, took); // banked single: no charge, +points
         return;
@@ -710,11 +735,7 @@ export function BoardView({
       if (tool === "strike" && serverBank.strikes > 0) {
         const flipped = patternFor("strike", i).filter((k) => cells[k] !== side);
         runStrike(i, "strike", () => {
-          createClient()
-            .rpc("claim_banked", { p_center: i, p_kind: "strike", p_team: side })
-            .then(({ error }) => {
-              if (error) console.error("claim_banked:", error.message);
-            });
+          banked("strike", i)
         });
         onPurchase?.(0, flipped.filter((k) => cells[k]).length, flipped.length);
         return;
@@ -722,13 +743,13 @@ export function BoardView({
       if (tool === "x" && serverBank.blocks > 0) {
         const flipped = patternFor("x", i).filter((k) => cells[k] !== side);
         runStrike(i, "x", () => {
-          createClient()
-            .rpc("claim_banked", { p_center: i, p_kind: "x", p_team: side })
-            .then(({ error }) => {
-              if (error) console.error("claim_banked:", error.message);
-            });
+          banked("x", i)
         });
         onPurchase?.(0, flipped.filter((k) => cells[k]).length, flipped.length);
+        return;
+      }
+      if (asPlayer) {
+        setHint("No free pieces of that kind left for this player — add some on USERS.");
         return;
       }
       // Paid orders don't fire on the tap — they open a confirmation first.
@@ -754,7 +775,7 @@ export function BoardView({
       }
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [locked, tool, side, placementMode, onPlace, isOfficer, onPurchase, cells, adminPaint, bank, serverBank, runStrike],
+    [locked, tool, side, placementMode, onPlace, isOfficer, onPurchase, cells, adminPaint, bank, serverBank, runStrike, banked],
   );
 
   // First tap aims (shows the preview); tapping the aimed tile again — or the
