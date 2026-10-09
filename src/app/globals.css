@@ -3599,4 +3599,15 @@ a.cc-pill-x:hover { color: #f2c14e; text-decoration: underline; }
 .au-sort { cursor: pointer; user-select: none; white-space: nowrap; }
 .au-sort:hover { color: #f2c14e; }
 .au-search { max-width: 420px; }
-.au-acts { display: flex; gap: 6px; align-items: center; }
+
+/* USERS table layout: no horizontal scroll, even rows */
+.au-table { width: 100%; table-layout: auto; }
+.au-table th, .au-table td { vertical-align: middle; white-space: nowrap; padding-top: 10px; padding-bottom: 10px; }
+.au-table td:first-child { white-space: normal; word-break: break-all; max-width: 220px; }
+.au-table td:nth-child(4) { white-space: normal; min-width: 170px; }
+.au-acts { display: flex; gap: 6px; align-items: center; justify-content: flex-end; }
+.au-icon { font: inherit; font-size: 15px; line-height: 1; width: 32px; height: 30px; display: inline-grid; place-items: center; background: #1d6b3d; color: #f6efdb; border: 2px solid #0c3c21; cursor: pointer; }
+.au-icon:hover { background: #24804a; }
+.au-icon:disabled { opacity: .5; cursor: wait; }
+.au-icon-space { display: inline-block; width: 32px; }
+.au-wrap .adm-table-wrap { overflow-x: auto; }
