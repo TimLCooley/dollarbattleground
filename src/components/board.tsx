@@ -96,7 +96,9 @@ export function useBattleground(): Battleground {
       const {
         data: { user },
       } = await supabase.auth.getUser();
-      const uid = user?.id ?? null;
+      // Admin play-as (?as=<id>): "mine" means that player's squares.
+      const asId = new URLSearchParams(window.location.search).get("as");
+      const uid = asId || user?.id || null;
       myIdRef.current = uid;
       const { data, error } = await supabase
         .from("tiles")
@@ -517,7 +519,7 @@ export function BoardView({
   const showCfg = useShowConfig();
   const { preview: showPreview } = useShowPreview();
   const { isAdmin } = useAdminFreePlay();
-  const showOn = showCfg.on && !adminPaint && !placementMode && (!isAdmin || showPreview);
+  const showOn = showCfg.on && !adminPaint && !asPlayer && !placementMode && (!isAdmin || showPreview);
   const [simFlash, setSimFlash] = useState<string | null>(null);
   const simFlashTimer = useRef<number | null>(null);
   const fireSim = useCallback(
