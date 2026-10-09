@@ -3595,3 +3595,4 @@ a.cc-pill-x:hover { color: #f2c14e; text-decoration: underline; }
 .au-st.verified { color: #f2c14e; }
 .au-st.pending { color: #ff8a8a; }
 .au-st.waitlist { color: #efe4c4; opacity: .7; }
+.au-next { font-size: 11px; opacity: .75; margin-top: 2px; }

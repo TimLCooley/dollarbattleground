@@ -98,7 +98,16 @@ export function AdminUsers() {
                     <td>{p.email}</td>
                     <td className={p.side ?? ""}>{p.side ? p.side.toUpperCase() : "—"}</td>
                     <td className={`au-st ${p.status}`}>{p.status === "active" ? "ACTIVE" : p.status === "verified" ? "VERIFIED" : p.status === "pending" ? "INACTIVE · no code" : "WAITLIST"}</td>
-                    <td>{p.status === "waitlist" ? "—" : p.founder ? `★ Founder #${p.founder}` : p.status === "active" ? "player" : "—"}</td>
+                    <td>
+                      {p.rank ? (
+                        <>
+                          <div>{p.founder ? `★ #${p.founder} · ` : ""}{p.rank}</div>
+                          <div className="au-next">{p.nextRank ? `${p.points} pts · ${p.toNext} to ${p.nextRank}` : `${p.points} pts · top rank`}</div>
+                        </>
+                      ) : (
+                        "—"
+                      )}
+                    </td>
                     <td>{ago(p.joined)}</td>
                     <td>{ago(p.lastActive)}</td>
                     <td>{p.held}</td>
