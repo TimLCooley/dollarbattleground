@@ -326,39 +326,36 @@ const RecruiterClip = (props: SocialClipProps) => {
 
         <div
           style={{
+            display: "inline-block",
             background: "rgba(10,15,30,.72)",
             border: `2px solid ${accent}`,
             borderRadius: 12,
-            padding: "10px 14px 12px",
+            padding: "8px 14px",
             marginBottom: 14,
+            color: "#fff",
+            fontSize: 18,
+            fontWeight: 900,
+            letterSpacing: 1,
             boxShadow: "0 6px 18px rgba(0,0,0,.4)",
           }}
         >
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", color: "#fff" }}>
-            <span style={{ fontSize: 12, letterSpacing: 2.5, fontWeight: 800, opacity: 0.85 }}>FOUNDING OFFICER SPOTS</span>
-          </div>
-          <div style={{ display: "flex", alignItems: "baseline", gap: 8, color: "#fff", marginTop: 4 }}>
-            <span style={{ fontSize: 44, fontWeight: 900, lineHeight: 1, color: left === 0 ? "#ff8f8f" : "#fff" }}>{left === 0 ? "FULL" : shownLeft}</span>
-            {left > 0 && <span style={{ fontSize: 16, fontWeight: 800, opacity: 0.85 }}>OF {open} STILL OPEN</span>}
-          </div>
-          <div style={{ height: 10, borderRadius: 5, overflow: "hidden", background: "rgba(255,255,255,.18)", marginTop: 8 }}>
-            <div style={{ width: `${open ? (shownLeft / open) * 100 : 0}%`, height: "100%", background: accent }} />
-          </div>
+          TRY IT · FIRST SQUARE FREE
         </div>
-
-        <div
-          style={{
-            display: "inline-block",
-            background: "#f2c14e",
-            color: "#0a0f1e",
-            fontWeight: 900,
-            fontSize: 20,
-            padding: "11px 16px",
-            borderRadius: 10,
-            boxShadow: "0 6px 18px rgba(0,0,0,.5)",
-          }}
-        >
-          ▶ {props.url}
+        <div>
+          <div
+            style={{
+              display: "inline-block",
+              background: "#f2c14e",
+              color: "#0a0f1e",
+              fontWeight: 900,
+              fontSize: 20,
+              padding: "11px 16px",
+              borderRadius: 10,
+              boxShadow: "0 6px 18px rgba(0,0,0,.5)",
+            }}
+          >
+            ▶ {props.url}
+          </div>
         </div>
       </div>
 
@@ -406,13 +403,13 @@ const RecruiterClip = (props: SocialClipProps) => {
 
 export const SocialClip = (props: SocialClipProps) => {
   if (props.variant === "plain") return <PlainClip {...props} />;
+  if (props.variant === "recruiter") return <RecruiterClip {...props} />;
   return <ClipWithBed {...props} />;
 };
 
 const Bed = (props: SocialClipProps) => (props.bedSrc ? <Audio src={staticFile(props.bedSrc)} volume={props.bedVolume ?? 0.16} /> : null);
 
 const ClipWithBed = (props: SocialClipProps) => {
-  if (props.variant === "recruiter") return <RecruiterClip {...props} />;
   const frame = useCurrentFrame();
   const { fps, height, durationInFrames } = useVideoConfig();
   const letter = props.network.charAt(0);

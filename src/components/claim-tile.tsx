@@ -5,6 +5,7 @@ import type { Team } from "./board";
 import { resolveTestEmail } from "@/lib/test-email";
 import { createClient } from "@/utils/supabase/client";
 import { ResendCode } from "./resend-code";
+import { track } from "@/lib/track";
 
 import { CampaignCountdown } from "./campaign-countdown";
 
@@ -68,6 +69,7 @@ export function ClaimTile({
       }
       setEmail(mail);
       setStep("code");
+      track("email_entered");
     } catch {
       setError("Couldn't reach command. Try again.");
     } finally {
@@ -104,6 +106,7 @@ export function ClaimTile({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ takeover_alerts: optIn, reminders: optIn }),
       }).catch(() => {});
+      track("code_verified");
       onConfirm(mail, optIn);
     } catch {
       setError("Couldn't verify. Try again.");

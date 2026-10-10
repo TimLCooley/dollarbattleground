@@ -582,6 +582,20 @@ export async function dailyScoreboard(db: Db): Promise<boolean> {
     e.n++; e.views += Number(p.impressions ?? 0) + Number(p.social_views ?? 0); e.clicks += Number(p.clicks ?? 0);
     byShape.set(k, e);
   }
+  // The funnel: distinct browser sessions reaching each step in the last 24h.
+  const { data: fe } = await db.from("funnel_events").select("step,session_id").gte("created_at", since);
+  const stepN = (k: string) => new Set(((fe ?? []) as { step: string; session_id: string }[]).filter((e) => e.step === k).map((e) => e.session_id)).size;
+  const funnelRows = [
+    ["opened the board", stepN("board_open")],
+    ["tapped a square", stepN("square_tap")],
+    ["picked a color", stepN("side_pick")],
+    ["entered an email", stepN("email_entered")],
+    ["entered the code", stepN("code_verified")],
+    ["placed their square", stepN("first_move")],
+    ["opened feedback", stepN("feedback_open")],
+  ].map(([l, v]) => `<tr><td style="padding:3px 8px 3px 0;color:#efe4c4">${l}</td><td style="padding:3px 8px;color:#fff"><b>${v}</b></td></tr>`).join("");
+  const { data: fb } = await db.from("feedback").select("email,message").gte("created_at", since).order("created_at", { ascending: false }).limit(10);
+  const fbHtml = ((fb ?? []) as { email: string | null; message: string }[]).map((f) => `<p style="margin:0 0 8px;font-size:13px;color:#efe4c4">“${f.message.replace(/</g, "&lt;")}”${f.email ? ` — ${f.email}` : ""}</p>`).join("");
   const shapes = [...byShape.entries()].sort((a, b) => b[1].clicks / b[1].n - a[1].clicks / a[1].n).slice(0, 8)
     .map(([k, v]) => `<tr><td style="padding:3px 8px 3px 0">${k}</td><td style="padding:3px 8px">${v.n}</td><td style="padding:3px 8px">${(v.views / v.n).toFixed(0)}</td><td style="padding:3px 8px">${(v.clicks / v.n).toFixed(1)}</td></tr>`).join("");
   const row = (label: string, r: string | number, b: string | number) => `<tr><td style="padding:3px 8px 3px 0;color:#efe4c4">${label}</td><td style="padding:3px 8px;color:#ff8a8a"><b>${r}</b></td><td style="padding:3px 8px;color:#8ab4ff"><b>${b}</b></td></tr>`;
@@ -594,6 +608,9 @@ export async function dailyScoreboard(db: Db): Promise<boolean> {
      ${row("map", `${tr}`, `${tb}`)}</table>
      <p style="margin:12px 0 4px;font-size:14px;color:#efe4c4">Last 24h: <b>${day.length}</b> posts · <b>${sum(day, "social_views")}</b> views on TikTok/IG/YouTube · <b>${sum(day, "impressions")}</b> on X · <b>${sum(day, "clicks")}</b> link clicks · <b>${n("player_new") + n("waitlist_new")}</b> signups · <b>${n("purchase")}</b> purchases · <b>${n("takeover")}</b> takeovers</p>
      <p style="margin:12px 0 4px;font-size:14px;color:#efe4c4">All time: ${P.length} posts · ${sum(P, "social_views")} views on TikTok/IG/YouTube · ${sum(P, "impressions")} on X · ${sum(P, "clicks")} clicks</p>
+     <p style="margin:14px 0 4px;font-size:13px;color:#f2c14e;letter-spacing:1px">THE FUNNEL — LAST 24H (real browsers)</p>
+     <table style="font-size:14px;border-collapse:collapse">${funnelRows}</table>
+     ${fbHtml ? `<p style="margin:14px 0 4px;font-size:13px;color:#f2c14e;letter-spacing:1px">FEEDBACK</p>${fbHtml}` : ""}
      <p style="margin:14px 0 4px;font-size:13px;color:#f2c14e;letter-spacing:1px">WHICH SHAPES PULL (clicks per clip)</p>
      <table style="font-size:13px;border-collapse:collapse;color:#efe4c4"><tr><td></td><td style="padding:3px 8px">clips</td><td style="padding:3px 8px">views/clip</td><td style="padding:3px 8px">clicks/clip</td></tr>${shapes || "<tr><td>no video posts yet</td></tr>"}</table>`,
     `Daily, from the autopilot. TikTok / Instagram / YouTube views come from RobinReach; X views from X; both refresh hourly.`,
@@ -607,8 +624,9 @@ export async function dailyScoreboard(db: Db): Promise<boolean> {
 // purchases, takeovers, dispatches that went out, posts that published.
 // Batched by design — a hot hour is one email, not forty.
 
-const NOTIFY_KINDS = ["player_new", "waitlist_new", "purchase", "takeover", "email_takeover", "email_reminder", "email_waitlist", "email_waitlist_welcome", "email_launch", "post_published"];
+const NOTIFY_KINDS = ["feedback", "player_new", "waitlist_new", "purchase", "takeover", "email_takeover", "email_reminder", "email_waitlist", "email_waitlist_welcome", "email_launch", "post_published"];
 const KIND_LABEL: Record<string, string> = {
+  feedback: "💬 FEEDBACK",
   player_new: "signup",
   waitlist_new: "waitlist signup",
   email_waitlist_welcome: "welcome sent",
