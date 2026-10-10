@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { createClient } from "@/utils/supabase/client";
 import { ResendCode } from "./resend-code";
+import { track } from "@/lib/track";
 import { resolveTestEmail } from "@/lib/test-email";
 
 import { CampaignCountdown } from "./campaign-countdown";
@@ -48,6 +49,7 @@ export function LoginOtp({
         return;
       }
       setStep("code");
+      track("email_entered", { returning: true });
     } catch {
       setError("Couldn't reach command. Try again.");
     } finally {
@@ -79,6 +81,7 @@ export function LoginOtp({
         setBusy(false);
         return;
       }
+      track("code_verified", { returning: true });
       onSignedIn();
     } catch {
       setError("Couldn't verify. Try again.");

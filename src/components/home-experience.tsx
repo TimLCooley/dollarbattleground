@@ -7,6 +7,8 @@ import { Onboarding } from "./onboarding";
 import { PromotionModal } from "./promotion";
 import { rankFor, RANKS, type Rank } from "@/lib/ranks";
 import { createClient } from "@/utils/supabase/client";
+import { track } from "@/lib/track";
+import { FeedbackButton } from "./feedback-button";
 
 const KEY = "bg_player_v1";
 
@@ -79,6 +81,7 @@ export function HomeExperience() {
       loadAs();
       return;
     }
+    track("board_open");
     try {
       const raw = localStorage.getItem(KEY);
       if (raw) {
@@ -219,6 +222,7 @@ export function HomeExperience() {
   }
 
   function handleEnlist(side: Team) {
+    track("side_pick", { side });
     const p: Player = {
       side,
       email: "",
@@ -251,6 +255,7 @@ export function HomeExperience() {
     email: string,
     optIn: boolean,
   ) {
+    track("first_move");
     setPlacing(false);
     // Email + dispatch opt-in are captured here, at the claim step.
     try {
@@ -328,6 +333,7 @@ export function HomeExperience() {
 
   return (
     <>
+      {!asP && <FeedbackButton side={player?.side ?? null} />}
       {asP && (
         <div className="playas-bar">
           Playing as <b>{asP.email}</b> — moves count for them ·{" "}

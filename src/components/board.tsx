@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createClient } from "@/utils/supabase/client";
+import { track } from "@/lib/track";
 import { FieldRadio } from "./announcer";
 import { Insignia, rankFor, type InsigniaSpec } from "@/lib/ranks";
 import { addReceipt } from "@/lib/receipts";
@@ -793,6 +794,7 @@ export function BoardView({
         commitAt(i);
         setAim(null);
       } else {
+        track("square_tap");
         setAim(i);
       }
     },
