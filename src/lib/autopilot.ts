@@ -509,9 +509,9 @@ export async function runAutopilot(db: Db, opts: { force?: boolean } = {}): Prom
     if (!next?.at) await cfgSet(db, "gold_next", { at: scheduleNextGold(new Date()) });
     else if (new Date(next.at).getTime() <= Date.now()) {
       const { data: g } = await db.rpc("spawn_gold_square", { p_minutes: 45 });
-      const gs = g as { x?: number; y?: number } | null;
+      const gs = (g ?? []) as { side: string; x: number; y: number }[];
       await cfgSet(db, "gold_next", { at: scheduleNextGold(new Date()) });
-      notes.push(`gold square at (${gs?.x},${gs?.y})`);
+      notes.push(`gold: ${gs.map((x) => `${x.side}@${x.x},${x.y}`).join(" ")}`);
     }
   } catch (e) {
     notes.push(`gold: ${e instanceof Error ? e.message : "failed"}`);

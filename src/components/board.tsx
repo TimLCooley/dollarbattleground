@@ -338,8 +338,10 @@ function HeaderMenu() {
 }
 
 // The live gold square (if any) and the latest claim, kept in realtime.
-interface GoldSquare { id: number; x: number; y: number; expires_at: string; claimed_by: string | null; claimed_side: string | null; claimed_at: string | null }
-function useGoldSquare() {
+interface GoldSquare { id: number; x: number; y: number; side: string | null; expires_at: string; claimed_by: string | null; claimed_side: string | null; claimed_at: string | null }
+// Each drop is two golds — Red's on Blue ground, Blue's on Red ground — and a
+// player only ever sees (and can earn) their own side's.
+function useGoldSquare(side: string) {
   const [gold, setGold] = useState<GoldSquare | null>(null);
   const [claim, setClaim] = useState<GoldSquare | null>(null);
   useEffect(() => {
@@ -349,6 +351,7 @@ function useGoldSquare() {
       const { data } = await supabase
         .from("gold_squares")
         .select("*")
+        .eq("side", side)
         .is("claimed_at", null)
         .gt("expires_at", new Date().toISOString())
         .order("spawned_at", { ascending: false })
@@ -361,7 +364,7 @@ function useGoldSquare() {
       .channel(`gold-${Math.random().toString(36).slice(2)}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "gold_squares" }, (payload) => {
         const r = payload.new as GoldSquare | null;
-        if (!r) return;
+        if (!r || r.side !== side) return; // the other team's gold is invisible
         if (r.claimed_at) {
           setGold((g) => (g && g.id === r.id ? null : g));
           setClaim(r);
@@ -378,7 +381,7 @@ function useGoldSquare() {
       window.clearInterval(t);
       supabase.removeChannel(channel);
     };
-  }, []);
+  }, [side]);
   // when the next one drops (refreshed after each claim/expiry)
   const [nextAt, setNextAt] = useState<string | null>(null);
   useEffect(() => {
@@ -460,7 +463,7 @@ function GoldCountdown({ gold, nextAt }: { gold: GoldSquare | null; nextAt: stri
   if (gold) {
     return (
       <div className="gold-count live" role="status">
-        ✨ GOLD SQUARE IS LIVE — take it for a free 3×3 · {hms(new Date(gold.expires_at).getTime() - now)} left
+        ✨ YOUR TEAM&apos;S GOLD IS LIVE — capture it from {gold.side === "red" ? "Blue" : "Red"} for a free 3×3 · {hms(new Date(gold.expires_at).getTime() - now)} left
       </div>
     );
   }
@@ -468,7 +471,7 @@ function GoldCountdown({ gold, nextAt }: { gold: GoldSquare | null; nextAt: stri
   const left = new Date(nextAt).getTime() - now;
   return (
     <div className="gold-count" role="status">
-      ✨ Next gold square {left > 0 ? `in ${hms(left)}` : "any moment now"} · first to take it wins a 3×3
+      ✨ Next gold drop {left > 0 ? `in ${hms(left)}` : "any moment now"} · capture your team&apos;s gold from the enemy for a 3×3
     </div>
   );
 }
@@ -539,14 +542,14 @@ export function BoardView({
   asPlayer,
 }: BoardViewProps) {
   const { cells, loaded, counts, popping, claimFree, owned } = board;
-  const { gold, claim: goldClaim, nextAt: goldNext } = useGoldSquare();
+  const [internalSide, setInternalSide] = useState<Team>("blue");
+  const side: Team = lockedSide ?? internalSide;
+  const { gold, claim: goldClaim, nextAt: goldNext } = useGoldSquare(side);
   const goldIdx = gold ? gold.y * N + gold.x : -1;
   const mineGold = !!goldClaim && owned.has(goldClaim.y * N + goldClaim.x);
   const { drop, taken: dropTaken } = useMyDrop(!asPlayer && !adminPaint);
   const dropIdx = drop ? drop.y * N + drop.x : -1;
   const dropNow = useNow();
-  const [internalSide, setInternalSide] = useState<Team>("blue");
-  const side: Team = lockedSide ?? internalSide;
   const [tool, setTool] = useState<Tool>("flip");
   const [spent, setSpent] = useState(0);
   const [hint, setHint] = useState("Tap a position to take it.");
@@ -1141,7 +1144,7 @@ export function BoardView({
                 <span key={k} className="gold-spark" style={{ ["--a" as string]: `${k * 30}deg` }} />
               ))}
               <span className="gold-label">
-                {mineGold ? "GOLD! +3×3" : `${(goldClaim.claimed_side ?? "").toUpperCase()} TOOK THE GOLD`}
+                {mineGold ? "GOLD! +3×3" : `${(goldClaim.claimed_side ?? "").toUpperCase()} CAPTURED OUR GOLD`}
               </span>
             </div>
           )}
