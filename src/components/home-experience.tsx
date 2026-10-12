@@ -134,6 +134,10 @@ export function HomeExperience() {
           next.rankKey = nr.key;
           setPlayer(next);
           localStorage.setItem(KEY, JSON.stringify(next));
+          // Picked a side but never placed the free first square (e.g. left at
+          // the email-code step): come back to the free placement, not the
+          // paid tools.
+          if (!next.placedFirst) setPlacing(true);
           syncStatus(next);
         }
       }
