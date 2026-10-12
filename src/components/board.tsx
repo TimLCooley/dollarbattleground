@@ -246,7 +246,7 @@ interface BoardViewProps {
   board: Battleground;
   // Admin "play as": the admin stays signed in; the board shows this player's
   // banked pieces and places them for the player through the admin API.
-  asPlayer?: { id: string; bank: { singles: number; blocks: number; strikes: number }; refresh: () => void };
+  asPlayer?: { id: string; bank: { singles: number; blocks: number; strikes: number }; drop?: unknown; refresh: () => void };
   lockedSide?: Team; // /red and /blue (and a chosen player) lock you to a faction
   title?: string; // rank/command label shown in the header
   placementMode?: boolean; // onboarding "plant your flag" — next tap is a free claim
@@ -547,7 +547,22 @@ export function BoardView({
   const { gold, claim: goldClaim, nextAt: goldNext } = useGoldSquare(side);
   const goldIdx = gold ? gold.y * N + gold.x : -1;
   const mineGold = !!goldClaim && owned.has(goldClaim.y * N + goldClaim.x);
-  const { drop, taken: dropTaken } = useMyDrop(!asPlayer && !adminPaint);
+  const own = useMyDrop(!asPlayer && !adminPaint);
+  // play-as: show the player's drop (from the admin API) and its capture
+  const asDrop = (asPlayer?.drop as Drop | null | undefined) ?? null;
+  const [asTaken, setAsTaken] = useState<Drop | null>(null);
+  const lastAsDrop = useRef<Drop | null>(null);
+  useEffect(() => {
+    if (!asPlayer) return;
+    const prev = lastAsDrop.current;
+    if (prev && (!asDrop || asDrop.id !== prev.id) && owned.has(prev.y * N + prev.x)) {
+      setAsTaken(prev);
+      window.setTimeout(() => setAsTaken(null), 3200);
+    }
+    lastAsDrop.current = asDrop;
+  }, [asPlayer, asDrop, owned]);
+  const drop = asPlayer ? asDrop : own.drop;
+  const dropTaken = asPlayer ? asTaken : own.taken;
   const dropIdx = drop ? drop.y * N + drop.x : -1;
   const dropNow = useNow();
   const [tool, setTool] = useState<Tool>("flip");

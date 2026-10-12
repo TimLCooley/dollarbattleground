@@ -26,6 +26,13 @@ export async function GET(req: Request) {
     founderNo = count ?? null;
   }
   const b = (bank ?? { singles: 0, blocks: 0, strikes: 0 }) as { singles: number; blocks: number; strikes: number };
+  const { data: drop } = await db
+    .from("drops")
+    .select("id,x,y,reward_singles,reward_blocks,expires_at,claimed_at")
+    .eq("user_id", id)
+    .is("claimed_at", null)
+    .gt("expires_at", new Date().toISOString())
+    .maybeSingle();
   return NextResponse.json({
     id,
     email: u?.user?.email ?? null,
@@ -35,6 +42,7 @@ export async function GET(req: Request) {
     isOfficer: claim.founding_officer || Number((stats as { spent_cents?: number } | null)?.spent_cents ?? 0) >= 500,
     foundingNumber: founderNo,
     bank: { singles: b.singles ?? 0, blocks: b.blocks ?? 0, strikes: b.strikes ?? 0 },
+    drop: drop ?? null,
   });
 }
 
