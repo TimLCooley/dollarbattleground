@@ -8,6 +8,7 @@ import { PromotionModal } from "./promotion";
 import { rankFor, RANKS, type Rank } from "@/lib/ranks";
 import { createClient } from "@/utils/supabase/client";
 import { track } from "@/lib/track";
+import { rollDrop } from "@/lib/drops";
 import { FeedbackButton } from "./feedback-button";
 
 const KEY = "bg_player_v1";
@@ -185,6 +186,7 @@ export function HomeExperience() {
   // sign up) or bought a commission; the browser copy follows it.
   async function syncStatus(p: Player) {
     try {
+      rollDrop("open");
       // Come back daily: a free 1×1 once per day after the first (server decides).
       createClient()
         .rpc("daily_return")
@@ -256,6 +258,7 @@ export function HomeExperience() {
     optIn: boolean,
   ) {
     track("first_move");
+    window.setTimeout(() => rollDrop("placement"), 800);
     setPlacing(false);
     // Email + dispatch opt-in are captured here, at the claim step.
     try {
@@ -292,6 +295,7 @@ export function HomeExperience() {
 
   function handlePurchase(amount: number, reclaimed: number, captures: number) {
     if (!player) return;
+    if (!asId) window.setTimeout(() => rollDrop("placement"), 800);
     const prev = rankFor(player);
     const next: Player = {
       ...player,

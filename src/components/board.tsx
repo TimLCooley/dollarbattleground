@@ -394,6 +394,52 @@ function useGoldSquare() {
   return { gold, claim, nextAt };
 }
 
+// The signed-in player's own live drop, and the moment they take it.
+interface Drop { id: number; x: number; y: number; reward_singles: number; reward_blocks: number; expires_at: string; claimed_at: string | null }
+function useMyDrop(active: boolean) {
+  const [drop, setDrop] = useState<Drop | null>(null);
+  const [taken, setTaken] = useState<Drop | null>(null);
+  useEffect(() => {
+    if (!active) return;
+    const supabase = createClient();
+    let alive = true;
+    let channel: ReturnType<typeof supabase.channel> | null = null;
+    (async () => {
+      const { data: u } = await supabase.auth.getUser();
+      if (!u.user || u.user.is_anonymous || !alive) return;
+      const { data } = await supabase
+        .from("drops")
+        .select("*")
+        .eq("user_id", u.user.id)
+        .is("claimed_at", null)
+        .gt("expires_at", new Date().toISOString())
+        .maybeSingle();
+      if (alive) setDrop((data as Drop | null) ?? null);
+      channel = supabase
+        .channel(`drops-${u.user.id}-${Math.random().toString(36).slice(2)}`)
+        .on("postgres_changes", { event: "*", schema: "public", table: "drops", filter: `user_id=eq.${u.user.id}` }, (payload) => {
+          const r = payload.new as Drop | null;
+          if (!r) return;
+          if (r.claimed_at) {
+            setDrop((d) => (d && d.id === r.id ? null : d));
+            setTaken(r);
+            window.setTimeout(() => setTaken((t) => (t && t.id === r.id ? null : t)), 3200);
+          } else if (new Date(r.expires_at).getTime() > Date.now()) setDrop(r);
+        })
+        .subscribe();
+    })();
+    const t = window.setInterval(() => setDrop((d) => (d && new Date(d.expires_at).getTime() <= Date.now() ? null : d)), 15_000);
+    return () => {
+      alive = false;
+      window.clearInterval(t);
+      if (channel) supabase.removeChannel(channel);
+    };
+  }, [active]);
+  return { drop, taken };
+}
+const rewardText = (d: Drop) =>
+  [d.reward_blocks ? `${d.reward_blocks > 1 ? d.reward_blocks + "× " : ""}2×2` : "", d.reward_singles ? `${d.reward_singles > 1 ? d.reward_singles + "× " : ""}1×1` : ""].filter(Boolean).join(" + ");
+
 function useNow(ms = 1000) {
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
@@ -496,6 +542,9 @@ export function BoardView({
   const { gold, claim: goldClaim, nextAt: goldNext } = useGoldSquare();
   const goldIdx = gold ? gold.y * N + gold.x : -1;
   const mineGold = !!goldClaim && owned.has(goldClaim.y * N + goldClaim.x);
+  const { drop, taken: dropTaken } = useMyDrop(!asPlayer && !adminPaint);
+  const dropIdx = drop ? drop.y * N + drop.x : -1;
+  const dropNow = useNow();
   const [internalSide, setInternalSide] = useState<Team>("blue");
   const side: Team = lockedSide ?? internalSide;
   const [tool, setTool] = useState<Tool>("flip");
@@ -1029,6 +1078,11 @@ export function BoardView({
       )}
 
       <GoldCountdown gold={gold} nextAt={goldNext} />
+      {drop && (
+        <div className="drop-count" role="status">
+          🎁 DROP! Take the glowing green square for a free {rewardText(drop)} · {hms(new Date(drop.expires_at).getTime() - dropNow)} left
+        </div>
+      )}
       <div className="board-wrap">
         <div
           ref={boardRef}
@@ -1047,7 +1101,8 @@ export function BoardView({
               (flipping.has(i) ? " flip" : "") +
               (previewSet?.has(i) ? " preview" : "") +
               (aim === i ? " aimed" : "") +
-              (goldIdx === i ? " gold" : "");
+              (goldIdx === i ? " gold" : "") +
+              (dropIdx === i ? " drop" : "");
             return (
               <button
                 key={i}
@@ -1059,6 +1114,19 @@ export function BoardView({
               />
             );
           })}
+          {dropTaken && (
+            <div
+              className="gold-burst drop-burst mine"
+              style={{ left: `${((dropTaken.x + 0.5) / N) * 100}%`, top: `${((dropTaken.y + 0.5) / N) * 100}%` }}
+            >
+              <span className="gold-ring" />
+              <span className="gold-ring r2" />
+              {Array.from({ length: 10 }).map((_, k) => (
+                <span key={k} className="gold-spark" style={{ ["--a" as string]: `${k * 36}deg` }} />
+              ))}
+              <span className="gold-label">DROP! +{rewardText(dropTaken)}</span>
+            </div>
+          )}
           {goldClaim && (
             <div
               className={"gold-burst" + (mineGold ? " mine" : "")}
