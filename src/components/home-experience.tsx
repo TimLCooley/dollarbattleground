@@ -82,7 +82,18 @@ export function HomeExperience() {
       loadAs();
       return;
     }
-    track("board_open");
+    track("board_open", {
+      // where they came from (reddit, tiktok, …) so the scoreboard can tell which post worked
+      ref: (() => {
+        try {
+          const q = new URLSearchParams(window.location.search).get("ref");
+          if (q) return q;
+          return document.referrer ? new URL(document.referrer).hostname : "direct";
+        } catch {
+          return null;
+        }
+      })(),
+    });
     try {
       const raw = localStorage.getItem(KEY);
       if (raw) {
