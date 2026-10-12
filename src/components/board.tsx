@@ -58,6 +58,7 @@ export interface Battleground {
   counts: { b: number; r: number; n: number };
   popping: Set<number>;
   owned: Set<number>; // tiles the current player currently holds
+  open: Set<number>; // tiles no player has ever claimed (open ground)
   // Only the one free first tile is client-initiated (server enforces one per
   // user). Paid flips are painted server-side after Stripe confirms payment, so
   // there is no client-side paint for them — the board updates via realtime.
@@ -73,6 +74,7 @@ export function useBattleground(): Battleground {
   const [loaded, setLoaded] = useState(false);
   const [popping, setPopping] = useState<Set<number>>(new Set());
   const [owned, setOwned] = useState<Set<number>>(new Set());
+  const [open, setOpen] = useState<Set<number>>(new Set());
   const myIdRef = useRef<string | null>(null);
 
   const pop = useCallback((indices: number[]) => {
@@ -107,6 +109,7 @@ export function useBattleground(): Battleground {
       if (!active || error || !data) return;
       const nextCells: CellVal[] = new Array(TOTAL).fill(null);
       const nextOwned = new Set<number>();
+      const nextOpen = new Set<number>();
       for (const r of data as {
         x: number;
         y: number;
@@ -116,9 +119,11 @@ export function useBattleground(): Battleground {
         const i = r.y * N + r.x;
         nextCells[i] = r.team;
         if (uid && r.owner_id === uid) nextOwned.add(i);
+        if (!r.owner_id) nextOpen.add(i);
       }
       setCells(nextCells);
       setOwned(nextOwned);
+      setOpen(nextOpen);
       setLoaded(true);
     })();
     return () => {
@@ -147,6 +152,13 @@ export function useBattleground(): Battleground {
             const next = [...prev];
             next[i] = r.team;
             return next;
+          });
+          setOpen((prev) => {
+            if (!r.owner_id === prev.has(i)) return prev;
+            const s = new Set(prev);
+            if (r.owner_id) s.delete(i);
+            else s.add(i);
+            return s;
           });
           setOwned((prev) => {
             const mine = !!myIdRef.current && r.owner_id === myIdRef.current;
@@ -200,7 +212,7 @@ export function useBattleground(): Battleground {
     [pop],
   );
 
-  return { cells, loaded, counts, popping, claimFree, owned };
+  return { cells, loaded, counts, popping, claimFree, owned, open };
 }
 
 function Crosshair() {
@@ -443,6 +455,34 @@ function useMyDrop(active: boolean) {
 const rewardText = (d: Drop) =>
   [d.reward_blocks ? `${d.reward_blocks > 1 ? d.reward_blocks + "× " : ""}2×2` : "", d.reward_singles ? `${d.reward_singles > 1 ? d.reward_singles + "× " : ""}1×1` : ""].filter(Boolean).join(" + ");
 
+// Finder's bonus: the moment this player's claim of open ground paid a 1×1.
+function useFinderBonus(active: boolean) {
+  const [award, setAward] = useState<{ id: number; x: number; y: number } | null>(null);
+  useEffect(() => {
+    if (!active) return;
+    const supabase = createClient();
+    let channel: ReturnType<typeof supabase.channel> | null = null;
+    let alive = true;
+    (async () => {
+      const { data: u } = await supabase.auth.getUser();
+      if (!u.user || u.user.is_anonymous || !alive) return;
+      channel = supabase
+        .channel(`finder-${u.user.id}-${Math.random().toString(36).slice(2)}`)
+        .on("postgres_changes", { event: "INSERT", schema: "public", table: "land_grab_awards", filter: `user_id=eq.${u.user.id}` }, (payload) => {
+          const r = payload.new as { id: number; x: number; y: number };
+          setAward(r);
+          window.setTimeout(() => setAward((a) => (a && a.id === r.id ? null : a)), 3000);
+        })
+        .subscribe();
+    })();
+    return () => {
+      alive = false;
+      if (channel) supabase.removeChannel(channel);
+    };
+  }, [active]);
+  return award;
+}
+
 function useNow(ms = 1000) {
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
@@ -541,7 +581,7 @@ export function BoardView({
   adminPaint,
   asPlayer,
 }: BoardViewProps) {
-  const { cells, loaded, counts, popping, claimFree, owned } = board;
+  const { cells, loaded, counts, popping, claimFree, owned, open } = board;
   const [internalSide, setInternalSide] = useState<Team>("blue");
   const side: Team = lockedSide ?? internalSide;
   const { gold, claim: goldClaim, nextAt: goldNext } = useGoldSquare(side);
@@ -562,6 +602,7 @@ export function BoardView({
     lastAsDrop.current = asDrop;
   }, [asPlayer, asDrop, owned]);
   const drop = asPlayer ? asDrop : own.drop;
+  const finder = useFinderBonus(!asPlayer && !adminPaint);
   const dropTaken = asPlayer ? asTaken : own.taken;
   const dropIdx = drop ? drop.y * N + drop.x : -1;
   const dropNow = useNow();
@@ -1096,6 +1137,11 @@ export function BoardView({
       )}
 
       <GoldCountdown gold={gold} nextAt={goldNext} />
+      {loaded && open.size > 0 && (
+        <div className="land-grab" role="status">
+          🗺 LAND GRAB · {open.size} of {TOTAL} squares never claimed — take open ground (the striped squares) and half the time you get a free square back
+        </div>
+      )}
       {drop && (
         <div className="drop-count" role="status">
           🎁 DROP! Take the glowing green square for a free {rewardText(drop)} · {hms(new Date(drop.expires_at).getTime() - dropNow)} left
@@ -1120,7 +1166,8 @@ export function BoardView({
               (previewSet?.has(i) ? " preview" : "") +
               (aim === i ? " aimed" : "") +
               (goldIdx === i ? " gold" : "") +
-              (dropIdx === i ? " drop" : "");
+              (dropIdx === i ? " drop" : "") +
+              (open.has(i) && loaded ? " open" : "");
             return (
               <button
                 key={i}
@@ -1132,6 +1179,12 @@ export function BoardView({
               />
             );
           })}
+          {finder && (
+            <div className="gold-burst finder-burst mine" style={{ left: `${((finder.x + 0.5) / N) * 100}%`, top: `${((finder.y + 0.5) / N) * 100}%` }}>
+              <span className="gold-ring" />
+              <span className="gold-label">FINDER&apos;S BONUS +1×1</span>
+            </div>
+          )}
           {dropTaken && (
             <div
               className="gold-burst drop-burst mine"

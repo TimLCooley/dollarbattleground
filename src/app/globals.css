@@ -3690,3 +3690,10 @@ a.cc-pill-x:hover { color: #f2c14e; text-decoration: underline; }
 .drop-burst .gold-ring.r2 { border-color: #e6fff0; }
 .drop-burst .gold-spark { background: #a6ffc9; box-shadow: 0 0 8px #3ddc84; }
 .drop-burst .gold-label { background: linear-gradient(135deg, #e6fff0, #3ddc84); }
+
+/* ── Land grab: open (never-claimed) ground ───────────────────────────────── */
+.board .cell.open { background-image: repeating-linear-gradient(45deg, rgba(255,255,255,.22) 0 3px, transparent 3px 7px) !important; opacity: .72; }
+.board .cell.open.gold, .board .cell.open.drop { opacity: 1; }
+.land-grab { margin: 0 auto 8px; text-align: center; font-size: 14px; font-weight: 700; color: #efe4c4; }
+.finder-burst .gold-ring { border-color: #8ab4ff; box-shadow: 0 0 14px 4px rgba(138,180,255,.8); }
+.finder-burst .gold-label { background: #e6efff; font-size: 15px; }
