@@ -337,6 +337,96 @@ function HeaderMenu() {
   );
 }
 
+// The live gold square (if any) and the latest claim, kept in realtime.
+interface GoldSquare { id: number; x: number; y: number; expires_at: string; claimed_by: string | null; claimed_side: string | null; claimed_at: string | null }
+function useGoldSquare() {
+  const [gold, setGold] = useState<GoldSquare | null>(null);
+  const [claim, setClaim] = useState<GoldSquare | null>(null);
+  useEffect(() => {
+    const supabase = createClient();
+    let alive = true;
+    const load = async () => {
+      const { data } = await supabase
+        .from("gold_squares")
+        .select("*")
+        .is("claimed_at", null)
+        .gt("expires_at", new Date().toISOString())
+        .order("spawned_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (alive) setGold((data as GoldSquare | null) ?? null);
+    };
+    load();
+    const channel = supabase
+      .channel(`gold-${Math.random().toString(36).slice(2)}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "gold_squares" }, (payload) => {
+        const r = payload.new as GoldSquare | null;
+        if (!r) return;
+        if (r.claimed_at) {
+          setGold((g) => (g && g.id === r.id ? null : g));
+          setClaim(r);
+          window.setTimeout(() => setClaim((c) => (c && c.id === r.id ? null : c)), 3200);
+        } else if (new Date(r.expires_at).getTime() > Date.now()) {
+          setGold(r);
+        }
+      })
+      .subscribe();
+    // expire locally when its time is up
+    const t = window.setInterval(() => setGold((g) => (g && new Date(g.expires_at).getTime() <= Date.now() ? null : g)), 15_000);
+    return () => {
+      alive = false;
+      window.clearInterval(t);
+      supabase.removeChannel(channel);
+    };
+  }, []);
+  // when the next one drops (refreshed after each claim/expiry)
+  const [nextAt, setNextAt] = useState<string | null>(null);
+  useEffect(() => {
+    let alive = true;
+    const get = () => fetch("/api/gold").then((r) => r.json()).then((d) => alive && setNextAt(d.next_at ?? null)).catch(() => {});
+    get();
+    const t = window.setInterval(get, 120_000);
+    return () => {
+      alive = false;
+      window.clearInterval(t);
+    };
+  }, [gold?.id]);
+  return { gold, claim, nextAt };
+}
+
+function useNow(ms = 1000) {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const t = window.setInterval(() => setNow(Date.now()), ms);
+    return () => window.clearInterval(t);
+  }, [ms]);
+  return now;
+}
+const hms = (msLeft: number) => {
+  const s = Math.max(0, Math.floor(msLeft / 1000));
+  const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), x = s % 60;
+  return h > 0 ? `${h}:${String(m).padStart(2, "0")}:${String(x).padStart(2, "0")}` : `${m}:${String(x).padStart(2, "0")}`;
+};
+
+// "✨ Next gold square in 1:23:45" / "✨ GOLD IS LIVE — 32:10 left"
+function GoldCountdown({ gold, nextAt }: { gold: GoldSquare | null; nextAt: string | null }) {
+  const now = useNow();
+  if (gold) {
+    return (
+      <div className="gold-count live" role="status">
+        ✨ GOLD SQUARE IS LIVE — take it for a free 3×3 · {hms(new Date(gold.expires_at).getTime() - now)} left
+      </div>
+    );
+  }
+  if (!nextAt) return null;
+  const left = new Date(nextAt).getTime() - now;
+  return (
+    <div className="gold-count" role="status">
+      ✨ Next gold square {left > 0 ? `in ${hms(left)}` : "any moment now"} · first to take it wins a 3×3
+    </div>
+  );
+}
+
 // The signed-in player's server-side bank of banked bonus pieces, kept live.
 function useFlipBank(active: boolean) {
   const [bank, setBank] = useState<{ singles: number; blocks: number; strikes: number }>({
@@ -403,6 +493,9 @@ export function BoardView({
   asPlayer,
 }: BoardViewProps) {
   const { cells, loaded, counts, popping, claimFree, owned } = board;
+  const { gold, claim: goldClaim, nextAt: goldNext } = useGoldSquare();
+  const goldIdx = gold ? gold.y * N + gold.x : -1;
+  const mineGold = !!goldClaim && owned.has(goldClaim.y * N + goldClaim.x);
   const [internalSide, setInternalSide] = useState<Team>("blue");
   const side: Team = lockedSide ?? internalSide;
   const [tool, setTool] = useState<Tool>("flip");
@@ -935,6 +1028,7 @@ export function BoardView({
         </div>
       )}
 
+      <GoldCountdown gold={gold} nextAt={goldNext} />
       <div className="board-wrap">
         <div
           ref={boardRef}
@@ -952,7 +1046,8 @@ export function BoardView({
               (popping.has(i) ? " pop" : "") +
               (flipping.has(i) ? " flip" : "") +
               (previewSet?.has(i) ? " preview" : "") +
-              (aim === i ? " aimed" : "");
+              (aim === i ? " aimed" : "") +
+              (goldIdx === i ? " gold" : "");
             return (
               <button
                 key={i}
@@ -964,6 +1059,24 @@ export function BoardView({
               />
             );
           })}
+          {goldClaim && (
+            <div
+              className={"gold-burst" + (mineGold ? " mine" : "")}
+              style={{
+                left: `${((goldClaim.x + 0.5) / N) * 100}%`,
+                top: `${((goldClaim.y + 0.5) / N) * 100}%`,
+              }}
+            >
+              <span className="gold-ring" />
+              <span className="gold-ring r2" />
+              {Array.from({ length: 12 }).map((_, k) => (
+                <span key={k} className="gold-spark" style={{ ["--a" as string]: `${k * 30}deg` }} />
+              ))}
+              <span className="gold-label">
+                {mineGold ? "GOLD! +3×3" : `${(goldClaim.claimed_side ?? "").toUpperCase()} TOOK THE GOLD`}
+              </span>
+            </div>
+          )}
           {blast && (
             <div
               className="board-blast"

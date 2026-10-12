@@ -500,6 +500,23 @@ export async function runAutopilot(db: Db, opts: { force?: boolean } = {}): Prom
     notes.push(`daily supplies: ${e instanceof Error ? e.message : "failed"}`);
   }
 
+  // Gold squares run on a schedule so the board can count down to the next:
+  // app_config.gold_next = {at}. When it's due, spawn (live 45 min) and pick
+  // the next drop 2-4h later, kept inside 9am-10pm Mountain.
+  try {
+    const { scheduleNextGold } = await import("@/lib/gold");
+    const next = await cfgGet<{ at?: string }>(db, "gold_next");
+    if (!next?.at) await cfgSet(db, "gold_next", { at: scheduleNextGold(new Date()) });
+    else if (new Date(next.at).getTime() <= Date.now()) {
+      const { data: g } = await db.rpc("spawn_gold_square", { p_minutes: 45 });
+      const gs = g as { x?: number; y?: number } | null;
+      await cfgSet(db, "gold_next", { at: scheduleNextGold(new Date()) });
+      notes.push(`gold square at (${gs?.x},${gs?.y})`);
+    }
+  } catch (e) {
+    notes.push(`gold: ${e instanceof Error ? e.message : "failed"}`);
+  }
+
   // The scoreboard: once a day, after 14:00 UTC (8am Mountain).
   let last_scoreboard_at = state.last_scoreboard_at;
   if (new Date().getUTCHours() >= 14 && (!last_scoreboard_at || last_scoreboard_at.slice(0, 10) !== started.slice(0, 10))) {
