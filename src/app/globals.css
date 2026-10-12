@@ -3672,3 +3672,21 @@ a.cc-pill-x:hover { color: #f2c14e; text-decoration: underline; }
 .gold-count { margin: 6px auto 8px; text-align: center; font-size: 15px; font-weight: 700; color: #f2c14e; letter-spacing: .3px; }
 .gold-count.live { color: #0a0f1e; background: linear-gradient(90deg, #f2c14e, #fff3b0, #f2c14e); background-size: 200% 100%; animation: gold-bar 2s linear infinite; padding: 6px 10px; border: 2px solid #0c3c21; }
 @keyframes gold-bar { from { background-position: 0% 0; } to { background-position: 200% 0; } }
+
+/* ── Drops (personal bonus squares) ───────────────────────────────────────── */
+.board .cell.drop {
+  position: relative; z-index: 3; overflow: hidden;
+  background: linear-gradient(135deg, #c8ffd9, #3ddc84 50%, #138a4a) !important;
+  box-shadow: 0 0 0 2px #e6fff0, 0 0 12px 3px rgba(61, 220, 132, .9);
+  animation: drop-bob 1.2s ease-in-out infinite;
+}
+.board .cell.drop::before {
+  content: "+"; position: absolute; inset: 0; display: grid; place-items: center;
+  font-weight: 900; color: #0a3d22; font-size: 120%; line-height: 1;
+}
+@keyframes drop-bob { 0%,100% { transform: scale(1) rotate(0); } 50% { transform: scale(1.14) rotate(-4deg); } }
+.drop-count { margin: 0 auto 8px; text-align: center; font-size: 15px; font-weight: 800; color: #0a3d22; background: #3ddc84; border: 2px solid #0c3c21; padding: 6px 10px; }
+.drop-burst .gold-ring { border-color: #3ddc84; box-shadow: 0 0 18px 6px rgba(61,220,132,.8); }
+.drop-burst .gold-ring.r2 { border-color: #e6fff0; }
+.drop-burst .gold-spark { background: #a6ffc9; box-shadow: 0 0 8px #3ddc84; }
+.drop-burst .gold-label { background: linear-gradient(135deg, #e6fff0, #3ddc84); }
