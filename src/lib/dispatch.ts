@@ -537,9 +537,10 @@ export async function dailySupplies(db: Db): Promise<number> {
   const { data, error } = await db.rpc("issue_daily_supplies");
   if (error) throw new Error(error.message);
   let sent = 0;
-  for (const r of (data ?? []) as { user_id: string; side: string | null; officer: boolean }[]) {
+  for (const r of (data ?? []) as { user_id: string; side: string | null; officer: boolean; add_singles: number; add_blocks: number }[]) {
+    if (!r.add_singles && !r.add_blocks) continue; // still had today's kit — nothing new to announce
     try {
-      if (await notifySupplies(db, { userId: r.user_id, side: r.side, pieces: r.officer ? { blocks: 1, singles: 1 } : { singles: 1 }, reason: "daily" })) sent++;
+      if (await notifySupplies(db, { userId: r.user_id, side: r.side, pieces: { blocks: r.add_blocks, singles: r.add_singles }, reason: "daily" })) sent++;
     } catch {
       /* next */
     }
