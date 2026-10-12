@@ -206,7 +206,20 @@ export function useBattleground(): Battleground {
           p_team: team,
         })
         .then(({ error }) => {
-          if (error) console.error("claim_free_tile failed:", error.message);
+          if (!error) return;
+          console.error("claim_free_tile failed:", error.message);
+          // Already enlisted (e.g. signed in from a new or incognito browser
+          // and picked a side again): the server keeps their real side and
+          // squares — drop this browser's guess and reload from the server.
+          if (/already used/i.test(error.message)) {
+            try {
+              localStorage.removeItem("bg_player_v1");
+            } catch {
+              /* ignore */
+            }
+            window.alert("Welcome back — you're already enlisted. Taking you to your own side.");
+            window.location.reload();
+          }
         });
     },
     [pop],
