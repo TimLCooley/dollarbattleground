@@ -55,7 +55,7 @@ export function HomeExperience() {
   const [promotionRank, setPromotionRank] = useState<Rank | null>(null);
   const firstThreat = useRef(false);
   // Admin "play as" (?as=<user id>): the admin stays signed in as themself.
-  const [asP, setAsP] = useState<{ id: string; email: string | null; bank: { singles: number; blocks: number; strikes: number } } | null>(null);
+  const [asP, setAsP] = useState<{ id: string; email: string | null; bank: { singles: number; blocks: number; strikes: number }; drop: unknown } | null>(null);
   const asId = typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("as") : null;
   const loadAs = useCallback(async () => {
     if (!asId) return;
@@ -73,7 +73,7 @@ export function HomeExperience() {
     };
     p.rankKey = rankFor(p).key;
     setPlayer(p);
-    setAsP({ id: d.id, email: d.email, bank: d.bank });
+    setAsP({ id: d.id, email: d.email, bank: d.bank, drop: d.drop ?? null });
     setReady(true);
   }, [asId]);
 
@@ -357,7 +357,7 @@ export function HomeExperience() {
       )}
       <BoardView
         board={board}
-        asPlayer={asP ? { id: asP.id, bank: asP.bank, refresh: loadAs } : undefined}
+        asPlayer={asP ? { id: asP.id, bank: asP.bank, drop: asP.drop, refresh: loadAs } : undefined}
         lockedSide={player?.side}
         title={title}
         insignia={rank?.insignia}
