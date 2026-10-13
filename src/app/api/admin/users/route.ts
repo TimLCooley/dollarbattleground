@@ -55,8 +55,11 @@ export async function GET() {
   }
 
   // 3) free-tile usage
-  const { data: free } = await db.from("free_claims").select("user_id");
+  const { data: free } = await db.from("free_claims").select("user_id,side");
   const freeSet = new Set((free ?? []).map((f) => (f as { user_id: string }).user_id));
+  // The side a player enlisted with is permanent — holding zero squares right
+  // now doesn't make them sideless.
+  const enlistedSide = new Map((free ?? []).map((f) => [(f as { user_id: string }).user_id, (f as { side: string | null }).side]));
 
   // 3b) action points from player_stats
   const { data: stats } = await db
@@ -101,7 +104,7 @@ export async function GET() {
     return {
       id: u.id,
       email: u.email ?? null,
-      team: teamBy.get(u.id) ?? null,
+      team: enlistedSide.get(u.id) ?? teamBy.get(u.id) ?? null,
       isAdmin: isAdminUser(u),
       isAnon: Boolean(u.is_anonymous),
       created: u.created_at,
