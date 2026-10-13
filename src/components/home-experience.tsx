@@ -311,6 +311,9 @@ export function HomeExperience() {
   function handlePurchase(amount: number, reclaimed: number, captures: number) {
     if (!player) return;
     if (!asId) window.setTimeout(() => rollDrop("placement"), 800);
+    // Squares that were already your color but not yours (open ground) don't
+    // change color — say so, or a 3×3 there looks like it did nothing.
+    if (captures > 0) window.setTimeout(() => flashMsg(`✓ ${captures} square${captures === 1 ? " is" : "s are"} now yours.`), 900);
     const prev = rankFor(player);
     const next: Player = {
       ...player,

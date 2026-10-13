@@ -794,8 +794,10 @@ export function BoardView({
     [isOfficer],
   );
   const targetsAt = useCallback(
-    (focus: number) => patternFor(tool, focus).filter((k) => cells[k] !== side),
-    [patternFor, tool, cells, side],
+    // everything the move would make yours: enemy squares AND your color's
+    // open ground (same color, but not yours yet)
+    (focus: number) => patternFor(tool, focus).filter((k) => !owned.has(k)),
+    [patternFor, tool, owned],
   );
   useEffect(() => {
     const focus = aim ?? hoverIndex;
@@ -944,7 +946,7 @@ export function BoardView({
       // Spend a banked FREE piece instead of charging. Server-authoritative:
       // claim_banked checks the bank + derives the cells, realtime updates both.
       if (tool === "flip" && serverBank.singles > 0) {
-        const took = cells[i] !== side ? 1 : 0; // 0 only if you tapped your own tile
+        const took = owned.has(i) ? 0 : 1; // 0 only if it was already yours
         runStrike(i, "flip", () => {
           banked("flip", i)
         });
@@ -952,7 +954,7 @@ export function BoardView({
         return;
       }
       if (tool === "strike" && serverBank.strikes > 0) {
-        const flipped = patternFor("strike", i).filter((k) => cells[k] !== side);
+        const flipped = patternFor("strike", i).filter((k) => !owned.has(k));
         runStrike(i, "strike", () => {
           banked("strike", i)
         });
@@ -960,7 +962,7 @@ export function BoardView({
         return;
       }
       if (tool === "x" && serverBank.blocks > 0) {
-        const flipped = patternFor("x", i).filter((k) => cells[k] !== side);
+        const flipped = patternFor("x", i).filter((k) => !owned.has(k));
         runStrike(i, "x", () => {
           banked("x", i)
         });
@@ -994,7 +996,7 @@ export function BoardView({
       }
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [locked, tool, side, placementMode, onPlace, isOfficer, onPurchase, cells, adminPaint, bank, serverBank, runStrike, banked],
+    [locked, tool, side, placementMode, onPlace, isOfficer, onPurchase, cells, owned, adminPaint, bank, serverBank, runStrike, banked],
   );
 
   // First tap aims (shows the preview); tapping the aimed tile again — or the
