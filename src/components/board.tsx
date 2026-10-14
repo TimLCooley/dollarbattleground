@@ -469,7 +469,7 @@ const rewardText = (d: Drop) =>
   [d.reward_blocks ? `${d.reward_blocks > 1 ? d.reward_blocks + "× " : ""}2×2` : "", d.reward_singles ? `${d.reward_singles > 1 ? d.reward_singles + "× " : ""}1×1` : ""].filter(Boolean).join(" + ");
 
 // Finder's bonus: the moment this player's claim of open ground paid a 1×1.
-function useFinderBonus(active: boolean) {
+function useFinderBonus(active: boolean, table = "land_grab_awards") {
   const [award, setAward] = useState<{ id: number; x: number; y: number } | null>(null);
   useEffect(() => {
     if (!active) return;
@@ -480,8 +480,8 @@ function useFinderBonus(active: boolean) {
       const { data: u } = await supabase.auth.getUser();
       if (!u.user || u.user.is_anonymous || !alive) return;
       channel = supabase
-        .channel(`finder-${u.user.id}-${Math.random().toString(36).slice(2)}`)
-        .on("postgres_changes", { event: "INSERT", schema: "public", table: "land_grab_awards", filter: `user_id=eq.${u.user.id}` }, (payload) => {
+        .channel(`${table}-${u.user.id}-${Math.random().toString(36).slice(2)}`)
+        .on("postgres_changes", { event: "INSERT", schema: "public", table, filter: `user_id=eq.${u.user.id}` }, (payload) => {
           const r = payload.new as { id: number; x: number; y: number };
           setAward(r);
           window.setTimeout(() => setAward((a) => (a && a.id === r.id ? null : a)), 3000);
@@ -492,7 +492,7 @@ function useFinderBonus(active: boolean) {
       alive = false;
       if (channel) supabase.removeChannel(channel);
     };
-  }, [active]);
+  }, [active, table]);
   return award;
 }
 
@@ -616,6 +616,7 @@ export function BoardView({
   }, [asPlayer, asDrop, owned]);
   const drop = asPlayer ? asDrop : own.drop;
   const finder = useFinderBonus(!asPlayer && !adminPaint);
+  const rally = useFinderBonus(!asPlayer && !adminPaint, "rally_awards");
   const dropTaken = asPlayer ? asTaken : own.taken;
   const dropIdx = drop ? drop.y * N + drop.x : -1;
   const dropNow = useNow();
@@ -1152,6 +1153,20 @@ export function BoardView({
       )}
 
       <GoldCountdown gold={gold} nextAt={goldNext} />
+      {loaded && (() => {
+        // Comeback: a side under 40% of the colored map gets reinforcements
+        // (bigger daily kit, rally bonus, more drops) until it's back near even.
+        const colored = counts.r + counts.b;
+        if (colored < 20) return null;
+        const under = counts.b / colored < 0.4 ? "blue" : counts.r / colored < 0.4 ? "red" : null;
+        if (!under) return null;
+        const Name = under === "blue" ? "Blue" : "Red";
+        return (
+          <div className={"comeback " + under} role="status">
+            ⚑ {Name.toUpperCase()} REINFORCEMENTS · {Name} is behind — {Name} players get extra daily supplies, more drops, and a chance at a free square back for every square they retake
+          </div>
+        );
+      })()}
       {loaded && open.size > 0 && (
         <div className="land-grab" role="status">
           🗺 LAND GRAB · {open.size} of {TOTAL} squares never claimed — take open ground (the striped squares) for a chance at a free square back
@@ -1198,6 +1213,12 @@ export function BoardView({
             <div className="gold-burst finder-burst mine" style={{ left: `${((finder.x + 0.5) / N) * 100}%`, top: `${((finder.y + 0.5) / N) * 100}%` }}>
               <span className="gold-ring" />
               <span className="gold-label">FINDER&apos;S BONUS +1×1</span>
+            </div>
+          )}
+          {rally && (
+            <div className="gold-burst finder-burst rally-burst mine" style={{ left: `${((rally.x + 0.5) / N) * 100}%`, top: `${((rally.y + 0.5) / N) * 100}%` }}>
+              <span className="gold-ring" />
+              <span className="gold-label">RALLY +1×1</span>
             </div>
           )}
           {dropTaken && (

@@ -3697,3 +3697,8 @@ a.cc-pill-x:hover { color: #f2c14e; text-decoration: underline; }
 .land-grab { margin: 0 auto 8px; text-align: center; font-size: 14px; font-weight: 700; color: #efe4c4; }
 .finder-burst .gold-ring { border-color: #8ab4ff; box-shadow: 0 0 14px 4px rgba(138,180,255,.8); }
 .finder-burst .gold-label { background: #e6efff; font-size: 15px; }
+
+.comeback { margin: 0 auto 8px; text-align: center; font-size: 14px; font-weight: 700; padding: 6px 10px; border-radius: 8px; max-width: 640px; color: #fff; }
+.comeback.blue { background: #2f5fb8; }
+.comeback.red { background: #b8382f; }
+.rally-burst .gold-label { background: #fff1d6; }
