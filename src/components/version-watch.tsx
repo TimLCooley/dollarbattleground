@@ -3,14 +3,17 @@
 import { useEffect } from "react";
 
 // When a new deploy goes live, open tabs reload themselves — but never while
-// the player is in a dialog (typing an email, a code, feedback…).
+// the player is typing (an email, a code, feedback…).
 export function VersionWatch() {
   useEffect(() => {
     let loaded: string | null = null;
     let pending = false;
     let alive = true;
 
-    const busy = () => !!document.querySelector('[role="dialog"]') || document.activeElement?.tagName === "INPUT" || document.activeElement?.tagName === "TEXTAREA";
+    const busy = () =>
+      !!document.querySelector('[role="dialog"] input, [role="dialog"] textarea') ||
+      document.activeElement?.tagName === "INPUT" ||
+      document.activeElement?.tagName === "TEXTAREA";
     const reloadWhenIdle = () => {
       if (!alive) return;
       if (busy()) window.setTimeout(reloadWhenIdle, 5000);
