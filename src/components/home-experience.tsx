@@ -10,6 +10,7 @@ import { createClient } from "@/utils/supabase/client";
 import { track } from "@/lib/track";
 import { rollDrop } from "@/lib/drops";
 import { FeedbackButton } from "./feedback-button";
+import { ResupplyDrop } from "./resupply-drop";
 
 const KEY = "bg_player_v1";
 
@@ -356,6 +357,7 @@ export function HomeExperience() {
   return (
     <>
       {!asP && <FeedbackButton side={player?.side ?? null} />}
+      <ResupplyDrop active={!asP && !!player?.email && player.placedFirst !== false} />
       {asP && (
         <div className="playas-bar">
           Playing as <b>{asP.email}</b> — moves count for them ·{" "}
