@@ -3702,3 +3702,7 @@ a.cc-pill-x:hover { color: #f2c14e; text-decoration: underline; }
 .comeback.blue { background: #2f5fb8; }
 .comeback.red { background: #b8382f; }
 .rally-burst .gold-label { background: #fff1d6; }
+.resupply-crate { font-size: 64px; text-align: center; margin: 6px 0; animation: crate-drop .7s cubic-bezier(.3,1.6,.5,1) both; }
+.resupply-crate.opened { animation: crate-open .5s ease-out both; }
+@keyframes crate-drop { from { transform: translateY(-80px) rotate(-12deg); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes crate-open { 50% { transform: scale(1.35) rotate(6deg); } to { transform: scale(1.1); } }
