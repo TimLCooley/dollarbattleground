@@ -20,7 +20,8 @@ export function VersionWatch() {
       else window.location.reload();
     };
     const check = async () => {
-      if (pending || document.visibilityState !== "visible") return;
+      // the first call records which deploy this page loaded with, even in a background tab
+      if (pending || (loaded && document.visibilityState !== "visible")) return;
       try {
         const r = await fetch("/api/version", { cache: "no-store" });
         const { v } = (await r.json()) as { v: string };
