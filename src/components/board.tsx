@@ -1154,7 +1154,7 @@ export function BoardView({
       <GoldCountdown gold={gold} nextAt={goldNext} />
       {loaded && open.size > 0 && (
         <div className="land-grab" role="status">
-          🗺 LAND GRAB · {open.size} of {TOTAL} squares never claimed — take open ground (the striped squares) and half the time you get a free square back
+          🗺 LAND GRAB · {open.size} of {TOTAL} squares never claimed — take open ground (the striped squares) for a chance at a free square back
         </div>
       )}
       {drop && (
