@@ -6,7 +6,6 @@ import {
   CELLS,
   DIFFICULTY,
   DIFFICULTY_NAME,
-  KINDS,
   SIZE,
   TREE,
   WALL,
@@ -38,16 +37,18 @@ type Result = {
 };
 type DayResponse = { day: number; layout: Layout; side: Side | null; signedIn: boolean; isAdmin?: boolean; result: Result | null };
 
-const NAME: Record<Kind, string> = { commander: "Commander", archer: "Archer", soldier: "Soldier" };
-const BLURB: Record<Kind, string> = {
-  commander: "goes first, anywhere · takes the 3×3",
+type Troop = "archer" | "soldier";
+const TROOPS: Troop[] = ["archer", "soldier"];
+const NAME: Record<Troop, string> = { archer: "Archer", soldier: "Soldier" };
+const BLURB: Record<Troop, string> = {
   archer: "3 left + 3 right · over walls & water, trees stop it",
-  soldier: "2 up + 2 down · through trees, walls & water stop it",
+  soldier: "2 up + 2 down · through trees, wades water, walls stop it",
 };
 const MEDAL: Record<string, string> = { perfect: "💎 PERFECT!", gold: "🥇 GOLD", silver: "🥈 SILVER", bronze: "🥉 BRONZE" };
 const PENDING = "bg_commander_pending";
 const GUEST_SIDE = "bg_commander_side";
 const DRAFT = "bg_commander_draft";
+const BEST = "bg_commander_best";
 
 function storedSide(): Side | null {
   try {
@@ -63,7 +64,8 @@ export function CommanderGame() {
   const [error, setError] = useState<string | null>(null);
   const [guestSide, setGuestSide] = useState<Side | null>(null);
   const [placements, setPlacements] = useState<Placement[]>([]);
-  const [selected, setSelected] = useState<Kind>("commander");
+  const [selected, setSelected] = useState<Troop>("archer");
+  const [best, setBest] = useState<{ score: number; placements: Placement[] } | null>(null);
   const [focus, setFocus] = useState<number | null>(null);
   const [result, setResult] = useState<Result | null>(null);
   const [showResult, setShowResult] = useState(false);
@@ -97,7 +99,13 @@ export function CommanderGame() {
         } else {
           try {
             const draft = JSON.parse(localStorage.getItem(DRAFT) ?? "null");
-            if (draft?.day === d.day) setPlacements(draft.placements);
+            // saved layouts are re-checked against today's map (rules can change)
+            if (draft?.day === d.day) setPlacements(prune(d.layout, draft.placements));
+            const b = JSON.parse(localStorage.getItem(BEST) ?? "null");
+            if (b?.day === d.day) {
+              const pl = prune(d.layout, b.placements);
+              if (pl.length) setBest({ score: simulate(d.layout, pl).score, placements: pl });
+            }
           } catch {
             /* ignore */
           }
@@ -123,14 +131,13 @@ export function CommanderGame() {
   const shown = showOptimal && result ? result.solution : placements;
   const sim = useMemo(() => (L ? simulate(L, shown) : null), [L, shown]);
   const left = useMemo(() => {
-    const out: Record<Kind, number> = { commander: 0, archer: 0, soldier: 0 };
+    const out: Record<Troop, number> = { archer: 0, soldier: 0 };
     if (!L) return out;
-    for (const k of KINDS) out[k] = L.troops[k] - placements.filter((p) => p.kind === k).length;
+    for (const k of TROOPS) out[k] = L.troops[k] - placements.filter((p) => p.kind === k).length;
     return out;
   }, [L, placements]);
-  // the Commander always goes first; after that, the picked troop (or whatever's left)
-  const nextKind: Kind | null =
-    placements.length === 0 ? "commander" : left[selected] > 0 && selected !== "commander" ? selected : (["archer", "soldier"] as Kind[]).find((k) => left[k] > 0) ?? null;
+  // the picked troop, or whatever's left
+  const nextKind: Troop | null = left[selected] > 0 ? selected : TROOPS.find((k) => left[k] > 0) ?? null;
   const zone = useMemo(
     () => (L && sim && !locked && nextKind ? deployable(L, sim.final, placements, nextKind) : new Set<number>()),
     [L, sim, locked, nextKind, placements],
@@ -141,12 +148,18 @@ export function CommanderGame() {
     return p ? new Set(reach(L, p.i, p.kind)) : null;
   }, [L, focus, shown]);
 
-  const total = L ? L.troops.soldier + L.troops.archer + L.troops.commander : 0;
+  const total = L ? L.troops.soldier + L.troops.archer : 0;
 
   function place(next: Placement[]) {
     setPlacements(next);
+    if (!data || !L) return;
+    // practice freely: the best layout of the day is kept, tap it to bring it back
+    const score = simulate(L, next).score;
+    const newBest = !best || score > best.score ? { score, placements: next } : null;
+    if (newBest && next.length) setBest(newBest);
     try {
-      if (data) localStorage.setItem(DRAFT, JSON.stringify({ day: data.day, placements: next }));
+      localStorage.setItem(DRAFT, JSON.stringify({ day: data.day, placements: next }));
+      if (newBest && next.length) localStorage.setItem(BEST, JSON.stringify({ day: data.day, ...newBest }));
     } catch {
       /* ignore */
     }
@@ -158,15 +171,15 @@ export function CommanderGame() {
     if (at >= 0) {
       // picking a troop up also drops any later troop standing on ground it took
       place(prune(L, placements.filter((_, k) => k !== at)));
-      if (placements[at].kind !== "commander") setSelected(placements[at].kind);
+      setSelected(placements[at].kind as Troop);
       return;
     }
     if (!nextKind || !zone.has(i)) return;
     const kind = nextKind;
     place([...placements, { i, kind }]);
     const remaining = { ...left, [kind]: left[kind] - 1 };
-    if (kind === "commander" || remaining[kind] <= 0) {
-      const next = (["archer", "soldier"] as Kind[]).find((k) => remaining[k] > 0);
+    if (remaining[kind] <= 0) {
+      const next = TROOPS.find((k) => remaining[k] > 0);
       if (next) setSelected(next);
     }
   }
@@ -291,7 +304,8 @@ export function CommanderGame() {
       </div>
     );
 
-  const at = new Map(shown.map((p) => [p.i, p.kind]));
+  const at = new Map<number, Kind>(shown.map((p) => [p.i, p.kind]));
+  at.set(L.commander, "commander");
   const order = new Map(shown.map((p, k) => [p.i, k + 1]));
 
   return (
@@ -333,7 +347,7 @@ export function CommanderGame() {
               {kind && (
                 <span className={"cm-troop " + side}>
                   <TroopIcon kind={kind} />
-                  <span className="cm-plus">{order.get(i)}</span>
+                  {order.has(i) && <span className="cm-plus">{order.get(i)}</span>}
                 </span>
               )}
             </button>
@@ -344,20 +358,24 @@ export function CommanderGame() {
       {!locked ? (
         <>
           <div className="cm-tray">
-            {KINDS.map((k) => (
-              <button key={k} className={"cm-troop-btn" + (nextKind === k ? " on" : "") + (left[k] <= 0 ? " empty" : "")} onClick={() => k !== "commander" && setSelected(k)}>
+            {TROOPS.map((k) => (
+              <button key={k} className={"cm-troop-btn" + (nextKind === k ? " on" : "") + (left[k] <= 0 ? " empty" : "")} onClick={() => setSelected(k)}>
                 <span className={"cm-troop " + side}><TroopIcon kind={k} /></span>
                 <span className="cm-tb-name">{NAME[k]} ×{left[k]}</span>
                 <span className="cm-tb-blurb">{BLURB[k]}</span>
               </button>
             ))}
           </div>
+          <div className="cm-practice">
+            <button className="cm-chip" disabled={!best} onClick={() => best && place(best.placements)} title="Load your best layout">
+              ★ Best: {best ? best.score : "—"}
+            </button>
+            <button className="cm-chip" disabled={!placements.length} onClick={() => place([])}>↺ Reset</button>
+          </div>
           <p className="cm-hint">
-            {placements.length === 0
-              ? "Start by placing your Commander anywhere on the map."
-              : placements.length < total
-                ? "Archers and Soldiers deploy on your ground (the glowing tiles). Order matters. Tap a troop to pick it back up."
-                : "All troops deployed. Happy with it? You only get one shot."}
+            {placements.length < total
+              ? "Deploy on your ground (the glowing tiles). Order matters. Tap a troop to pick it back up. Practice all you like — only Attack counts."
+              : "All troops deployed. Happy with it? You only get one shot."}
           </p>
           <button className="ob-btn cm-submit" disabled={placements.length === 0 || posting} onClick={() => setConfirming(true)}>
             {posting ? "POSTING…" : `ATTACK! (${placements.length}/${total} deployed)`}
@@ -375,10 +393,11 @@ export function CommanderGame() {
         <summary>How to play</summary>
         <ul>
           <li>The whole map starts as the enemy&apos;s. Turn as many squares to your color as you can.</li>
-          <li><b>Commander</b> goes first, anywhere, and takes the 3×3 around it.</li>
+          <li>Your <b>Commander</b> is already on the field and holds the 3×3 around it.</li>
           <li><b>Archers</b> and <b>Soldiers</b> can only stand on ground you hold — including ground you just took. Order matters.</li>
           <li><b>Archer</b> takes 3 squares left and 3 right. Arrows fly over walls and water; a tree stops them.</li>
-          <li><b>Soldier</b> takes 2 squares up and 2 down. Soldiers march through trees (and take them); walls and water stop them.</li>
+          <li><b>Soldier</b> takes 2 squares up and 2 down. Soldiers march through trees (and take them) and wade through water (it costs a step); walls stop them.</li>
+          <li>Practice as much as you like — your best layout is saved (★). Only Attack counts.</li>
           <li>A new map every day, the same for everyone. Monday is the easiest, Friday and Saturday the hardest.</li>
           <li>One shot. Score 90% of the best possible for a free square on the main map; hit perfect for a 2×2.</li>
         </ul>
