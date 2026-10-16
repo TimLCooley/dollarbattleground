@@ -23,7 +23,7 @@ import {
 } from "@/lib/commander/engine";
 import { LoginOtp } from "@/components/login-otp";
 import { track } from "@/lib/track";
-import { Notches, TroopIcon, Tuft, hasTuft, sway, wallClass } from "./icons";
+import { Notches, Ripple, TreeSprite, TroopIcon, Tuft, hasTuft, sway, wallClass } from "./icons";
 
 type Side = "red" | "blue";
 type Result = {
@@ -368,7 +368,8 @@ export function CommanderGame() {
               onMouseEnter={() => kind && setFocus(i)}
               aria-label={`tile ${i % SIZE},${Math.floor(i / SIZE)}${kind ? " " + kind : ""}`}
             >
-              {t === TREE && <span className="cm-tree-mark" aria-hidden />}
+              {t === TREE && <TreeSprite />}
+              {t === WATER && <Ripple />}
               {t !== TREE && ownable(L, i) && !kind && hasTuft(i) && <Tuft />}
               {!kind && trails.has(i) && <span className={"cm-trail " + trails.get(i)} aria-hidden />}
               {kind && (
