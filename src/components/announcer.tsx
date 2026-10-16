@@ -59,16 +59,24 @@ function briefings(
   return list;
 }
 
+type Bulletin = { id: string; m: string; s?: string };
+
 export function FieldRadio({
   counts,
   side,
   rank,
   flash,
+  pinned,
+  bulletins = [],
 }: {
   counts: { b: number; r: number };
   side: "red" | "blue";
   rank?: string;
   flash?: string | null;
+  // a live event (gold, a drop) holds the radio and recolors it until it ends
+  pinned?: { tone: "gold" | "drop"; m: string; s?: string } | null;
+  // board news (next gold, land grab) joins the rotation; text can tick each second
+  bulletins?: Bulletin[];
 }) {
   const [idx, setIdx] = useState(0);
   const [now, setNow] = useState<Date | null>(null);
@@ -129,12 +137,12 @@ export function FieldRadio({
 
   const addr = rank ? titleCase(rank) : "General";
   const canned = briefings(counts, addr);
-  // The live agent line leads; canned briefings fill the rotation behind it.
-  const list = agentBrief ? [agentBrief, ...canned] : canned;
-  const brief = flash ? { m: flash, s: "" } : list[idx % list.length];
+  // The live agent line leads, then board news, then canned briefings.
+  const list: { id?: string; m: string; s?: string }[] = [...(agentBrief ? [agentBrief] : []), ...bulletins, ...canned];
+  const brief = flash ? { m: flash, s: "" } : pinned ? { id: "pinned-" + pinned.tone, m: pinned.m, s: pinned.s } : list[idx % list.length];
 
   return (
-    <div className={"field-radio" + (flash ? " alert" : "")}>
+    <div className={"field-radio" + (flash ? " alert" : pinned ? " " + pinned.tone : "")}>
       <div className="fr-top">
         <RadioIcon />
         <span className="fr-label">FIELD RADIO</span>
@@ -158,7 +166,7 @@ export function FieldRadio({
         onClick={() => setIdx((i) => i + 1)}
         aria-label="Next transmission"
       >
-        <span className="fr-msg" key={brief.m}>
+        <span className="fr-msg" key={"id" in brief && brief.id ? brief.id : brief.m}>
           {brief.m}
         </span>
         {brief.s && <span className="fr-sub">{brief.s}</span>}

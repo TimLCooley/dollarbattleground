@@ -510,25 +510,6 @@ const hms = (msLeft: number) => {
   return h > 0 ? `${h}:${String(m).padStart(2, "0")}:${String(x).padStart(2, "0")}` : `${m}:${String(x).padStart(2, "0")}`;
 };
 
-// "✨ Next gold square in 1:23:45" / "✨ GOLD IS LIVE — 32:10 left"
-// A side holding over 60% of the map gets a 2×2 from its gold instead of a 3×3.
-function GoldCountdown({ gold, nextAt, reward }: { gold: GoldSquare | null; nextAt: string | null; reward: string }) {
-  const now = useNow();
-  if (gold) {
-    return (
-      <div className="gold-count live" role="status">
-        ✨ YOUR TEAM&apos;S GOLD IS LIVE — capture it from {gold.side === "red" ? "Blue" : "Red"} for a free {reward} · {hms(new Date(gold.expires_at).getTime() - now)} left
-      </div>
-    );
-  }
-  if (!nextAt) return null;
-  const left = new Date(nextAt).getTime() - now;
-  return (
-    <div className="gold-count" role="status">
-      ✨ Next gold drop {left > 0 ? `in ${hms(left)}` : "any moment now"} · capture your team&apos;s gold from the enemy for a {reward}
-    </div>
-  );
-}
 
 // The signed-in player's server-side bank of banked bonus pieces, kept live.
 function useFlipBank(active: boolean) {
@@ -621,6 +602,7 @@ export function BoardView({
   const dropTaken = asPlayer ? asTaken : own.taken;
   const dropIdx = drop ? drop.y * N + drop.x : -1;
   const dropNow = useNow();
+  const goldReward = (side === "red" ? counts.r : counts.b) / Math.max(1, counts.r + counts.b) > 0.6 ? "2×2" : "3×3";
   const [tool, setTool] = useState<Tool>("flip");
   const [spent, setSpent] = useState(0);
   const [hint, setHint] = useState("Tap a position to take it.");
@@ -1153,21 +1135,11 @@ export function BoardView({
         </div>
       )}
 
-      <GoldCountdown
-        gold={gold}
-        nextAt={goldNext}
-        reward={(side === "red" ? counts.r : counts.b) / Math.max(1, counts.r + counts.b) > 0.6 ? "2×2" : "3×3"}
-      />
-      {loaded && open.size > 0 && (
-        <div className="land-grab" role="status">
-          🗺 LAND GRAB · {open.size} of {TOTAL} squares never claimed — take open ground (the striped squares) for a chance at a free square back
-        </div>
-      )}
-      {drop && (
-        <div className="drop-count" role="status">
-          🎁 DROP! Take the glowing green square for a free {rewardText(drop)} · {hms(new Date(drop.expires_at).getTime() - dropNow)} left
-        </div>
-      )}
+      {/* gold, land grab and drops now speak through the Field Radio; this spot goes to Commander */}
+      <a className="go-commander" href="/commander">
+        <span className="go-commander-k">⚔ COMMANDER</span>
+        <span className="go-commander-t">Today&apos;s puzzle: place your troops, take the most ground →</span>
+      </a>
       <div className="board-wrap">
         <div
           ref={boardRef}
@@ -1363,7 +1335,27 @@ export function BoardView({
           );
         })()}
 
-      <FieldRadio counts={show.counts} side={side} rank={title} flash={flash ?? simFlash} />
+      <FieldRadio
+        counts={show.counts}
+        side={side}
+        rank={title}
+        flash={flash ?? simFlash}
+        pinned={
+          drop
+            ? { tone: "drop", m: `🎁 DROP! Take the glowing green square for a free ${rewardText(drop)}`, s: `${hms(new Date(drop.expires_at).getTime() - dropNow)} left` }
+            : gold
+              ? { tone: "gold", m: `✨ YOUR TEAM'S GOLD IS LIVE — take it from ${gold.side === "red" ? "Blue" : "Red"} for a free ${goldReward}`, s: `${hms(new Date(gold.expires_at).getTime() - dropNow)} left` }
+              : null
+        }
+        bulletins={[
+          ...(goldNext
+            ? [{ id: "gold", m: `✨ Next gold drop ${new Date(goldNext).getTime() > dropNow ? `in ${hms(new Date(goldNext).getTime() - dropNow)}` : "any moment now"}`, s: `Capture your team's gold from the enemy for a ${goldReward}.` }]
+            : []),
+          ...(loaded && open.size > 0
+            ? [{ id: "grab", m: `🗺 Land grab: ${open.size} of ${TOTAL} squares never claimed`, s: "Take open ground (the striped squares) for a chance at a free square back." }]
+            : []),
+        ]}
+      />
 
       <div className="attack-head">★ CHOOSE YOUR ATTACK ★</div>
 

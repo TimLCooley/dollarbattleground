@@ -3866,3 +3866,16 @@ a.cc-pill-x:hover { color: #f2c14e; text-decoration: underline; }
 .cm-daynav-l { font-family: var(--font-pixel), monospace; font-size: 12px; color: var(--gold); text-align: center; }
 .cm-past { margin: 0; text-align: center; font-size: 14px; color: var(--parch); }
 .cm-past a { color: var(--gold); }
+
+/* Field Radio: a live gold square or drop takes over the radio and recolors it */
+.field-radio.gold { background: #4a3a0e; border-color: var(--gold); box-shadow: 0 0 0 2px rgba(242, 193, 78, 0.35), var(--shadow-pix); }
+.field-radio.gold .fr-msg { color: #ffe08a; }
+.field-radio.drop { background: #123f2a; border-color: #5ad17a; box-shadow: 0 0 0 2px rgba(90, 209, 122, 0.35), var(--shadow-pix); }
+.field-radio.drop .fr-msg { color: #b9f5c8; }
+
+/* Main map ⇄ Commander: a big button each way */
+.go-commander, .go-battle { display: flex; flex-direction: column; align-items: center; gap: 2px; width: 100%; max-width: 460px; box-sizing: border-box; margin: 0 auto 10px; padding: 10px 14px; background: var(--gold); border: 3px solid var(--gold-d); box-shadow: var(--shadow-pix); color: var(--ink); text-decoration: none; text-align: center; }
+.go-commander:hover, .go-battle:hover { filter: brightness(1.06); }
+.go-commander-k, .go-battle-k { font-family: var(--font-pixel), monospace; font-size: 14px; letter-spacing: 1px; }
+.go-commander-t, .go-battle-t { font-size: 14px; font-weight: 700; }
+.go-battle { max-width: none; margin: 0; }
