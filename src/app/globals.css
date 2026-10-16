@@ -3879,3 +3879,8 @@ a.cc-pill-x:hover { color: #f2c14e; text-decoration: underline; }
 .go-commander-k, .go-battle-k { font-family: var(--font-pixel), monospace; font-size: 14px; letter-spacing: 1px; }
 .go-commander-t, .go-battle-t { font-size: 14px; font-weight: 700; }
 .go-battle { max-width: none; margin: 0; }
+.cm-scorebar { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.cm-scorebar .cm-score { justify-content: flex-start; }
+.cm-scorebar .cm-practice { gap: 8px; }
+@media (max-width: 420px) { .cm-scorebar .cm-chip { padding: 6px 8px; font-size: 11px; } }
+.cm-scorebar:has(> :only-child) { justify-content: center; }

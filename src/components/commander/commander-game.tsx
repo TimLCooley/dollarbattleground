@@ -354,9 +354,19 @@ export function CommanderGame({ day: askedDay, unsubscribed = false }: { day?: n
         <div className="cm-banner">BEST LAYOUT · {result.optimal} squares · <button className="cm-link" onClick={() => setShowOptimal(false)}>show mine</button></div>
       )}
 
-      <div className="cm-score" aria-live="polite">
-        <span className="cm-score-n">{sim.score}</span>
-        <span className="cm-score-l">squares taken</span>
+      <div className="cm-scorebar">
+        <div className="cm-score" aria-live="polite">
+          <span className="cm-score-n">{sim.score}</span>
+          <span className="cm-score-l">squares taken</span>
+        </div>
+        {!locked && (
+          <div className="cm-practice">
+            <button className="cm-chip" disabled={!best} onClick={() => best && place(best.placements)} title="Load your best layout">
+              ★ Best: {best ? best.score : "—"}
+            </button>
+            <button className="cm-chip" disabled={!placements.length} onClick={() => place([])}>↺ Reset</button>
+          </div>
+        )}
       </div>
 
       <div className="cm-board" style={{ gridTemplateColumns: `repeat(${SIZE}, 1fr)` }} onMouseLeave={() => setFocus(null)}>
@@ -409,12 +419,6 @@ export function CommanderGame({ day: askedDay, unsubscribed = false }: { day?: n
                 <span className="cm-tb-blurb">{BLURB[k]}</span>
               </button>
             ))}
-          </div>
-          <div className="cm-practice">
-            <button className="cm-chip" disabled={!best} onClick={() => best && place(best.placements)} title="Load your best layout">
-              ★ Best: {best ? best.score : "—"}
-            </button>
-            <button className="cm-chip" disabled={!placements.length} onClick={() => place([])}>↺ Reset</button>
           </div>
           <p className="cm-hint">
             {placements.length < total && left[selected] <= 0
