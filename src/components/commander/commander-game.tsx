@@ -36,7 +36,7 @@ type Result = {
   thresholds: { bronze: number; silver: number; gold: number; perfect: number };
   histogram: { score: number; players: number }[];
 };
-type DayResponse = { day: number; layout: Layout; side: Side | null; signedIn: boolean; result: Result | null };
+type DayResponse = { day: number; layout: Layout; side: Side | null; signedIn: boolean; isAdmin?: boolean; result: Result | null };
 
 const NAME: Record<Kind, string> = { commander: "Commander", archer: "Archer", soldier: "Soldier" };
 const BLURB: Record<Kind, string> = {
@@ -48,6 +48,15 @@ const MEDAL: Record<string, string> = { perfect: "💎 PERFECT!", gold: "🥇 GO
 const PENDING = "bg_commander_pending";
 const GUEST_SIDE = "bg_commander_side";
 const DRAFT = "bg_commander_draft";
+
+function storedSide(): Side | null {
+  try {
+    const g = localStorage.getItem(GUEST_SIDE);
+    return g === "red" || g === "blue" ? g : null;
+  } catch {
+    return null;
+  }
+}
 
 export function CommanderGame() {
   const [data, setData] = useState<DayResponse | null>(null);
@@ -84,7 +93,7 @@ export function CommanderGame() {
         const pending = readPending();
         if (pending && pending.day === d.day) {
           setPlacements(pending.placements);
-          if (d.signedIn && d.side) void submit(d, pending.placements);
+          if (d.signedIn && (d.side || d.isAdmin)) void submit(d, pending.placements);
         } else {
           try {
             const draft = JSON.parse(localStorage.getItem(DRAFT) ?? "null");
@@ -182,7 +191,7 @@ export function CommanderGame() {
       setNeedLogin(true);
       return;
     }
-    if (!d.side) {
+    if (!d.side && !d.isAdmin) {
       window.location.href = "/?ref=commander";
       return;
     }
@@ -191,7 +200,7 @@ export function CommanderGame() {
       const r = await fetch("/api/commander/submit", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ day: d.day, placements: pl }),
+        body: JSON.stringify({ day: d.day, placements: pl, side: d.side ?? guestSide ?? storedSide() }),
       });
       const j = await r.json();
       if (!r.ok) {
