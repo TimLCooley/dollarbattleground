@@ -4,7 +4,7 @@ import { createClient } from "@/utils/supabase/client";
 
 // Funnel tracking: one event per browser session per step, so the scoreboard
 // can show where real people drop off. Fire-and-forget; never blocks the game.
-export type FunnelStep = "board_open" | "square_tap" | "side_pick" | "email_entered" | "code_verified" | "first_move" | "feedback_open";
+export type FunnelStep = "board_open" | "square_tap" | "side_pick" | "email_entered" | "code_verified" | "first_move" | "feedback_open" | "commander_open" | "commander_submit" | "commander_share";
 
 function sessionId(): string | null {
   try {

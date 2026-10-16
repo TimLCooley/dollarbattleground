@@ -306,6 +306,12 @@ export function HomeExperience() {
       // Founding Officer? The server decides on the claim; this upgrades the
       // promotion to a commission a beat later.
       window.setTimeout(() => syncStatus(promoted), 400);
+      // came from /commander with a score waiting? take them back to post it
+      try {
+        if (localStorage.getItem("bg_commander_pending")) window.setTimeout(() => (window.location.href = "/commander"), 4500);
+      } catch {
+        /* ignore */
+      }
     }
   }
 
