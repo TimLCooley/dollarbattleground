@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createClient } from "@/utils/supabase/client";
 import { track } from "@/lib/track";
 import { FieldRadio } from "./announcer";
+import { TroopIcon } from "./commander/icons";
 import { Insignia, rankFor, type InsigniaSpec } from "@/lib/ranks";
 import { addReceipt } from "@/lib/receipts";
 import { SpendConfirm, type PendingSpend } from "./spend-confirm";
@@ -1137,8 +1138,20 @@ export function BoardView({
 
       {/* gold, land grab and drops now speak through the Field Radio; this spot goes to Commander */}
       <a className="go-commander" href="/commander">
-        <span className="go-commander-k">⚔ COMMANDER</span>
-        <span className="go-commander-t">Today&apos;s puzzle: place your troops, take the most ground →</span>
+        <span className="go-commander-new">NEW GAME</span>
+        <span className="go-commander-art" aria-hidden>
+          <span className={"cm-troop " + side}>
+            <TroopIcon kind="archer" />
+          </span>
+          <span className={"cm-troop " + side}>
+            <TroopIcon kind="soldier" />
+          </span>
+        </span>
+        <span className="go-commander-txt">
+          <span className="go-commander-k">COMMANDER</span>
+          <span className="go-commander-t">A daily strategy puzzle — new map every day</span>
+        </span>
+        <span className="go-commander-play">PLAY ▶</span>
       </a>
       <div className="board-wrap">
         <div
