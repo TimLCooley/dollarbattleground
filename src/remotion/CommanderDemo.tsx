@@ -1,5 +1,6 @@
 import { AbsoluteFill, interpolate, spring, useCurrentFrame, useVideoConfig } from "remotion";
-import { CELLS, SIZE, TREE, WALL, WATER, ownable, reach, simulate, trail, xy, type Layout, type Placement } from "../lib/commander/engine";
+import { CELLS, SIZE, TREE, WALL, WATER, ownable, reach, simulate, trail, xy, type Placement } from "../lib/commander/engine";
+import { DEMO_LAYOUT } from "../lib/commander/demo-map";
 import { TroopIcon } from "../components/commander/icons";
 
 // How-to-play demo for /commander (website only): a square, silent loop that
@@ -9,12 +10,7 @@ import { TroopIcon } from "../components/commander/icons";
 // tree, a Soldier wading water — then "order matters" and a chain of moves.
 
 const I = (x: number, y: number) => y * SIZE + x;
-const T = (pts: [number, number][], t: number, terrain: number[]) => pts.forEach(([x, y]) => (terrain[I(x, y)] = t));
-const terrain = new Array<number>(CELLS).fill(0);
-T([[2, 7], [8, 2], [1, 3], [9, 9], [6, 3], [0, 10]], TREE, terrain);
-T([[6, 7], [1, 1], [2, 1], [3, 1], [9, 5], [9, 6]], WALL, terrain);
-T([[3, 6], [10, 4], [10, 5], [10, 3], [4, 10], [5, 10]], WATER, terrain);
-const LAYOUT: Layout = { day: 0, weekday: 1, terrain, commander: I(5, 8), troops: { archer: 3, soldier: 3 } };
+const LAYOUT = DEMO_LAYOUT;
 const MOVES: Placement[] = [
   { i: I(4, 7), kind: "archer" },
   { i: I(3, 7), kind: "soldier" },

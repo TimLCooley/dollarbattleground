@@ -420,7 +420,10 @@ export function CommanderGame() {
 
       <details className="cm-how">
         <summary>How to play</summary>
-        <button className="ob-btn cm-watch" onClick={() => setDemoOpen(true)}>▶ WATCH THE VIDEO</button>
+        <div className="cm-how-btns">
+          <button className="ob-btn cm-watch" onClick={() => setDemoOpen(true)}>▶ WATCH THE VIDEO</button>
+          <Link className="ob-btn cm-linkbtn cm-watch" href="/commander/tutorial">PLAY THE TUTORIAL →</Link>
+        </div>
         <p className="cm-how-lead">The whole map starts as the enemy&apos;s. Turn as many squares to your color as you can.</p>
         <div className="cm-how-row">
           <span className="cm-unit cm-how-unit">
@@ -479,6 +482,7 @@ export function CommanderGame() {
               <span className="ob-consent-txt">Play this video every time I open Commander</span>
             </label>
             <button className="ob-btn" onClick={() => setDemoOpen(false)}>LET&apos;S PLAY →</button>
+            <Link className="ob-skip" href="/commander/tutorial">or learn by playing — the 2-minute tutorial</Link>
           </div>
         </div>
       )}

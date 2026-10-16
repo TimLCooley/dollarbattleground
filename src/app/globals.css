@@ -3816,3 +3816,19 @@ a.cc-pill-x:hover { color: #f2c14e; text-decoration: underline; }
 .cm-demo { display: block; width: 100%; aspect-ratio: 1; margin: 10px 0 4px; border: 3px solid #0c3c21; background: #155f33; }
 .cm-demo-card { position: relative; max-width: 520px; }
 .cm-watch { margin: 10px 0 4px; }
+
+/* Commander tutorial */
+.cm-how-btns { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 10px 0 4px; }
+.cm-how-btns .cm-watch { margin: 0; }
+.cm-tut-dots { display: flex; align-items: center; justify-content: center; gap: 8px; }
+.cm-tut-dots span:not(.cm-tut-count) { width: 12px; height: 12px; border-radius: 50%; background: #0c3c21; border: 2px solid var(--parch); opacity: 0.5; }
+.cm-tut-dots span.on { background: var(--gold); border-color: var(--gold); opacity: 1; }
+.cm-tut-dots span.past { background: var(--parch); opacity: 0.8; }
+.cm-tut-count { font-family: var(--font-pixel), monospace; font-size: 11px; color: var(--parch); margin-left: 6px; }
+.cm-tut-title { font-family: var(--font-pixel), monospace; font-size: 18px; text-align: center; color: var(--gold); margin: 0; }
+.cm-tut-text { text-align: center; font-size: 16px; line-height: 1.35; margin: 0; color: var(--cream); }
+.cm-tut-win { display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 12px; border: 3px solid var(--gold); background: rgba(242, 193, 78, 0.12); }
+.cm-tut-win-t { font-family: var(--font-pixel), monospace; font-size: 18px; color: var(--gold); }
+.cm-tut-skip { text-align: center; }
+.cm-tut-done { display: flex; flex-direction: column; align-items: center; gap: 14px; padding: 22px 18px; background: var(--ground-2); border: 4px solid #0c3c21; text-align: left; }
+.cm-tut-done ul { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 8px; font-size: 15px; }
