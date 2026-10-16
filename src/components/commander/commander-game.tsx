@@ -408,6 +408,7 @@ export function CommanderGame() {
 
       <details className="cm-how">
         <summary>How to play</summary>
+        <video className="cm-demo" src="/commander-demo.mp4" autoPlay muted loop playsInline preload="metadata" aria-label="A 27-second demo of how to play" />
         <p className="cm-how-lead">The whole map starts as the enemy&apos;s. Turn as many squares to your color as you can.</p>
         <div className="cm-how-row">
           <span className="cm-unit cm-how-unit">

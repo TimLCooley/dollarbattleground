@@ -3,6 +3,7 @@ import { WarReport, DEFAULT_PROPS } from "./WarReport";
 import { SocialClip, DEFAULT_SOCIAL_PROPS } from "./SocialClip";
 import { ComingSoon, DEFAULT_COMING_SOON } from "./ComingSoon";
 import { Dispatch, DEFAULT_DISPATCH } from "./Dispatch";
+import { CommanderDemo, COMMANDER_DEMO_SECONDS } from "./CommanderDemo";
 
 const FPS = 30;
 
@@ -56,6 +57,14 @@ export const RemotionRoot = () => {
         calculateMetadata={({ props }) => ({
           durationInFrames: Math.round((props.seconds || 7) * FPS),
         })}
+      />
+      <Composition
+        id="CommanderDemo"
+        component={CommanderDemo}
+        durationInFrames={COMMANDER_DEMO_SECONDS * FPS}
+        fps={FPS}
+        width={1080}
+        height={1080}
       />
     </>
   );
