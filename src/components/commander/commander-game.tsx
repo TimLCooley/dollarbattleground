@@ -138,9 +138,19 @@ export function CommanderGame() {
   }, [L, placements]);
   // only the troop the player picked — no switching behind their back
   const nextKind: Troop | null = left[selected] > 0 ? selected : null;
+  // out of the picked troop? then a tap moves the last one of that kind instead
+  const moving = useMemo(() => {
+    if (!L || locked || left[selected] > 0) return null;
+    let last = -1;
+    placements.forEach((p, k) => p.kind === selected && (last = k));
+    if (last < 0) return null;
+    const without = prune(L, placements.filter((_, k) => k !== last));
+    return { without, zone: deployable(L, simulate(L, without).final, without, selected) };
+  }, [L, locked, left, selected, placements]);
   const zone = useMemo(
-    () => (L && sim && !locked && nextKind ? deployable(L, sim.final, placements, nextKind) : new Set<number>()),
-    [L, sim, locked, nextKind, placements],
+    () =>
+      moving ? moving.zone : L && sim && !locked && nextKind ? deployable(L, sim.final, placements, nextKind) : new Set<number>(),
+    [moving, L, sim, locked, nextKind, placements],
   );
   const focusReach = useMemo(() => {
     if (!L || focus == null) return null;
@@ -172,6 +182,10 @@ export function CommanderGame() {
       // picking a troop up also drops any later troop standing on ground it took
       place(prune(L, placements.filter((_, k) => k !== at)));
       setSelected(placements[at].kind as Troop);
+      return;
+    }
+    if (moving) {
+      if (moving.zone.has(i)) place([...moving.without, { i, kind: selected }]);
       return;
     }
     if (!nextKind || !zone.has(i)) return;
@@ -369,7 +383,7 @@ export function CommanderGame() {
           </div>
           <p className="cm-hint">
             {placements.length < total && left[selected] <= 0
-              ? `Out of ${NAME[selected]}s — tap ${NAME[selected === "archer" ? "soldier" : "archer"]}s to keep deploying.`
+              ? `All ${NAME[selected]}s are out — tap a glowing tile to move your last ${NAME[selected]} there.`
               : placements.length < total
                 ? "Deploy on your ground (the glowing tiles). Order matters. Tap a troop to pick it back up. Practice all you like — only Attack counts."
                 : "All troops deployed. Happy with it? You only get one shot."}
