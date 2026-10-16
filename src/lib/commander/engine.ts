@@ -3,12 +3,13 @@
 //
 // Rules (Tim, 2026-10-16):
 // - The whole map starts as the enemy's color.
-// - The Commander deploys first, anywhere, and takes the 3×3 around it.
+// - The puzzle places the Commander; it takes the 3×3 around it (terrain can
+//   cut into that).
 // - Archers and Soldiers deploy only on ground you hold (any of it, including
 //   ground taken a moment ago), so order is the puzzle.
 // - Archer: 3 left + 3 right. Flies over walls and water; a tree stops it.
-// - Soldier: 2 up + 2 down. Walks through trees (and takes them); walls and
-//   water stop it.
+// - Soldier: 2 up + 2 down. Walks through trees (and takes them), wades
+//   through water (uses a step, takes nothing); walls stop it.
 // - Score = squares you turned to your color.
 // - The troop count changes every day (2–5 Archers, 2–5 Soldiers).
 
@@ -27,7 +28,8 @@ export type Layout = {
   day: number;
   weekday: number; // 0 = Sunday … 6 = Saturday (America/Denver)
   terrain: number[]; // GRASS | WALL | TREE | WATER
-  troops: Record<Kind, number>;
+  commander: number; // where the puzzle puts the Commander
+  troops: { archer: number; soldier: number };
 };
 
 export type Placement = { i: number; kind: Kind };
@@ -120,7 +122,10 @@ export function generate(day: number, attempt = 0): Layout {
   // a different army every day
   const archer = 2 + pick(4);
   const soldier = 2 + pick(4);
-  return { day, weekday, terrain, troops: { commander: 1, archer, soldier } };
+  // the Commander's spot — on land
+  let commander = idx(pick(SIZE), pick(SIZE));
+  for (let g = 0; g < 200 && terrain[commander] !== GRASS; g++) commander = idx(pick(SIZE), pick(SIZE));
+  return { day, weekday, terrain, commander, troops: { archer, soldier } };
 }
 
 // ---------- reach ----------
@@ -146,7 +151,10 @@ export function reach(L: Layout, i: number, kind: Kind): number[] {
       if (kind === "archer") {
         if (t === TREE) break; // the shot hits the tree
         if (t === WALL || t === WATER) continue; // flies over
-      } else if (t === WALL || t === WATER) break; // soldiers can't pass
+      } else {
+        if (t === WALL) break; // soldiers can't climb walls
+        if (t === WATER) continue; // they wade through — costs the step, takes nothing
+      }
       out.push(idx(x, y));
     }
   }
@@ -161,20 +169,26 @@ export type Result = {
   invalidAt: number; // first troop that couldn't stand where it is, or -1
 };
 
-/** Commander first, anywhere on land; everyone else on ground you hold. */
-function canDeploy(L: Layout, final: Uint8Array, occupied: Set<number>, p: Placement, placed: number) {
-  if (p.i < 0 || p.i >= CELLS || occupied.has(p.i)) return false;
-  if (p.kind === "commander") return placed === 0 && ownable(L, p.i);
-  return placed > 0 && final[p.i] === 1;
+/** Archers and Soldiers stand on ground you hold that's free (not the Commander's square). */
+function canDeploy(L: Layout, final: Uint8Array, occupied: Set<number>, p: Placement) {
+  if (p.kind === "commander" || p.i < 0 || p.i >= CELLS || occupied.has(p.i) || p.i === L.commander) return false;
+  return final[p.i] === 1;
+}
+
+/** The ground you start with: the Commander's 3×3, minus whatever terrain is in it. */
+export function startGround(L: Layout): Uint8Array {
+  const final = new Uint8Array(CELLS);
+  for (const t of reach(L, L.commander, "commander")) final[t] = 1;
+  return final;
 }
 
 export function simulate(L: Layout, placements: Placement[]): Result {
-  const final = new Uint8Array(CELLS);
+  const final = startGround(L);
   const occupied = new Set<number>();
   let invalidAt = -1;
   for (let k = 0; k < placements.length; k++) {
     const p = placements[k];
-    if (!canDeploy(L, final, occupied, p, k)) {
+    if (!canDeploy(L, final, occupied, p)) {
       invalidAt = k;
       break;
     }
@@ -190,7 +204,7 @@ export function simulate(L: Layout, placements: Placement[]): Result {
 export function deployable(L: Layout, final: Uint8Array, placements: Placement[], kind: Kind): Set<number> {
   const occ = new Set(placements.map((p) => p.i));
   const out = new Set<number>();
-  for (let i = 0; i < CELLS; i++) if (canDeploy(L, final, occ, { i, kind }, placements.length)) out.add(i);
+  for (let i = 0; i < CELLS; i++) if (canDeploy(L, final, occ, { i, kind })) out.add(i);
   return out;
 }
 
@@ -202,19 +216,19 @@ export function prune(L: Layout, placements: Placement[]): Placement[] {
 }
 
 export function validate(L: Layout, placements: Placement[]): string | null {
-  const count: Record<Kind, number> = { commander: 0, archer: 0, soldier: 0 };
+  const count = { archer: 0, soldier: 0 };
   for (const p of placements) {
-    if (!KINDS.includes(p.kind) || !Number.isInteger(p.i)) return "unknown troop";
+    if ((p.kind !== "archer" && p.kind !== "soldier") || !Number.isInteger(p.i)) return "unknown troop";
     count[p.kind]++;
   }
-  for (const k of KINDS) if (count[k] > L.troops[k]) return `too many ${k}s`;
-  if (simulate(L, placements).invalidAt >= 0) return "the Commander goes first; everyone else deploys on ground you hold";
+  if (count.archer > L.troops.archer || count.soldier > L.troops.soldier) return "too many troops";
+  if (simulate(L, placements).invalidAt >= 0) return "troops deploy only on ground you hold";
   return null;
 }
 
 // ---------- the exact best, and how most people will play ----------
 
-/** Exact optimum: every Commander spot, then depth-first over useful deployments with an upper-bound cut. */
+/** Exact optimum: depth-first over useful deployments with an upper-bound cut. */
 export function solve(L: Layout): { score: number; placements: Placement[]; checked: number } {
   const R = new Map<string, number[]>();
   for (let i = 0; i < CELLS; i++) for (const k of KINDS) R.set(`${i}:${k}`, reach(L, i, k));
@@ -228,6 +242,7 @@ export function solve(L: Layout): { score: number; placements: Placement[]; chec
     if (score > best.score) best = { score, placements: pl.slice() };
     if (score + left.archer * maxGain.archer + left.soldier * maxGain.soldier <= best.score) return;
     const occ = new Set(pl.map((p) => p.i));
+    occ.add(L.commander);
     let key = `${left.archer}${left.soldier}`;
     for (let i = 0; i < CELLS; i++) key += final[i] ? (occ.has(i) ? "2" : "1") : "0";
     if (seen.has(key)) return;
@@ -251,51 +266,38 @@ export function solve(L: Layout): { score: number; placements: Placement[]; chec
     }
   };
 
-  for (let c = 0; c < CELLS; c++) {
-    if (!ownable(L, c)) continue;
-    const final = new Uint8Array(CELLS);
-    const tiles = R.get(`${c}:commander`)!;
-    for (const t of tiles) final[t] = 1;
-    seen.clear();
-    dfs(final, tiles.length, [{ i: c, kind: "commander" }], { archer: L.troops.archer, soldier: L.troops.soldier });
-  }
+  const final = startGround(L);
+  let start = 0;
+  for (let i = 0; i < CELLS; i++) start += final[i];
+  dfs(final, start, [], { archer: L.troops.archer, soldier: L.troops.soldier });
   return { ...best, checked };
 }
 
-/** How most people will play: a roomy Commander spot, then each troop wherever it takes the most new ground. */
+/** How most people will play: each troop wherever it takes the most new ground right now. */
 export function greedy(L: Layout): { score: number; placements: Placement[] } {
-  let bestRun = { score: 0, placements: [] as Placement[] };
-  const spots = Array.from({ length: CELLS }, (_, i) => i)
-    .filter((i) => ownable(L, i))
-    .map((i) => ({ i, n: reach(L, i, "commander").length }))
-    .sort((a, b) => b.n - a.n)
-    .slice(0, 3);
-  for (const s of spots) {
-    const pl: Placement[] = [{ i: s.i, kind: "commander" }];
-    let sim = simulate(L, pl);
-    const left = { archer: L.troops.archer, soldier: L.troops.soldier };
-    for (;;) {
-      let move: Placement | null = null;
-      let most = 0;
-      for (const kind of ["archer", "soldier"] as const) {
-        if (left[kind] <= 0) continue;
-        for (const i of deployable(L, sim.final, pl, kind)) {
-          let add = 0;
-          for (const t of reach(L, i, kind)) if (!sim.final[t]) add++;
-          if (add > most) {
-            most = add;
-            move = { i, kind };
-          }
+  const pl: Placement[] = [];
+  let sim = simulate(L, pl);
+  const left = { archer: L.troops.archer, soldier: L.troops.soldier };
+  for (;;) {
+    let move: Placement | null = null;
+    let most = 0;
+    for (const kind of ["archer", "soldier"] as const) {
+      if (left[kind] <= 0) continue;
+      for (const i of deployable(L, sim.final, pl, kind)) {
+        let add = 0;
+        for (const t of reach(L, i, kind)) if (!sim.final[t]) add++;
+        if (add > most) {
+          most = add;
+          move = { i, kind };
         }
       }
-      if (!move) break;
-      pl.push(move);
-      left[move.kind as "archer" | "soldier"]--;
-      sim = simulate(L, pl);
     }
-    if (sim.score > bestRun.score) bestRun = { score: sim.score, placements: pl };
+    if (!move) break;
+    pl.push(move);
+    left[move.kind as "archer" | "soldier"]--;
+    sim = simulate(L, pl);
   }
-  return bestRun;
+  return { score: sim.score, placements: pl };
 }
 
 /** How far below the best the obvious play should land, by difficulty level. */

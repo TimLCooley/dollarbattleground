@@ -3738,7 +3738,7 @@ a.cc-pill-x:hover { color: #f2c14e; text-decoration: underline; }
 .cm-troop.blue { border-color: var(--blue-d); }
 .cm-troop.red { border-color: var(--red-d); }
 .cm-plus { position: absolute; top: -8px; right: -8px; background: var(--gold); color: var(--ink); font-family: var(--font-pixel), monospace; font-size: 9px; padding: 1px 3px; }
-.cm-tray { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.cm-tray { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
 .cm-troop-btn { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 8px 6px; background: var(--ground-2); border: 3px solid #0c3c21; color: var(--cream); cursor: pointer; font: inherit; }
 .cm-troop-btn .cm-troop { width: 38px; height: 38px; }
 .cm-troop-btn.on { border-color: var(--gold); }
@@ -3777,3 +3777,6 @@ a.cc-pill-x:hover { color: #f2c14e; text-decoration: underline; }
 }
 .cm-entry { display: block; margin: 0 auto 8px; text-align: center; font-size: 14px; font-weight: 700; color: var(--gold); text-decoration: none; }
 .cm-entry:hover { text-decoration: underline; }
+.cm-practice { display: flex; justify-content: center; gap: 10px; }
+.cm-chip { font-family: var(--font-pixel), monospace; font-size: 12px; padding: 7px 12px; background: var(--ground-2); color: var(--gold); border: 3px solid #0c3c21; cursor: pointer; }
+.cm-chip:disabled { opacity: 0.45; cursor: default; }
