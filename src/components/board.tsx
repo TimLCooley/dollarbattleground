@@ -1152,6 +1152,7 @@ export function BoardView({
         </div>
       )}
 
+      <a className="cm-entry" href="/commander">⚔ Today&apos;s Commander puzzle: place your troops, take the most ground →</a>
       <GoldCountdown gold={gold} nextAt={goldNext} />
       {loaded && (() => {
         // Comeback: a side under 40% of the colored map gets reinforcements

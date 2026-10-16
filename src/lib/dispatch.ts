@@ -594,6 +594,9 @@ export async function dailyScoreboard(db: Db): Promise<boolean> {
     ["entered the code", stepN("code_verified")],
     ["placed their square", stepN("first_move")],
     ["opened feedback", stepN("feedback_open")],
+    ["opened Commander", stepN("commander_open")],
+    ["posted a Commander score", stepN("commander_submit")],
+    ["shared Commander", stepN("commander_share")],
   ].map(([l, v]) => `<tr><td style="padding:3px 8px 3px 0;color:#efe4c4">${l}</td><td style="padding:3px 8px;color:#fff"><b>${v}</b></td></tr>`).join("");
   const { data: opens } = await db.from("funnel_events").select("meta").eq("step", "board_open").gte("created_at", since);
   const refCount = new Map<string, number>();

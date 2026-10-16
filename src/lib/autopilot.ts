@@ -517,6 +517,23 @@ export async function runAutopilot(db: Db, opts: { force?: boolean } = {}): Prom
     notes.push(`gold: ${e instanceof Error ? e.message : "failed"}`);
   }
 
+  // Commander: build + exactly solve puzzles a few days ahead, so the first
+  // player of the day never waits on the solver.
+  try {
+    const { dayNumber } = await import("@/lib/commander/engine");
+    const ahead = [1, 2, 3].map((k) => dayNumber() + k);
+    const { data: have } = await db.from("commander_days").select("day").in("day", ahead);
+    const missing = ahead.find((d) => !(have ?? []).some((h: { day: number }) => h.day === d));
+    if (missing) {
+      // one per tick keeps the tick short; three days of runway covers a slow day
+      const { getDay } = await import("@/lib/commander/server");
+      const d = await getDay(db, missing);
+      notes.push(`commander #${missing} built (optimal ${d.optimal})`);
+    }
+  } catch (e) {
+    notes.push(`commander: ${e instanceof Error ? e.message : "failed"}`);
+  }
+
   // The scoreboard: once a day, after 14:00 UTC (8am Mountain).
   let last_scoreboard_at = state.last_scoreboard_at;
   if (new Date().getUTCHours() >= 14 && (!last_scoreboard_at || last_scoreboard_at.slice(0, 10) !== started.slice(0, 10))) {
