@@ -573,8 +573,12 @@ const dayHref = (n: number, today: number) => (n >= today ? "/commander" : `/com
 function Header({ day, today, layout, onNext }: { day: number; today: number; layout?: Layout; onNext: () => void }) {
   return (
     <>
+      <Link className="go-battle" href="/">
+        <span className="go-battle-k">🗺 BATTLEGROUND</span>
+        <span className="go-battle-t">Back to the live map — Red vs Blue →</span>
+      </Link>
       <div className="cm-head">
-        <Link href="/" className="cm-back">‹ main map</Link>
+        <span />
         <h1 className="cm-title">COMMANDER</h1>
         <span />
       </div>
