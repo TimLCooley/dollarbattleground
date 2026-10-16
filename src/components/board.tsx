@@ -363,7 +363,7 @@ function HeaderMenu() {
 }
 
 // The live gold square (if any) and the latest claim, kept in realtime.
-interface GoldSquare { id: number; x: number; y: number; side: string | null; expires_at: string; claimed_by: string | null; claimed_side: string | null; claimed_at: string | null }
+interface GoldSquare { id: number; x: number; y: number; side: string | null; expires_at: string; claimed_by: string | null; claimed_side: string | null; claimed_at: string | null; reward?: string | null }
 // Each drop is two golds — Red's on Blue ground, Blue's on Red ground — and a
 // player only ever sees (and can earn) their own side's.
 function useGoldSquare(side: string) {
@@ -511,12 +511,13 @@ const hms = (msLeft: number) => {
 };
 
 // "✨ Next gold square in 1:23:45" / "✨ GOLD IS LIVE — 32:10 left"
-function GoldCountdown({ gold, nextAt }: { gold: GoldSquare | null; nextAt: string | null }) {
+// A side holding over 60% of the map gets a 2×2 from its gold instead of a 3×3.
+function GoldCountdown({ gold, nextAt, reward }: { gold: GoldSquare | null; nextAt: string | null; reward: string }) {
   const now = useNow();
   if (gold) {
     return (
       <div className="gold-count live" role="status">
-        ✨ YOUR TEAM&apos;S GOLD IS LIVE — capture it from {gold.side === "red" ? "Blue" : "Red"} for a free 3×3 · {hms(new Date(gold.expires_at).getTime() - now)} left
+        ✨ YOUR TEAM&apos;S GOLD IS LIVE — capture it from {gold.side === "red" ? "Blue" : "Red"} for a free {reward} · {hms(new Date(gold.expires_at).getTime() - now)} left
       </div>
     );
   }
@@ -524,7 +525,7 @@ function GoldCountdown({ gold, nextAt }: { gold: GoldSquare | null; nextAt: stri
   const left = new Date(nextAt).getTime() - now;
   return (
     <div className="gold-count" role="status">
-      ✨ Next gold drop {left > 0 ? `in ${hms(left)}` : "any moment now"} · capture your team&apos;s gold from the enemy for a 3×3
+      ✨ Next gold drop {left > 0 ? `in ${hms(left)}` : "any moment now"} · capture your team&apos;s gold from the enemy for a {reward}
     </div>
   );
 }
@@ -1152,7 +1153,11 @@ export function BoardView({
         </div>
       )}
 
-      <GoldCountdown gold={gold} nextAt={goldNext} />
+      <GoldCountdown
+        gold={gold}
+        nextAt={goldNext}
+        reward={(side === "red" ? counts.r : counts.b) / Math.max(1, counts.r + counts.b) > 0.6 ? "2×2" : "3×3"}
+      />
       {loaded && open.size > 0 && (
         <div className="land-grab" role="status">
           🗺 LAND GRAB · {open.size} of {TOTAL} squares never claimed — take open ground (the striped squares) for a chance at a free square back
@@ -1234,7 +1239,7 @@ export function BoardView({
                 <span key={k} className="gold-spark" style={{ ["--a" as string]: `${k * 30}deg` }} />
               ))}
               <span className="gold-label">
-                {mineGold ? "GOLD! +3×3" : `${(goldClaim.claimed_side ?? "").toUpperCase()} CAPTURED OUR GOLD`}
+                {mineGold ? (goldClaim.reward ? `GOLD! +${goldClaim.reward === "2x2" ? "2×2" : "3×3"}` : "GOLD!") : `${(goldClaim.claimed_side ?? "").toUpperCase()} CAPTURED OUR GOLD`}
               </span>
             </div>
           )}
