@@ -12,11 +12,12 @@ export const maxDuration = 60;
 // client-sent score is never trusted. Gold pays a 1×1 on the main map,
 // perfect a 2×2 (enlisted players, once a day).
 export async function POST(req: Request) {
-  if (process.env.NODE_ENV !== "development" && !(await requireAdmin())) return NextResponse.json({ error: "Not found" }, { status: 404 }); // admin-only for now
+  const isAdmin = !!(await requireAdmin());
+  if (process.env.NODE_ENV !== "development" && !isAdmin) return NextResponse.json({ error: "Not found" }, { status: 404 }); // admin-only for now
   const { data: u } = await (await createClient()).auth.getUser();
   const user = u.user && !u.user.is_anonymous ? u.user : null;
   if (!user) return NextResponse.json({ error: "sign in to post your score" }, { status: 401 });
-  const body = (await req.json().catch(() => ({}))) as { day?: number; placements?: Placement[] };
+  const body = (await req.json().catch(() => ({}))) as { day?: number; placements?: Placement[]; side?: string };
   const today = dayNumber();
   if (body.day !== today) return NextResponse.json({ error: "that puzzle has ended — here's today's" }, { status: 409 });
   const placements = (Array.isArray(body.placements) ? body.placements : []).map((p) => ({ i: Math.floor(Number(p.i)), kind: p.kind }));
@@ -26,14 +27,17 @@ export async function POST(req: Request) {
   const bad = validate(d.layout, placements);
   if (bad) return NextResponse.json({ error: bad }, { status: 400 });
   const { data: fc } = await db.from("free_claims").select("side").eq("user_id", user.id).maybeSingle();
-  if (!fc?.side) return NextResponse.json({ error: "enlist on the main map first", needsEnlist: true }, { status: 403 });
+  // the admin isn't enlisted on the main map — they play as the color picked on the puzzle screen
+  const side = fc?.side ?? (isAdmin && (body.side === "red" || body.side === "blue") ? body.side : null);
+  if (!side) return NextResponse.json({ error: "enlist on the main map first", needsEnlist: true }, { status: 403 });
 
   const score = simulate(d.layout, placements).score;
   const medal = medalFor(score, d.optimal);
-  const reward = medal === "perfect" ? "2x2" : medal === "gold" ? "1x1" : null;
+  // main-map rewards only for enlisted players
+  const reward = !fc?.side ? null : medal === "perfect" ? "2x2" : medal === "gold" ? "1x1" : null;
   const { error } = await db
     .from("commander_scores")
-    .insert({ day: today, user_id: user.id, side: fc.side, placements, score, medal, reward });
+    .insert({ day: today, user_id: user.id, side, placements, score, medal, reward });
   if (error) {
     if (error.code === "23505") return NextResponse.json({ error: "you already submitted today" }, { status: 409 });
     return NextResponse.json({ error: error.message }, { status: 500 });
