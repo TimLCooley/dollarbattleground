@@ -4,17 +4,18 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import {
   CELLS,
-  ENEMY,
-  FORT_POINTS,
+  DIFFICULTY,
+  DIFFICULTY_NAME,
   KINDS,
   SIZE,
   TREE,
   WALL,
   WATER,
-  YOU,
-  deployZone,
+  WEEKDAY,
+  deployable,
+  ownable,
+  prune,
   reach,
-  bonuses,
   simulate,
   type Kind,
   type Layout,
@@ -22,7 +23,7 @@ import {
 } from "@/lib/commander/engine";
 import { LoginOtp } from "@/components/login-otp";
 import { track } from "@/lib/track";
-import { FortIcon, PickupIcon, TroopIcon } from "./icons";
+import { TroopIcon } from "./icons";
 
 type Side = "red" | "blue";
 type Result = {
@@ -37,11 +38,11 @@ type Result = {
 };
 type DayResponse = { day: number; layout: Layout; side: Side | null; signedIn: boolean; result: Result | null };
 
-const NAME: Record<Kind, string> = { soldier: "Soldier", ranged: "Ranged", commander: "Commander" };
+const NAME: Record<Kind, string> = { commander: "Commander", archer: "Archer", soldier: "Soldier" };
 const BLURB: Record<Kind, string> = {
-  soldier: "marches 3 steps, around walls",
-  ranged: "shoots 4 in straight lines",
-  commander: "holds the 8 around it, +1 range to neighbors",
+  commander: "goes first, anywhere · takes the 3×3",
+  archer: "3 left + 3 right · over walls & water, trees stop it",
+  soldier: "2 up + 2 down · through trees, walls & water stop it",
 };
 const MEDAL: Record<string, string> = { perfect: "💎 PERFECT!", gold: "🥇 GOLD", silver: "🥈 SILVER", bronze: "🥉 BRONZE" };
 const PENDING = "bg_commander_pending";
@@ -108,26 +109,29 @@ export function CommanderGame() {
 
   const side: Side | null = data?.side ?? guestSide;
   const L = data?.layout ?? null;
-  const zone = useMemo(() => new Set(L ? deployZone(L) : []), [L]);
+  const locked = !!result;
   const shown = showOptimal && result ? result.solution : placements;
   const sim = useMemo(() => (L ? simulate(L, shown) : null), [L, shown]);
   const left = useMemo(() => {
-    const out: Record<Kind, number> = { soldier: 0, ranged: 0, commander: 0 };
+    const out: Record<Kind, number> = { commander: 0, archer: 0, soldier: 0 };
     if (!L) return out;
     for (const k of KINDS) out[k] = L.troops[k] - placements.filter((p) => p.kind === k).length;
     return out;
   }, [L, placements]);
+  // the Commander always goes first; after that, the picked troop (or whatever's left)
+  const nextKind: Kind | null =
+    placements.length === 0 ? "commander" : left[selected] > 0 && selected !== "commander" ? selected : (["archer", "soldier"] as Kind[]).find((k) => left[k] > 0) ?? null;
+  const zone = useMemo(
+    () => (L && sim && !locked && nextKind ? deployable(L, sim.final, placements, nextKind) : new Set<number>()),
+    [L, sim, locked, nextKind, placements],
+  );
   const focusReach = useMemo(() => {
     if (!L || focus == null) return null;
-    const k = shown.findIndex((p) => p.i === focus);
-    if (k < 0) return null;
-    const b = bonuses(shown)[k];
-    const p = shown[k];
-    return new Set(reach(L, p.i, p.kind, (p.kind === "soldier" ? 3 : p.kind === "ranged" ? 4 : 1) + b));
+    const p = shown.find((q) => q.i === focus);
+    return p ? new Set(reach(L, p.i, p.kind)) : null;
   }, [L, focus, shown]);
 
-  const locked = !!result;
-  const total = L ? L.troops.soldier + L.troops.ranged + L.troops.commander : 0;
+  const total = L ? L.troops.soldier + L.troops.archer + L.troops.commander : 0;
 
   function place(next: Placement[]) {
     setPlacements(next);
@@ -142,21 +146,17 @@ export function CommanderGame() {
     if (locked || !L) return;
     const at = placements.findIndex((p) => p.i === i);
     if (at >= 0) {
-      place(placements.filter((_, k) => k !== at));
-      setSelected(placements[at].kind);
+      // picking a troop up also drops any later troop standing on ground it took
+      place(prune(L, placements.filter((_, k) => k !== at)));
+      if (placements[at].kind !== "commander") setSelected(placements[at].kind);
       return;
     }
-    if (!zone.has(i)) return;
-    let kind = selected;
-    if (left[kind] <= 0) {
-      const next = KINDS.find((k) => left[k] > 0);
-      if (!next) return;
-      kind = next;
-    }
+    if (!nextKind || !zone.has(i)) return;
+    const kind = nextKind;
     place([...placements, { i, kind }]);
     const remaining = { ...left, [kind]: left[kind] - 1 };
-    if (remaining[kind] <= 0) {
-      const next = KINDS.find((k) => remaining[k] > 0);
+    if (kind === "commander" || remaining[kind] <= 0) {
+      const next = (["archer", "soldier"] as Kind[]).find((k) => remaining[k] > 0);
       if (next) setSelected(next);
     }
   }
@@ -223,7 +223,7 @@ export function CommanderGame() {
       let row = "";
       for (let x = 0; x < SIZE; x++) {
         const i = y * SIZE + x;
-        row += fin[i] ? me : L.terrain[i] === WALL ? "⬛" : L.terrain[i] === WATER ? "💧" : L.owner[i] === ENEMY ? them : "🟩";
+        row += fin[i] ? me : L.terrain[i] === WALL ? "⬛" : L.terrain[i] === WATER ? "💧" : them;
       }
       rows.push(row);
     }
@@ -281,43 +281,30 @@ export function CommanderGame() {
       </div>
     );
 
-  const encircled = new Set(sim.encircled);
-  const forts = new Set(L.forts);
-  const fortsTaken = new Set(sim.fortsTaken);
-  const pick = new Map(L.pickups.map((p) => [p.i, p.kind]));
   const at = new Map(shown.map((p) => [p.i, p.kind]));
-  const bon = bonuses(shown);
-  const bonusAt = new Map(shown.map((p, k) => [p.i, bon[k]]));
-  const pickupPts = sim.pickups.reduce((s, p) => s + p.points, 0);
+  const order = new Map(shown.map((p, k) => [p.i, k + 1]));
 
   return (
     <div className={"cm-wrap side-" + side}>
-      <Header day={data.day} />
+      <Header day={data.day} layout={L} />
 
       {showOptimal && result && (
-        <div className="cm-banner">OPTIMAL LAYOUT · {result.optimal} points · <button className="cm-link" onClick={() => setShowOptimal(false)}>show mine</button></div>
+        <div className="cm-banner">BEST LAYOUT · {result.optimal} squares · <button className="cm-link" onClick={() => setShowOptimal(false)}>show mine</button></div>
       )}
 
       <div className="cm-score" aria-live="polite">
         <span className="cm-score-n">{sim.score}</span>
-        <span className="cm-score-l">
-          {sim.taken.length} taken{encircled.size ? ` · ${encircled.size} encircled` : ""}
-          {sim.fortsTaken.length ? ` · ${sim.fortsTaken.length} fort${sim.fortsTaken.length > 1 ? "s" : ""} +${sim.fortsTaken.length * FORT_POINTS}` : ""}
-          {pickupPts ? ` · pickups ${pickupPts > 0 ? "+" : ""}${pickupPts}` : ""}
-        </span>
+        <span className="cm-score-l">squares taken</span>
       </div>
 
       <div className="cm-board" style={{ gridTemplateColumns: `repeat(${SIZE}, 1fr)` }} onMouseLeave={() => setFocus(null)}>
         {Array.from({ length: CELLS }, (_, i) => {
           const t = L.terrain[i];
-          const startMine = L.owner[i] === YOU;
-          const enemy = L.owner[i] === ENEMY;
-          const gained = sim.final[i] && !startMine;
           const kind = at.get(i);
           const cls = [
             "cm-tile",
             t === WALL ? "wall" : t === WATER ? "water" : t === TREE ? "tree" : "",
-            t !== WALL && t !== WATER ? (startMine ? "you" : gained ? (encircled.has(i) ? "you-enc" : "you-take") : enemy ? "enemy" : "neutral") : "",
+            ownable(L, i) ? (sim.final[i] ? "you" : "enemy") : "",
             zone.has(i) && !locked && !kind ? "deploy" : "",
             focusReach?.has(i) ? "focus" : "",
           ]
@@ -333,12 +320,10 @@ export function CommanderGame() {
               aria-label={`tile ${i % SIZE},${Math.floor(i / SIZE)}${kind ? " " + kind : ""}`}
             >
               {t === TREE && <span className="cm-tree-mark" aria-hidden />}
-              {forts.has(i) && <span className={"cm-ico" + (fortsTaken.has(i) ? " won" : "")}><FortIcon /></span>}
-              {pick.has(i) && !kind && <span className="cm-ico"><PickupIcon kind={pick.get(i)!} /></span>}
               {kind && (
                 <span className={"cm-troop " + side}>
                   <TroopIcon kind={kind} />
-                  {bonusAt.get(i) ? <span className="cm-plus">+{bonusAt.get(i)}</span> : null}
+                  <span className="cm-plus">{order.get(i)}</span>
                 </span>
               )}
             </button>
@@ -350,7 +335,7 @@ export function CommanderGame() {
         <>
           <div className="cm-tray">
             {KINDS.map((k) => (
-              <button key={k} className={"cm-troop-btn" + (selected === k ? " on" : "") + (left[k] <= 0 ? " empty" : "")} onClick={() => setSelected(k)}>
+              <button key={k} className={"cm-troop-btn" + (nextKind === k ? " on" : "") + (left[k] <= 0 ? " empty" : "")} onClick={() => k !== "commander" && setSelected(k)}>
                 <span className={"cm-troop " + side}><TroopIcon kind={k} /></span>
                 <span className="cm-tb-name">{NAME[k]} ×{left[k]}</span>
                 <span className="cm-tb-blurb">{BLURB[k]}</span>
@@ -358,9 +343,11 @@ export function CommanderGame() {
             ))}
           </div>
           <p className="cm-hint">
-            {placements.length < total
-              ? "Tap a glowing tile in your lines to deploy. Tap a troop to pick it back up."
-              : "All troops deployed. Happy with it? You only get one shot."}
+            {placements.length === 0
+              ? "Start by placing your Commander anywhere on the map."
+              : placements.length < total
+                ? "Archers and Soldiers deploy on your ground (the glowing tiles). Order matters. Tap a troop to pick it back up."
+                : "All troops deployed. Happy with it? You only get one shot."}
           </p>
           <button className="ob-btn cm-submit" disabled={placements.length === 0 || posting} onClick={() => setConfirming(true)}>
             {posting ? "POSTING…" : `ATTACK! (${placements.length}/${total} deployed)`}
@@ -370,22 +357,20 @@ export function CommanderGame() {
       ) : (
         <div className="cm-after">
           <button className="ob-btn" onClick={() => setShowResult(true)}>SEE RESULTS</button>
-          <button className="ob-skip" onClick={() => setShowOptimal((v) => !v)}>{showOptimal ? "show my layout" : "view optimal"}</button>
+          <button className="ob-skip" onClick={() => setShowOptimal((v) => !v)}>{showOptimal ? "show my layout" : "view best layout"}</button>
         </div>
       )}
 
       <details className="cm-how">
         <summary>How to play</summary>
         <ul>
-          <li>Deploy your troops in your own lines (the glowing tiles), then attack. Every tile they reach becomes yours.</li>
-          <li><b>Soldier</b> marches 3 steps up/down/left/right — around walls, through trees, never across water.</li>
-          <li><b>Ranged</b> shoots 4 tiles in each straight line — over water, but trees and walls stop the shot.</li>
-          <li><b>Commander</b> holds the 8 tiles around it.</li>
-          <li><b>Formation:</b> a troop next to another gets +1 range; next to the Commander, +2.</li>
-          <li><b>Forts</b> fall only when 2 different troops reach them (+{FORT_POINTS}).</li>
-          <li><b>Encircle:</b> ground the enemy can no longer reach falls to you.</li>
-          <li>Pickups: crate +3, gold +10, mine −5 — if they end up on your ground.</li>
-          <li>One new map a day, the same for everyone. One shot. Beat 90% of the best possible score for a free square on the main map; hit perfect for a 2×2.</li>
+          <li>The whole map starts as the enemy&apos;s. Turn as many squares to your color as you can.</li>
+          <li><b>Commander</b> goes first, anywhere, and takes the 3×3 around it.</li>
+          <li><b>Archers</b> and <b>Soldiers</b> can only stand on ground you hold — including ground you just took. Order matters.</li>
+          <li><b>Archer</b> takes 3 squares left and 3 right. Arrows fly over walls and water; a tree stops them.</li>
+          <li><b>Soldier</b> takes 2 squares up and 2 down. Soldiers march through trees (and take them); walls and water stop them.</li>
+          <li>A new map every day, the same for everyone. Monday is the easiest, Friday and Saturday the hardest.</li>
+          <li>One shot. Score 90% of the best possible for a free square on the main map; hit perfect for a 2×2.</li>
         </ul>
       </details>
 
@@ -450,12 +435,15 @@ export function CommanderGame() {
   );
 }
 
-function Header({ day }: { day: number }) {
+function Header({ day, layout }: { day: number; layout?: Layout }) {
   return (
     <div className="cm-head">
       <Link href="/" className="cm-back">‹ main map</Link>
       <h1 className="cm-title">COMMANDER</h1>
-      <div className="cm-day">Day #{day}</div>
+      <div className="cm-day">
+        #{day}
+        {layout ? ` · ${WEEKDAY[layout.weekday].slice(0, 3).toUpperCase()} · ${DIFFICULTY_NAME[DIFFICULTY[layout.weekday]].toUpperCase()}` : ""}
+      </div>
     </div>
   );
 }
@@ -502,7 +490,7 @@ export function ResultsModal({
         {result.reward && <div className="cm-reward">+ a free {result.reward === "2x2" ? "2×2" : "1×1"} is waiting on the main map</div>}
         <div className="cm-res-btns">
           <button className="ob-btn" onClick={onShare}>{copied ? "COPIED!" : "SHARE"}</button>
-          {result.score < result.optimal && <button className="ob-btn cm-dark" onClick={onOptimal}>VIEW OPTIMAL</button>}
+          {result.score < result.optimal && <button className="ob-btn cm-dark" onClick={onOptimal}>VIEW BEST</button>}
         </div>
         <Link className="ob-skip" href="/">‹ back to the main map</Link>
       </div>

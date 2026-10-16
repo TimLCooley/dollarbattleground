@@ -12,6 +12,6 @@ export const metadata: Metadata = {
 
 // Admin-only while the mechanics get dialed in (Tim, 2026-10-15).
 export default async function CommanderPage() {
-  if (!(await requireAdmin())) notFound();
+  if (process.env.NODE_ENV !== "development" && !(await requireAdmin())) notFound();
   return <CommanderGame />;
 }
