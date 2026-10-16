@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { CELLS, SIZE, TREE, WALL, WATER, deployable, ownable, prune, simulate, solve, trail, type Kind, type Placement } from "@/lib/commander/engine";
 import { DEMO_LAYOUT } from "@/lib/commander/demo-map";
-import { Notches, TroopIcon, Tuft, hasTuft, sway, wallClass } from "./icons";
+import { Notches, Ripple, TreeSprite, TroopIcon, Tuft, hasTuft, sway, wallClass } from "./icons";
 
 // The interactive tutorial (/commander/tutorial): five short steps on the same
 // map as the how-to-play video. Each step hands you a few troops and a goal;
@@ -172,7 +172,8 @@ export function CommanderTutorial() {
           return (
             <button key={i} type="button" className={cls} onClick={() => tap(i)}
               style={sway(i)} aria-label={`tile ${i % SIZE},${Math.floor(i / SIZE)}${k ? " " + k : ""}`}>
-              {t === TREE && <span className="cm-tree-mark" aria-hidden />}
+              {t === TREE && <TreeSprite />}
+              {t === WATER && <Ripple />}
               {t !== TREE && ownable(L, i) && !k && hasTuft(i) && <Tuft />}
               {!k && trails.has(i) && <span className={"cm-trail " + trails.get(i)} aria-hidden />}
               {k && (

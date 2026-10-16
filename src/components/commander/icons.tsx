@@ -76,11 +76,71 @@ export function TroopIcon({ kind }: { kind: Kind }) {
   );
 }
 
-/** A little grass tuft that sways (light shade of the tile's own color). */
+// Two-frame pixel sprites (like enclose.horse): each flips between frame A and B.
+
+/** Grass: '' '' standing, then ,, ,, leaning in the wind. Light shade of the tile's own color. */
 export function Tuft() {
   return (
-    <svg className="cm-tuft" viewBox="0 0 12 10" aria-hidden>
-      <path d="M2 10 Q2.4 5 1 2.4 Q3.6 5 3.6 10 Z M5 10 Q5.3 3.6 6 0.6 Q7 3.6 6.8 10 Z M8.4 10 Q8.6 5.4 11 3 Q10 6 10 10 Z" />
+    <svg className="cm-sprite cm-tuft" viewBox="0 0 10 6" shapeRendering="crispEdges" aria-hidden>
+      <g className="fa">
+        <rect x="1" y="1" width="1" height="3" />
+        <rect x="3" y="1" width="1" height="3" />
+        <rect x="6" y="2" width="1" height="3" />
+        <rect x="8" y="2" width="1" height="3" />
+      </g>
+      <g className="fb">
+        <rect x="1" y="2" width="1" height="2" />
+        <rect x="2" y="1" width="1" height="1" />
+        <rect x="3" y="2" width="1" height="2" />
+        <rect x="4" y="1" width="1" height="1" />
+        <rect x="6" y="3" width="1" height="2" />
+        <rect x="7" y="2" width="1" height="1" />
+        <rect x="8" y="3" width="1" height="2" />
+        <rect x="9" y="2" width="1" height="1" />
+      </g>
+    </svg>
+  );
+}
+
+/** Tree: the canopy rocks a pixel left and right; the trunk stays put. */
+export function TreeSprite() {
+  const canopy = (dx: number) => (
+    <>
+      <rect x={3 + dx} y="1" width="6" height="1" fill="#2b9149" />
+      <rect x={2 + dx} y="2" width="8" height="5" fill="#1f7a3c" />
+      <rect x={3 + dx} y="7" width="6" height="1" fill="#1f7a3c" />
+      <rect x={3 + dx} y="2" width="3" height="2" fill="#2b9149" />
+      <rect x={6 + dx} y="5" width="4" height="2" fill="#16592b" />
+    </>
+  );
+  return (
+    <svg className="cm-sprite cm-tree" viewBox="0 0 12 12" shapeRendering="crispEdges" aria-hidden>
+      <rect x="5" y="8" width="2" height="3" fill="#6b4524" />
+      <g className="fa">{canopy(0)}</g>
+      <g className="fb">{canopy(1)}</g>
+    </svg>
+  );
+}
+
+/** Water: two little ripples that swap places. */
+export function Ripple() {
+  const wave = (x: number, y: number) => (
+    <>
+      <rect x={x} y={y + 1} width="1" height="1" />
+      <rect x={x + 1} y={y} width="2" height="1" />
+      <rect x={x + 3} y={y + 1} width="1" height="1" />
+    </>
+  );
+  return (
+    <svg className="cm-sprite cm-ripple" viewBox="0 0 12 12" shapeRendering="crispEdges" aria-hidden>
+      <g className="fa">
+        {wave(1, 2)}
+        {wave(6, 7)}
+      </g>
+      <g className="fb">
+        {wave(5, 3)}
+        {wave(2, 8)}
+      </g>
     </svg>
   );
 }
