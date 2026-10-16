@@ -30,15 +30,15 @@ const s = (sec: number) => Math.round(sec * FPS);
 // pop-up cards: each piece is introduced, then placed
 type Card = { from: number; to: number; kind: "commander" | "archer" | "soldier" | null; title: string; lines: string[] };
 const CARDS: Card[] = [
-  { from: s(1.4), to: s(4.4), kind: "commander", title: "COMMANDER", lines: ["Holds the 9 squares around it.", "Starts the game."] },
-  { from: s(6.4), to: s(9.6), kind: "archer", title: "ARCHER", lines: ["Takes 3 left and 3 right.", "Over walls and water. Trees stop it."] },
-  { from: s(12.6), to: s(15.8), kind: "soldier", title: "SOLDIER", lines: ["Takes 2 up and 2 down.", "Wades through water. Walls stop it."] },
-  { from: s(18.6), to: s(21.4), kind: null, title: "ORDER MATTERS", lines: ["Troops can only stand on ground you hold —", "including ground you just took."] },
+  { from: s(2.4), to: s(8.2), kind: "commander", title: "COMMANDER", lines: ["Holds the 9 squares around it.", "Starts the game."] },
+  { from: s(11.4), to: s(17.4), kind: "archer", title: "ARCHER", lines: ["Takes 3 left and 3 right.", "Over walls and water. Trees stop it."] },
+  { from: s(22), to: s(28), kind: "soldier", title: "SOLDIER", lines: ["Takes 2 up and 2 down.", "Wades through water. Walls stop it."] },
+  { from: s(32.6), to: s(38.6), kind: null, title: "ORDER MATTERS", lines: ["Troops can only stand on ground you hold —", "including ground you just took."] },
 ];
-const T_COMMANDER = s(4.7);
-const MOVE_AT = [s(10), s(16.2), s(22), s(23.3), s(24.6), s(25.9)];
-const T_END = s(27.8);
-export const COMMANDER_DEMO_SECONDS = 33;
+const T_COMMANDER = s(8.5);
+const MOVE_AT = [s(18), s(28.6), s(39.2), s(41), s(42.8), s(44.6)];
+const T_END = s(48);
+export const COMMANDER_DEMO_SECONDS = 55;
 
 const CAPTIONS: { from: number; to: number; text: string }[] = [
   { from: T_COMMANDER, to: CARDS[1].from - 4, text: "The Commander takes its 9 squares." },
@@ -49,7 +49,7 @@ const CAPTIONS: { from: number; to: number; text: string }[] = [
 
 const ENEMY = "#d23b3b";
 const ME = "#356fd0";
-const STEP = 5; // frames between squares along a troop's reach
+const STEP = 7; // frames between squares along a troop's reach
 
 // When does each square turn blue? Commander's 3×3 first, then each move's reach, square by square.
 const flipAt = new Array<number>(CELLS).fill(Infinity);
@@ -102,16 +102,16 @@ export const CommanderDemo = () => {
   let score = 0;
   for (let i = 0; i < CELLS; i++) if (frame >= flipAt[i]) score++;
   const caption = CAPTIONS.find((c) => frame >= c.from && frame < c.to);
-  const intro = interpolate(frame, [0, s(0.4), s(1.2), s(1.5)], [1, 1, 1, 0], { extrapolateRight: "clamp" });
+  const intro = interpolate(frame, [0, s(1.8), s(2.2)], [1, 1, 0], { extrapolateRight: "clamp" });
   const end = interpolate(frame, [T_END, T_END + s(0.5)], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
 
   // the tap: a finger-dot that glides to the next square just before each move
   const next = MOVE_AT.findIndex((t) => frame < t + 6);
   let tap: { x: number; y: number; press: number } | null = null;
-  if (next >= 0 && frame >= MOVE_AT[next] - 14 && !CARDS.some((c) => frame >= c.from && frame < c.to)) {
+  if (next >= 0 && frame >= MOVE_AT[next] - 20 && !CARDS.some((c) => frame >= c.from && frame < c.to)) {
     const [tx, ty] = xy(MOVES[next].i);
     const from = next > 0 ? xy(MOVES[next - 1].i) : xy(LAYOUT.commander);
-    const k = interpolate(frame, [MOVE_AT[next] - 14, MOVE_AT[next] - 2], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
+    const k = interpolate(frame, [MOVE_AT[next] - 20, MOVE_AT[next] - 2], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
     tap = {
       x: (from[0] + (tx - from[0]) * k + 0.5) * cell,
       y: (from[1] + (ty - from[1]) * k + 0.5) * cell,
@@ -160,7 +160,7 @@ export const CommanderDemo = () => {
                   ? ME
                   : ENEMY;
           const mark = (trailDir.get(i) ?? []).filter((m) => frame >= m.at).pop()?.dir;
-          const stop = blocked.find((b) => b.t === i && frame >= b.at && frame < b.at + s(1.6));
+          const stop = blocked.find((b) => b.t === i && frame >= b.at && frame < b.at + s(2.6));
           return (
             <div
               key={i}
@@ -178,7 +178,7 @@ export const CommanderDemo = () => {
                 </svg>
               )}
               {stop && (
-                <div style={{ position: "absolute", inset: 0, display: "grid", placeItems: "center", fontSize: 64, color: "#fff", textShadow: "0 0 12px #d23b3b", opacity: interpolate(frame - stop.at, [0, 6, s(1.6)], [0, 1, 0]) }}>
+                <div style={{ position: "absolute", inset: 0, display: "grid", placeItems: "center", fontSize: 64, color: "#fff", textShadow: "0 0 12px #d23b3b", opacity: interpolate(frame - stop.at, [0, 6, s(2.6)], [0, 1, 0]) }}>
                   ✕
                 </div>
               )}
@@ -327,7 +327,7 @@ function Diagram({ kind, frame }: { kind: "commander" | "archer" | "soldier"; fr
       <TroopIcon kind={kind} />
     </div>
   );
-  const lit = (d: number) => frame >= 14 + d * 7;
+  const lit = (d: number) => frame >= 20 + d * 10;
   if (kind === "commander") {
     return (
       <div style={{ display: "grid", gridTemplateColumns: `repeat(3, ${C}px)`, gap: 4 }}>
