@@ -79,16 +79,19 @@ export function TroopIcon({ kind }: { kind: Kind }) {
 // Two-frame pixel sprites (like enclose.horse): each flips between frame A and B.
 
 /** Grass: '' '' standing, then ,, ,, leaning in the wind. Light shade of the tile's own color. */
-export function Tuft() {
+type Frame = { frame?: "a" | "b"; style?: React.CSSProperties };
+const show = (f: Frame["frame"], which: "a" | "b") => (f ? { opacity: f === which ? 1 : 0 } : undefined);
+
+export function Tuft({ frame, style }: Frame = {}) {
   return (
-    <svg className="cm-sprite cm-tuft" viewBox="0 0 10 6" shapeRendering="crispEdges" aria-hidden>
-      <g className="fa">
+    <svg className="cm-sprite cm-tuft" viewBox="0 0 10 6" shapeRendering="crispEdges" aria-hidden style={style}>
+      <g className="fa" style={show(frame, "a")}>
         <rect x="1" y="1" width="1" height="3" />
         <rect x="3" y="1" width="1" height="3" />
         <rect x="6" y="2" width="1" height="3" />
         <rect x="8" y="2" width="1" height="3" />
       </g>
-      <g className="fb">
+      <g className="fb" style={show(frame, "b")}>
         <rect x="1" y="2" width="1" height="2" />
         <rect x="2" y="1" width="1" height="1" />
         <rect x="3" y="2" width="1" height="2" />
@@ -103,7 +106,7 @@ export function Tuft() {
 }
 
 /** Tree: the canopy rocks a pixel left and right; the trunk stays put. */
-export function TreeSprite() {
+export function TreeSprite({ frame, style }: Frame = {}) {
   const canopy = (dx: number) => (
     <>
       <rect x={3 + dx} y="1" width="6" height="1" fill="#2b9149" />
@@ -114,16 +117,16 @@ export function TreeSprite() {
     </>
   );
   return (
-    <svg className="cm-sprite cm-tree" viewBox="0 0 12 12" shapeRendering="crispEdges" aria-hidden>
+    <svg className="cm-sprite cm-tree" viewBox="0 0 12 12" shapeRendering="crispEdges" aria-hidden style={style}>
       <rect x="5" y="8" width="2" height="3" fill="#6b4524" />
-      <g className="fa">{canopy(0)}</g>
-      <g className="fb">{canopy(1)}</g>
+      <g className="fa" style={show(frame, "a")}>{canopy(0)}</g>
+      <g className="fb" style={show(frame, "b")}>{canopy(1)}</g>
     </svg>
   );
 }
 
 /** Water: two little ripples that swap places. */
-export function Ripple() {
+export function Ripple({ frame, style }: Frame = {}) {
   const wave = (x: number, y: number) => (
     <>
       <rect x={x} y={y + 1} width="1" height="1" />
@@ -132,12 +135,12 @@ export function Ripple() {
     </>
   );
   return (
-    <svg className="cm-sprite cm-ripple" viewBox="0 0 12 12" shapeRendering="crispEdges" aria-hidden>
-      <g className="fa">
+    <svg className="cm-sprite cm-ripple" viewBox="0 0 12 12" shapeRendering="crispEdges" aria-hidden style={style}>
+      <g className="fa" style={show(frame, "a")}>
         {wave(1, 2)}
         {wave(6, 7)}
       </g>
-      <g className="fb">
+      <g className="fb" style={show(frame, "b")}>
         {wave(5, 3)}
         {wave(2, 8)}
       </g>
@@ -159,3 +162,9 @@ export function wallClass(terrain: number[], i: number, size: number, WALL: numb
   if ((i * 40503) % 5 === 0) c.push("moss");
   return c.join(" ");
 }
+
+/** The stone brick used for walls (same art as the CSS), for the video renderer. */
+export const WALL_BRICK = (() => {
+  const svg = "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40' shape-rendering='crispEdges'><rect width='40' height='40' fill='#70757d'/><g fill='#868b93'><rect x='1' y='1' width='18' height='1'/><rect x='21' y='1' width='18' height='1'/><rect x='0' y='11' width='9' height='1'/><rect x='11' y='11' width='18' height='1'/><rect x='31' y='11' width='9' height='1'/><rect x='1' y='21' width='18' height='1'/><rect x='21' y='21' width='18' height='1'/><rect x='0' y='31' width='9' height='1'/><rect x='11' y='31' width='18' height='1'/><rect x='31' y='31' width='9' height='1'/></g><g fill='#464a51'><rect y='9' width='40' height='2'/><rect y='19' width='40' height='2'/><rect y='29' width='40' height='2'/><rect y='39' width='40' height='1'/><rect x='0' y='0' width='1' height='9'/><rect x='20' y='0' width='1' height='9'/><rect x='10' y='11' width='1' height='8'/><rect x='30' y='11' width='1' height='8'/><rect x='0' y='21' width='1' height='8'/><rect x='20' y='21' width='1' height='8'/><rect x='10' y='31' width='1' height='8'/><rect x='30' y='31' width='1' height='8'/></g></svg>";
+  return `url("data:image/svg+xml,${encodeURIComponent(svg)}")`;
+})();

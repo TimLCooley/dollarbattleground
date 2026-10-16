@@ -1,7 +1,7 @@
 import { AbsoluteFill, interpolate, spring, useCurrentFrame, useVideoConfig } from "remotion";
 import { CELLS, SIZE, TREE, WALL, WATER, ownable, reach, simulate, trail, xy, type Placement } from "../lib/commander/engine";
 import { DEMO_LAYOUT } from "../lib/commander/demo-map";
-import { TroopIcon } from "../components/commander/icons";
+import { Ripple, TreeSprite, TroopIcon, Tuft, WALL_BRICK, hasTuft } from "../components/commander/icons";
 
 // How-to-play demo for /commander (website only): a square, silent loop that
 // plays a small hand-made map with the real engine. Each piece is introduced
@@ -88,6 +88,11 @@ const chevron: Record<string, string> = {
   d: "50,82 76,54 64,54 50,68 36,54 24,54",
 };
 
+// Two-frame sprites, driven by the frame counter (same timing as the site's CSS):
+// each square has its own offset so nothing flips in lockstep.
+const phase = (frame: number, i: number, period: number): "a" | "b" =>
+  Math.floor((frame / FPS + ((i * 37) % 23) / 10) / (period / 2)) % 2 === 0 ? "a" : "b";
+
 export const CommanderDemo = () => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
@@ -147,14 +152,7 @@ export const CommanderDemo = () => {
           const troop = isCmd ? "commander" : placed.find((p) => p.i === i)?.kind;
           const dropAt = isCmd ? T_COMMANDER : MOVE_AT[MOVES.findIndex((p) => p.i === i)];
           const drop = troop ? spring({ frame: frame - dropAt, fps, config: { damping: 11, stiffness: 160 } }) : 0;
-          const bg =
-            t === WALL
-              ? "#4a4f57"
-              : t === WATER
-                ? "repeating-linear-gradient(0deg, #2aa198 0 12px, #3fb7ad 12px 17px)"
-                : mine
-                  ? ME
-                  : ENEMY;
+          const bg = t === WALL ? `${WALL_BRICK} 0 0 / 100% 100%, #70757d` : t === WATER ? "#2aa198" : mine ? ME : ENEMY;
           const mark = (trailDir.get(i) ?? []).filter((m) => frame >= m.at).pop()?.dir;
           const stop = blocked.find((b) => b.t === i && frame >= b.at && frame < b.at + s(2.6));
           return (
@@ -167,7 +165,11 @@ export const CommanderDemo = () => {
                 boxShadow: "inset -5px -5px 0 rgba(0,0,0,0.22), inset 5px 5px 0 rgba(255,255,255,0.12)",
               }}
             >
-              {t === TREE && <div style={{ position: "absolute", inset: "18%", borderRadius: "50% 50% 40% 40%", background: "#1f7a3c", boxShadow: "inset -5px -5px 0 #16592b" }} />}
+              {t === TREE && <TreeSprite frame={phase(frame, i, 2)} style={{ position: "absolute", inset: "8%", width: "84%", height: "84%" }} />}
+              {t === WATER && <Ripple frame={phase(frame, i, 1.8)} style={{ position: "absolute", inset: 0, width: "100%", height: "100%", fill: "rgba(255,255,255,0.5)" }} />}
+              {t !== TREE && ownable(LAYOUT, i) && !troop && hasTuft(i) && (
+                <Tuft frame={phase(frame, i, 1.6)} style={{ position: "absolute", left: "12%", bottom: "10%", width: "40%", height: "24%", fill: `rgba(255,255,255,${mine ? 0.4 : 0.34})` }} />
+              )}
               {mine && !troop && mark && ownable(LAYOUT, i) && (
                 <svg viewBox="0 0 100 100" style={{ position: "absolute", inset: "22%", width: "56%", height: "56%" }}>
                   <polygon points={chevron[mark]} fill="rgba(255,255,255,0.6)" />
@@ -186,7 +188,7 @@ export const CommanderDemo = () => {
                     background: "#f6efdb",
                     border: "4px solid #264f9c",
                     color: ME,
-                    transform: `scale(${drop}) translateY(${(1 - drop) * -30}px)`,
+                    transform: `scale(${drop}) translateY(${(1 - drop) * -30 + (phase(frame, i, 1.2) === "b" ? -3 : 0)}px)`,
                     boxShadow: "0 4px 0 rgba(0,0,0,0.35)",
                   }}
                 >
