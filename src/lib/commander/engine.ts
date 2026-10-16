@@ -161,6 +161,25 @@ export function reach(L: Layout, i: number, kind: Kind): number[] {
   return out;
 }
 
+/** Which way each taken square was reached from a troop at `i` (for the trail markers). */
+export function trail(L: Layout, i: number, kind: Kind): { t: number; dir: "l" | "r" | "u" | "d" }[] {
+  if (kind === "commander") return [];
+  const [x0, y0] = xy(i);
+  const out: { t: number; dir: "l" | "r" | "u" | "d" }[] = [];
+  const reached = new Set(reach(L, i, kind));
+  const dirs: [number, number, "l" | "r" | "u" | "d"][] = kind === "archer" ? [[-1, 0, "l"], [1, 0, "r"]] : [[0, -1, "u"], [0, 1, "d"]];
+  const range = kind === "archer" ? 3 : 2;
+  for (const [dx, dy, dir] of dirs)
+    for (let k = 1; k <= range; k++) {
+      const x = x0 + dx * k;
+      const y = y0 + dy * k;
+      if (x < 0 || y < 0 || x >= SIZE || y >= SIZE) break;
+      const t = idx(x, y);
+      if (reached.has(t)) out.push({ t, dir });
+    }
+  return out;
+}
+
 // ---------- the battle ----------
 
 export type Result = {
