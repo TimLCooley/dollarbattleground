@@ -3874,13 +3874,27 @@ a.cc-pill-x:hover { color: #f2c14e; text-decoration: underline; }
 .field-radio.drop .fr-msg { color: #b9f5c8; }
 
 /* Main map ⇄ Commander: a big button each way */
-.go-commander, .go-battle { display: flex; flex-direction: column; align-items: center; gap: 2px; width: 100%; max-width: 460px; box-sizing: border-box; margin: 0 auto 10px; padding: 10px 14px; background: var(--gold); border: 3px solid var(--gold-d); box-shadow: var(--shadow-pix); color: var(--ink); text-decoration: none; text-align: center; }
-.go-commander:hover, .go-battle:hover { filter: brightness(1.06); }
-.go-commander-k, .go-battle-k { font-family: var(--font-pixel), monospace; font-size: 14px; letter-spacing: 1px; }
-.go-commander-t, .go-battle-t { font-size: 14px; font-weight: 700; }
+.go-battle { display: flex; flex-direction: column; align-items: center; gap: 2px; width: 100%; max-width: 460px; box-sizing: border-box; margin: 0 auto 10px; padding: 10px 14px; background: var(--gold); border: 3px solid var(--gold-d); box-shadow: var(--shadow-pix); color: var(--ink); text-decoration: none; text-align: center; }
+.go-battle:hover { filter: brightness(1.06); }
+.go-battle-k { font-family: var(--font-pixel), monospace; font-size: 14px; letter-spacing: 1px; }
+.go-battle-t { font-size: 14px; font-weight: 700; }
 .go-battle { max-width: none; margin: 0; }
 .cm-scorebar { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
 .cm-scorebar .cm-score { justify-content: flex-start; }
 .cm-scorebar .cm-practice { gap: 8px; }
 @media (max-width: 420px) { .cm-scorebar .cm-chip { padding: 6px 8px; font-size: 11px; } }
 .cm-scorebar:has(> :only-child) { justify-content: center; }
+
+/* Main map → Commander: reads as a second game, and pulses so it's obviously tappable */
+.go-commander { position: relative; display: flex; align-items: center; gap: 12px; width: 100%; max-width: 460px; box-sizing: border-box; margin: 6px auto 12px; padding: 12px 12px 12px 14px; background: #2a1f5c; background-image: linear-gradient(135deg, #3b2d82 0%, #241a52 100%); border: 3px solid var(--gold); color: var(--cream); text-decoration: none; box-shadow: 0 4px 0 rgba(0, 0, 0, 0.35); animation: go-pulse 2.2s ease-in-out infinite; }
+.go-commander:hover { filter: brightness(1.12); }
+.go-commander-new { position: absolute; top: -10px; left: 12px; background: #e8453c; color: #fff; font-family: var(--font-pixel), monospace; font-size: 10px; letter-spacing: 1px; padding: 3px 7px; border: 2px solid #fff; transform: rotate(-3deg); }
+.go-commander-art { display: flex; gap: 4px; flex: none; }
+.go-commander-art .cm-troop { width: 34px; height: 34px; padding: 2px; box-sizing: border-box; background: var(--cream); border: 2px solid var(--gold-d); }
+.go-commander-txt { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0; text-align: left; }
+.go-commander-k { font-family: var(--font-pixel), monospace; font-size: 16px; letter-spacing: 2px; color: var(--gold); }
+.go-commander-t { font-size: 14px; line-height: 1.2; }
+.go-commander-play { flex: none; font-family: var(--font-pixel), monospace; font-size: 13px; color: var(--ink); background: var(--gold); border: 2px solid var(--gold-d); padding: 8px 10px; box-shadow: var(--shadow-pix); }
+@keyframes go-pulse { 0%, 100% { box-shadow: 0 4px 0 rgba(0, 0, 0, 0.35), 0 0 0 0 rgba(242, 193, 78, 0.55); transform: scale(1); } 50% { box-shadow: 0 4px 0 rgba(0, 0, 0, 0.35), 0 0 0 7px rgba(242, 193, 78, 0); transform: scale(1.015); } }
+@media (max-width: 420px) { .go-commander-art .cm-troop:last-child { display: none; } .go-commander-t { font-size: 13px; } }
+@media (prefers-reduced-motion: reduce) { .go-commander { animation: none; } }
