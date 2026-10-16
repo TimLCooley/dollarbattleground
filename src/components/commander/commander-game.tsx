@@ -468,6 +468,7 @@ export function CommanderGame() {
         <ResultsModal
           day={data.day}
           result={result}
+          enlisted={!!data.side}
           copied={copied}
           onShare={share}
           onClose={() => setShowResult(false)}
@@ -497,6 +498,7 @@ function Header({ day, layout }: { day: number; layout?: Layout }) {
 export function ResultsModal({
   day,
   result,
+  enlisted = true,
   copied,
   onShare,
   onClose,
@@ -504,6 +506,7 @@ export function ResultsModal({
 }: {
   day: number;
   result: Result;
+  enlisted?: boolean;
   copied: boolean;
   onShare: () => void;
   onClose: () => void;
@@ -533,7 +536,22 @@ export function ResultsModal({
             </div>
           ))}
         </div>
-        {result.reward && <div className="cm-reward">+ a free {result.reward === "2x2" ? "2×2" : "1×1"} is waiting on the main map</div>}
+        <div className={"cm-earned" + (result.reward ? " won" : "")}>
+          <div className="cm-earned-k">MAIN MAP REWARD</div>
+          {result.reward ? (
+            <>
+              <div className="cm-earned-v">+1 free {result.reward === "2x2" ? "2×2 strike" : "1×1 square"}</div>
+              <div className="cm-earned-s">It&apos;s already in your supplies — use it to take ground on the main map.</div>
+              <Link className="ob-btn cm-linkbtn" href="/">USE IT ON THE MAIN MAP →</Link>
+            </>
+          ) : !enlisted ? (
+            <div className="cm-earned-s">Enlisted players earn main-map squares here: a free 1×1 for {t.gold}+, a free 2×2 for a perfect {t.perfect}.</div>
+          ) : (
+            <div className="cm-earned-s">
+              No reward this time — {t.gold}+ earns a free 1×1 on the main map, a perfect {t.perfect} earns a free 2×2. New map tomorrow.
+            </div>
+          )}
+        </div>
         <div className="cm-res-btns">
           <button className="ob-btn" onClick={onShare}>{copied ? "COPIED!" : "SHARE"}</button>
           {result.score < result.optimal && <button className="ob-btn cm-dark" onClick={onOptimal}>VIEW BEST</button>}
