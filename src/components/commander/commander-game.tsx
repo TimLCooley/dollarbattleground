@@ -136,8 +136,8 @@ export function CommanderGame() {
     for (const k of TROOPS) out[k] = L.troops[k] - placements.filter((p) => p.kind === k).length;
     return out;
   }, [L, placements]);
-  // the picked troop, or whatever's left
-  const nextKind: Troop | null = left[selected] > 0 ? selected : TROOPS.find((k) => left[k] > 0) ?? null;
+  // only the troop the player picked — no switching behind their back
+  const nextKind: Troop | null = left[selected] > 0 ? selected : null;
   const zone = useMemo(
     () => (L && sim && !locked && nextKind ? deployable(L, sim.final, placements, nextKind) : new Set<number>()),
     [L, sim, locked, nextKind, placements],
@@ -177,11 +177,6 @@ export function CommanderGame() {
     if (!nextKind || !zone.has(i)) return;
     const kind = nextKind;
     place([...placements, { i, kind }]);
-    const remaining = { ...left, [kind]: left[kind] - 1 };
-    if (remaining[kind] <= 0) {
-      const next = TROOPS.find((k) => remaining[k] > 0);
-      if (next) setSelected(next);
-    }
   }
 
   function readPending(): { day: number; placements: Placement[] } | null {
@@ -359,7 +354,7 @@ export function CommanderGame() {
         <>
           <div className="cm-tray">
             {TROOPS.map((k) => (
-              <button key={k} className={"cm-troop-btn" + (nextKind === k ? " on" : "") + (left[k] <= 0 ? " empty" : "")} onClick={() => setSelected(k)}>
+              <button key={k} className={"cm-troop-btn" + (selected === k ? " on" : "") + (left[k] <= 0 ? " empty" : "")} onClick={() => setSelected(k)}>
                 <span className={"cm-troop " + side}><TroopIcon kind={k} /></span>
                 <span className="cm-tb-name">{NAME[k]} ×{left[k]}</span>
                 <span className="cm-tb-blurb">{BLURB[k]}</span>
@@ -373,9 +368,11 @@ export function CommanderGame() {
             <button className="cm-chip" disabled={!placements.length} onClick={() => place([])}>↺ Reset</button>
           </div>
           <p className="cm-hint">
-            {placements.length < total
-              ? "Deploy on your ground (the glowing tiles). Order matters. Tap a troop to pick it back up. Practice all you like — only Attack counts."
-              : "All troops deployed. Happy with it? You only get one shot."}
+            {placements.length < total && left[selected] <= 0
+              ? `Out of ${NAME[selected]}s — tap ${NAME[selected === "archer" ? "soldier" : "archer"]}s to keep deploying.`
+              : placements.length < total
+                ? "Deploy on your ground (the glowing tiles). Order matters. Tap a troop to pick it back up. Practice all you like — only Attack counts."
+                : "All troops deployed. Happy with it? You only get one shot."}
           </p>
           <button className="ob-btn cm-submit" disabled={placements.length === 0 || posting} onClick={() => setConfirming(true)}>
             {posting ? "POSTING…" : `ATTACK! (${placements.length}/${total} deployed)`}
