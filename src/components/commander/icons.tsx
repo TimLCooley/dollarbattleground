@@ -1,6 +1,5 @@
-// Commander pieces: a little person in the middle, with notches on the sides
-// the troop reaches (Archer ‹ ›, Soldier ˄ ˅). Tunic and notches use the team
-// color via currentColor.
+// Commander pieces: a little person (tunic in the team color via currentColor),
+// with reach notches on the outside edges of the tile (Archer ‹ ›, Soldier ˄ ˅).
 import type { Kind } from "@/lib/commander/engine";
 
 const SKIN = "#e8b98a";
@@ -24,7 +23,18 @@ function Person({ helmet = false }: { helmet?: boolean }) {
   );
 }
 
-const Notch = ({ d }: { d: string }) => <path d={d} fill="currentColor" />;
+/** Reach markers on the outside edges of the tile: Archer ‹ ›, Soldier ˄ ˅. */
+export function Notches({ kind }: { kind: Kind }) {
+  if (kind === "commander") return null;
+  const dirs = kind === "archer" ? ["l", "r"] : ["u", "d"];
+  return (
+    <>
+      {dirs.map((d) => (
+        <span key={d} className={"cm-notch " + d} aria-hidden />
+      ))}
+    </>
+  );
+}
 
 export function TroopIcon({ kind }: { kind: Kind }) {
   return (
@@ -37,8 +47,6 @@ export function TroopIcon({ kind }: { kind: Kind }) {
     >
       {kind === "archer" && (
         <>
-          <Notch d="M0 10 L3.2 6.6 V13.4 Z" />
-          <Notch d="M20 10 L16.8 6.6 V13.4 Z" />
           <Person />
           {/* bow held out to the side, arrow nocked */}
           <path d="M14.2 6.4 Q16.8 10.2 14.2 14" fill="none" stroke={WOOD} strokeWidth="1.1" />
@@ -48,8 +56,6 @@ export function TroopIcon({ kind }: { kind: Kind }) {
       )}
       {kind === "soldier" && (
         <>
-          <Notch d="M10 0 L6.6 3.2 H13.4 Z" />
-          <Notch d="M10 20 L6.6 16.8 H13.4 Z" />
           <Person helmet />
           {/* sword raised, shield */}
           <line x1="13.9" y1="3.6" x2="13.9" y2="11.4" stroke={STEEL} strokeWidth="1" />

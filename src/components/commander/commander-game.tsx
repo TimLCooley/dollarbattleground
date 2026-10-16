@@ -16,13 +16,14 @@ import {
   prune,
   reach,
   simulate,
+  trail,
   type Kind,
   type Layout,
   type Placement,
 } from "@/lib/commander/engine";
 import { LoginOtp } from "@/components/login-otp";
 import { track } from "@/lib/track";
-import { TroopIcon } from "./icons";
+import { Notches, TroopIcon } from "./icons";
 
 type Side = "red" | "blue";
 type Result = {
@@ -316,6 +317,9 @@ export function CommanderGame() {
   const at = new Map<number, Kind>(shown.map((p) => [p.i, p.kind]));
   at.set(L.commander, "commander");
   const order = new Map(shown.map((p, k) => [p.i, k + 1]));
+  // trail markers: which way each captured square was taken (the latest troop wins)
+  const trails = new Map<number, string>();
+  for (const p of shown) for (const { t, dir } of trail(L, p.i, p.kind)) trails.set(t, dir);
 
   return (
     <div className={"cm-wrap side-" + side}>
@@ -353,12 +357,14 @@ export function CommanderGame() {
               aria-label={`tile ${i % SIZE},${Math.floor(i / SIZE)}${kind ? " " + kind : ""}`}
             >
               {t === TREE && <span className="cm-tree-mark" aria-hidden />}
+              {!kind && trails.has(i) && <span className={"cm-trail " + trails.get(i)} aria-hidden />}
               {kind && (
                 <span className={"cm-troop " + side}>
                   <TroopIcon kind={kind} />
                   {order.has(i) && <span className="cm-plus">{order.get(i)}</span>}
                 </span>
               )}
+              {kind && <Notches kind={kind} />}
             </button>
           );
         })}
@@ -369,7 +375,10 @@ export function CommanderGame() {
           <div className="cm-tray">
             {TROOPS.map((k) => (
               <button key={k} className={"cm-troop-btn" + (selected === k ? " on" : "") + (left[k] <= 0 ? " empty" : "")} onClick={() => setSelected(k)}>
-                <span className={"cm-troop " + side}><TroopIcon kind={k} /></span>
+                <span className="cm-unit">
+                  <span className={"cm-troop " + side}><TroopIcon kind={k} /></span>
+                  <Notches kind={k} />
+                </span>
                 <span className="cm-tb-name">{NAME[k]} ×{left[k]}</span>
                 <span className="cm-tb-blurb">{BLURB[k]}</span>
               </button>

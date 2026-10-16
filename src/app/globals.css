@@ -3782,4 +3782,19 @@ a.cc-pill-x:hover { color: #f2c14e; text-decoration: underline; }
 .cm-chip:disabled { opacity: 0.45; cursor: default; }
 .cm-troop.blue { color: var(--blue); }
 .cm-troop.red { color: var(--red); }
-.cm-board .cm-troop { width: 90%; height: 90%; padding: 2%; }
+.cm-board .cm-troop { width: 68%; height: 68%; padding: 2%; }
+/* reach notches sit on the tile's outside edges, pointing the way the troop reaches */
+.cm-notch { position: absolute; background: var(--cream); pointer-events: none; }
+.cm-notch.l, .cm-notch.r { top: 36%; width: 13%; height: 28%; }
+.cm-notch.u, .cm-notch.d { left: 36%; width: 28%; height: 13%; }
+.cm-notch.l { left: 2%; clip-path: polygon(0 50%, 100% 0, 100% 100%); }
+.cm-notch.r { right: 2%; clip-path: polygon(100% 50%, 0 0, 0 100%); }
+.cm-notch.u { top: 2%; clip-path: polygon(50% 0, 100% 100%, 0 100%); }
+.cm-notch.d { bottom: 2%; clip-path: polygon(50% 100%, 0 0, 100% 0); }
+.cm-unit { position: relative; width: 54px; height: 54px; display: grid; place-items: center; }
+/* trail markers: a faint chevron on each captured square pointing the way it was taken */
+.cm-trail { position: absolute; left: 34%; top: 34%; width: 32%; height: 32%; background: rgba(255, 255, 255, 0.55); pointer-events: none; }
+.cm-trail.l { clip-path: polygon(0 50%, 60% 0, 60% 25%, 30% 50%, 60% 75%, 60% 100%); left: 38%; }
+.cm-trail.r { clip-path: polygon(100% 50%, 40% 0, 40% 25%, 70% 50%, 40% 75%, 40% 100%); left: 30%; }
+.cm-trail.u { clip-path: polygon(50% 0, 100% 60%, 75% 60%, 50% 30%, 25% 60%, 0 60%); top: 38%; }
+.cm-trail.d { clip-path: polygon(50% 100%, 100% 40%, 75% 40%, 50% 70%, 25% 40%, 0 40%); top: 30%; }
