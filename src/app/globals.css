@@ -3798,3 +3798,8 @@ a.cc-pill-x:hover { color: #f2c14e; text-decoration: underline; }
 .cm-trail.r { clip-path: polygon(100% 50%, 40% 0, 40% 25%, 70% 50%, 40% 75%, 40% 100%); left: 30%; }
 .cm-trail.u { clip-path: polygon(50% 0, 100% 60%, 75% 60%, 50% 30%, 25% 60%, 0 60%); top: 38%; }
 .cm-trail.d { clip-path: polygon(50% 100%, 100% 40%, 75% 40%, 50% 70%, 25% 40%, 0 40%); top: 30%; }
+.cm-earned { width: 100%; box-sizing: border-box; border: 3px dashed #0c3c21; padding: 10px 12px; display: flex; flex-direction: column; gap: 6px; align-items: center; }
+.cm-earned.won { border: 3px solid var(--gold); background: rgba(242, 193, 78, 0.12); }
+.cm-earned-k { font-family: var(--font-pixel), monospace; font-size: 11px; letter-spacing: 1px; color: var(--gold); }
+.cm-earned-v { font-family: var(--font-pixel), monospace; font-size: 18px; color: var(--cream); }
+.cm-earned-s { font-size: 14px; color: var(--parch); }
