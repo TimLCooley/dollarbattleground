@@ -28,7 +28,7 @@ export async function POST(req: Request) {
   if (bad) return NextResponse.json({ error: bad }, { status: 400 });
   const { data: fc } = await db.from("free_claims").select("side").eq("user_id", user.id).maybeSingle();
   // the admin isn't enlisted on the main map — they play as the color picked on the puzzle screen
-  const side = fc?.side ?? (isAdmin && (body.side === "red" || body.side === "blue") ? body.side : null);
+  const side = fc?.side ?? (isAdmin ? (body.side === "red" ? "red" : "blue") : null);
   if (!side) return NextResponse.json({ error: "enlist on the main map first", needsEnlist: true }, { status: 403 });
 
   const score = simulate(d.layout, placements).score;

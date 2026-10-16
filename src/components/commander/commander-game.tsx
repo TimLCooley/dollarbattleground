@@ -116,7 +116,8 @@ export function CommanderGame() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const side: Side | null = data?.side ?? guestSide;
+  // the admin isn't enlisted on the main map: no color prompt, plays Blue unless they picked otherwise
+  const side: Side | null = data?.side ?? guestSide ?? (data?.isAdmin ? "blue" : null);
   const L = data?.layout ?? null;
   const locked = !!result;
   const shown = showOptimal && result ? result.solution : placements;
