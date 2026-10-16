@@ -75,3 +75,27 @@ export function TroopIcon({ kind }: { kind: Kind }) {
     </svg>
   );
 }
+
+/** A little grass tuft that sways (light shade of the tile's own color). */
+export function Tuft() {
+  return (
+    <svg className="cm-tuft" viewBox="0 0 12 10" aria-hidden>
+      <path d="M2 10 Q2.4 5 1 2.4 Q3.6 5 3.6 10 Z M5 10 Q5.3 3.6 6 0.6 Q7 3.6 6.8 10 Z M8.4 10 Q8.6 5.4 11 3 Q10 6 10 10 Z" />
+    </svg>
+  );
+}
+
+/** Deterministic per-square variety: which squares grow a tuft, and each one's animation offset. */
+export const hasTuft = (i: number) => (i * 2654435761) % 7 < 3;
+export const sway = (i: number) => ({ ["--d" as string]: `${((i * 37) % 23) / 10}s` }) as React.CSSProperties;
+
+/** Wall joinery: which neighbours are walls too (so a run of wall reads as one wall), plus a mossy variant now and then. */
+export function wallClass(terrain: number[], i: number, size: number, WALL: number): string {
+  const x = i % size;
+  const y = Math.floor(i / size);
+  const c: string[] = [];
+  if (x < size - 1 && terrain[i + 1] === WALL) c.push("wr");
+  if (y < size - 1 && terrain[i + size] === WALL) c.push("wd");
+  if ((i * 40503) % 5 === 0) c.push("moss");
+  return c.join(" ");
+}
