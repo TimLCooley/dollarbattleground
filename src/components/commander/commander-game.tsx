@@ -316,7 +316,6 @@ export function CommanderGame() {
 
   const at = new Map<number, Kind>(shown.map((p) => [p.i, p.kind]));
   at.set(L.commander, "commander");
-  const order = new Map(shown.map((p, k) => [p.i, k + 1]));
   // trail markers: which way each captured square was taken (the latest troop wins)
   const trails = new Map<number, string>();
   for (const p of shown) for (const { t, dir } of trail(L, p.i, p.kind)) trails.set(t, dir);
@@ -361,7 +360,6 @@ export function CommanderGame() {
               {kind && (
                 <span className={"cm-troop " + side}>
                   <TroopIcon kind={kind} />
-                  {order.has(i) && <span className="cm-plus">{order.get(i)}</span>}
                 </span>
               )}
             </button>
