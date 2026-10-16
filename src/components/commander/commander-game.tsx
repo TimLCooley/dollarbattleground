@@ -364,7 +364,6 @@ export function CommanderGame() {
                   {order.has(i) && <span className="cm-plus">{order.get(i)}</span>}
                 </span>
               )}
-              {kind && <Notches kind={kind} />}
             </button>
           );
         })}

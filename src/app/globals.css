@@ -3782,7 +3782,7 @@ a.cc-pill-x:hover { color: #f2c14e; text-decoration: underline; }
 .cm-chip:disabled { opacity: 0.45; cursor: default; }
 .cm-troop.blue { color: var(--blue); }
 .cm-troop.red { color: var(--red); }
-.cm-board .cm-troop { width: 68%; height: 68%; padding: 2%; }
+.cm-board .cm-troop { width: 86%; height: 86%; padding: 2%; }
 /* reach notches sit on the tile's outside edges, pointing the way the troop reaches */
 .cm-notch { position: absolute; background: var(--cream); pointer-events: none; }
 .cm-notch.l, .cm-notch.r { top: 36%; width: 13%; height: 28%; }
