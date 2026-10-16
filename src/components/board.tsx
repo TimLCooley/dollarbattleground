@@ -1153,20 +1153,6 @@ export function BoardView({
       )}
 
       <GoldCountdown gold={gold} nextAt={goldNext} />
-      {loaded && (() => {
-        // Comeback: a side under 40% of the colored map gets reinforcements
-        // (bigger daily kit, rally bonus, more drops) until it's back near even.
-        const colored = counts.r + counts.b;
-        if (colored < 20) return null;
-        const under = counts.b / colored < 0.4 ? "blue" : counts.r / colored < 0.4 ? "red" : null;
-        if (!under) return null;
-        const Name = under === "blue" ? "Blue" : "Red";
-        return (
-          <div className={"comeback " + under} role="status">
-            ⚑ {Name.toUpperCase()} REINFORCEMENTS · {Name} is behind — {Name} players get extra daily supplies, more drops, and a chance at a free square back for every square they retake
-          </div>
-        );
-      })()}
       {loaded && open.size > 0 && (
         <div className="land-grab" role="status">
           🗺 LAND GRAB · {open.size} of {TOTAL} squares never claimed — take open ground (the striped squares) for a chance at a free square back
