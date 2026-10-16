@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/utils/supabase/admin";
 import { createClient } from "@/utils/supabase/server";
+import { requireAdmin } from "@/lib/admin-auth";
 import { dayNumber, medalFor, simulate, thresholds, validate, type Placement } from "@/lib/commander/engine";
 import { getDay, histogram } from "@/lib/commander/server";
 
@@ -11,6 +12,7 @@ export const maxDuration = 60;
 // client-sent score is never trusted. Gold pays a 1×1 on the main map,
 // perfect a 2×2 (enlisted players, once a day).
 export async function POST(req: Request) {
+  if (!(await requireAdmin())) return NextResponse.json({ error: "Not found" }, { status: 404 }); // admin-only for now
   const { data: u } = await (await createClient()).auth.getUser();
   const user = u.user && !u.user.is_anonymous ? u.user : null;
   if (!user) return NextResponse.json({ error: "sign in to post your score" }, { status: 401 });
