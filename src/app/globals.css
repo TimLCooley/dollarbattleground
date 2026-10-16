@@ -3803,3 +3803,13 @@ a.cc-pill-x:hover { color: #f2c14e; text-decoration: underline; }
 .cm-earned-k { font-family: var(--font-pixel), monospace; font-size: 11px; letter-spacing: 1px; color: var(--gold); }
 .cm-earned-v { font-family: var(--font-pixel), monospace; font-size: 18px; color: var(--cream); }
 .cm-earned-s { font-size: 14px; color: var(--parch); }
+.cm-how-lead { margin: 10px 0 8px; }
+.cm-how-row { display: flex; align-items: center; gap: 12px; margin: 6px 0; }
+.cm-how-unit { flex: none; width: 52px; height: 52px; }
+.cm-how-unit .cm-troop { width: 36px; height: 36px; padding: 2px; box-sizing: border-box; }
+.cm-how-terrain { display: flex; flex-wrap: wrap; gap: 6px 14px; margin: 8px 0 4px; font-size: 13px; }
+.cm-how-terrain span { display: inline-flex; align-items: center; gap: 6px; }
+.cm-sw { position: relative; display: inline-block; width: 18px; height: 18px; background: var(--wheat); }
+.cm-sw.wall { background: #4a4f57; }
+.cm-sw.water { background: repeating-linear-gradient(0deg, #2aa198 0 4px, #3fb7ad 4px 6px); }
+.cm-sw.tree .cm-tree-mark { position: absolute; inset: 15%; border-radius: 50% 50% 40% 40%; background: #1f7a3c; }

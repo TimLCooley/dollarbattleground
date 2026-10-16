@@ -408,15 +408,38 @@ export function CommanderGame() {
 
       <details className="cm-how">
         <summary>How to play</summary>
+        <p className="cm-how-lead">The whole map starts as the enemy&apos;s. Turn as many squares to your color as you can.</p>
+        <div className="cm-how-row">
+          <span className="cm-unit cm-how-unit">
+            <span className={"cm-troop " + side}><TroopIcon kind="commander" /></span>
+          </span>
+          <span><b>Commander</b> — already on the field. Holds the 3×3 around it: that&apos;s where you start.</span>
+        </div>
+        <div className="cm-how-row">
+          <span className="cm-unit cm-how-unit">
+            <span className={"cm-troop " + side}><TroopIcon kind="archer" /></span>
+            <Notches kind="archer" />
+          </span>
+          <span><b>Archer</b> — takes 3 squares left and 3 right. Arrows fly over walls and water; a tree stops them.</span>
+        </div>
+        <div className="cm-how-row">
+          <span className="cm-unit cm-how-unit">
+            <span className={"cm-troop " + side}><TroopIcon kind="soldier" /></span>
+            <Notches kind="soldier" />
+          </span>
+          <span><b>Soldier</b> — takes 2 squares up and 2 down. Marches through trees (and takes them), wades through water (costs a step); walls stop them.</span>
+        </div>
+        <div className="cm-how-terrain">
+          <span><i className="cm-sw wall" /> Wall — stops Soldiers</span>
+          <span><i className="cm-sw water" /> Water — Soldiers wade</span>
+          <span><i className="cm-sw tree"><span className="cm-tree-mark" /></i> Tree — stops arrows</span>
+        </div>
         <ul>
-          <li>The whole map starts as the enemy&apos;s. Turn as many squares to your color as you can.</li>
-          <li>Your <b>Commander</b> is already on the field and holds the 3×3 around it.</li>
-          <li><b>Archers</b> and <b>Soldiers</b> can only stand on ground you hold — including ground you just took. Order matters.</li>
-          <li><b>Archer</b> takes 3 squares left and 3 right. Arrows fly over walls and water; a tree stops them.</li>
-          <li><b>Soldier</b> takes 2 squares up and 2 down. Soldiers march through trees (and take them) and wade through water (it costs a step); walls stop them.</li>
+          <li>Archers and Soldiers can only stand on ground you hold — including ground you just took. Order matters.</li>
+          <li>Faint ‹ › ˄ ˅ marks on your squares show which way each was taken.</li>
           <li>Practice as much as you like — your best layout is saved (★). Only Attack counts.</li>
           <li>A new map every day, the same for everyone. Monday is the easiest, Friday and Saturday the hardest.</li>
-          <li>One shot. Score 90% of the best possible for a free square on the main map; hit perfect for a 2×2.</li>
+          <li>One shot. Score 90% of the best possible for a free 1×1 on the main map; hit perfect for a 2×2.</li>
         </ul>
       </details>
 
