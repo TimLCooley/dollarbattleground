@@ -36,7 +36,7 @@ type Result = {
   thresholds: { bronze: number; silver: number; gold: number; perfect: number };
   histogram: { score: number; players: number }[];
 };
-type DayResponse = { day: number; layout: Layout; side: Side | null; signedIn: boolean; isAdmin?: boolean; result: Result | null };
+type DayResponse = { day: number; today: number; layout: Layout; side: Side | null; signedIn: boolean; isAdmin?: boolean; result: Result | null };
 
 type Troop = "archer" | "soldier";
 const TROOPS: Troop[] = ["archer", "soldier"];
@@ -61,7 +61,7 @@ function storedSide(): Side | null {
   }
 }
 
-export function CommanderGame() {
+export function CommanderGame({ day: askedDay, unsubscribed = false }: { day?: number; unsubscribed?: boolean } = {}) {
   const [data, setData] = useState<DayResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [guestSide, setGuestSide] = useState<Side | null>(null);
@@ -70,6 +70,7 @@ export function CommanderGame() {
   const [best, setBest] = useState<{ score: number; placements: Placement[] } | null>(null);
   const [demoOpen, setDemoOpen] = useState(false);
   const [demoAuto, setDemoAuto] = useState(true);
+  const [remindOpen, setRemindOpen] = useState(false);
   const [focus, setFocus] = useState<number | null>(null);
   const [result, setResult] = useState<Result | null>(null);
   const [showResult, setShowResult] = useState(false);
@@ -82,12 +83,19 @@ export function CommanderGame() {
 
   async function load() {
     try {
-      const r = await fetch("/api/commander/day", { cache: "no-store" });
+      const r = await fetch(`/api/commander/day${askedDay ? `?day=${askedDay}` : ""}`, { cache: "no-store" });
+      if (!r.ok) {
+        // a future day (or a bad link) — back to today's map
+        window.location.replace("/commander");
+        return;
+      }
       const d = (await r.json()) as DayResponse;
-      // the how-to-play video opens on load unless the player turned that off
+      // the how-to-play video opens when you arrive (once per visit, not on every
+      // day you flip to) unless the player turned that off
       let auto = true;
       try {
-        auto = localStorage.getItem(DEMO_PREF) !== "off";
+        auto = localStorage.getItem(DEMO_PREF) !== "off" && !sessionStorage.getItem("bg_commander_demo_seen");
+        sessionStorage.setItem("bg_commander_demo_seen", "1");
       } catch {
         /* ignore */
       }
@@ -297,7 +305,7 @@ export function CommanderGame() {
   if (!side)
     return (
       <div className="cm-wrap">
-        <Header day={data.day} />
+        <Header day={data.day} today={data.today} onNext={() => setRemindOpen(true)} />
         <div className="ob-overlay" role="dialog" aria-label="Choose your color">
           <div className="ob-card">
             <div className="ob-kicker">◆ COMMANDER #{data.day} ◆</div>
@@ -334,7 +342,13 @@ export function CommanderGame() {
 
   return (
     <div className={"cm-wrap side-" + side}>
-      <Header day={data.day} layout={L} />
+      <Header day={data.day} today={data.today} layout={L} onNext={() => setRemindOpen(true)} />
+      {unsubscribed && <div className="cm-banner">You won&apos;t get Commander reminders anymore.</div>}
+      {data.day < data.today && (
+        <p className="cm-past">
+          A past puzzle — play it and post a score. Main-map rewards come from <Link href="/commander">today&apos;s map</Link>.
+        </p>
+      )}
 
       {showOptimal && result && (
         <div className="cm-banner">BEST LAYOUT · {result.optimal} squares · <button className="cm-link" onClick={() => setShowOptimal(false)}>show mine</button></div>
@@ -490,6 +504,8 @@ export function CommanderGame() {
         </div>
       )}
 
+      {remindOpen && <RemindModal signedIn={data.signedIn} onClose={() => setRemindOpen(false)} />}
+
       {confirming && (
         <div className="ob-overlay" role="dialog" aria-label="Confirm attack" onClick={() => setConfirming(false)}>
           <div className="ob-card" onClick={(e) => e.stopPropagation()}>
@@ -552,14 +568,102 @@ export function CommanderGame() {
   );
 }
 
-function Header({ day, layout }: { day: number; layout?: Layout }) {
+const dayHref = (n: number, today: number) => (n >= today ? "/commander" : `/commander?day=${n}`);
+
+function Header({ day, today, layout, onNext }: { day: number; today: number; layout?: Layout; onNext: () => void }) {
   return (
-    <div className="cm-head">
-      <Link href="/" className="cm-back">‹ main map</Link>
-      <h1 className="cm-title">COMMANDER</h1>
-      <div className="cm-day">
-        #{day}
-        {layout ? ` · ${WEEKDAY[layout.weekday].slice(0, 3).toUpperCase()} · ${DIFFICULTY_NAME[DIFFICULTY[layout.weekday]].toUpperCase()}` : ""}
+    <>
+      <div className="cm-head">
+        <Link href="/" className="cm-back">‹ main map</Link>
+        <h1 className="cm-title">COMMANDER</h1>
+        <span />
+      </div>
+      <div className="cm-daynav">
+        {day > 1 ? <Link href={dayHref(day - 1, today)}>‹ Prev</Link> : <span />}
+        <span className="cm-daynav-l">
+          Day {day}
+          {layout ? ` · ${WEEKDAY[layout.weekday]} · ${DIFFICULTY_NAME[DIFFICULTY[layout.weekday]]}` : ""}
+          {day === today ? " · today" : ""}
+        </span>
+        {day < today ? (
+          <Link href={dayHref(day + 1, today)}>Next ›</Link>
+        ) : (
+          <button className="cm-link-btn" onClick={onNext}>Next ›</button>
+        )}
+      </div>
+    </>
+  );
+}
+
+/** Time until the next map (midnight in Denver). */
+function untilNextMap(now: number) {
+  const parts = new Intl.DateTimeFormat("en-US", { timeZone: "America/Denver", hour: "numeric", minute: "numeric", second: "numeric", hour12: false }).formatToParts(new Date(now));
+  const get = (t: string) => Number(parts.find((p) => p.type === t)?.value ?? 0) % 24;
+  const left = 86400 - (get("hour") * 3600 + get("minute") * 60 + get("second"));
+  const h = Math.floor(left / 3600), m = Math.floor((left % 3600) / 60), x = left % 60;
+  return `${h}:${String(m).padStart(2, "0")}:${String(x).padStart(2, "0")}`;
+}
+
+function RemindModal({ signedIn, onClose }: { signedIn: boolean; onClose: () => void }) {
+  const [email, setEmail] = useState("");
+  const [state, setState] = useState<"idle" | "saving" | "done">("idle");
+  const [error, setError] = useState<string | null>(null);
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const t = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(t);
+  }, []);
+  async function save() {
+    setState("saving");
+    setError(null);
+    const r = await fetch("/api/commander/remind", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(signedIn ? {} : { email }),
+    }).catch(() => null);
+    const j = r ? await r.json().catch(() => ({})) : {};
+    if (r?.ok) setState("done");
+    else {
+      setError(j.error ?? "Couldn't save that — try again.");
+      setState("idle");
+    }
+  }
+  return (
+    <div className="ob-overlay" role="dialog" aria-label="Remind me tomorrow" onClick={onClose}>
+      <div className="ob-card" onClick={(e) => e.stopPropagation()}>
+        <div className="ob-kicker">◆ TOMORROW&apos;S BATTLE ◆</div>
+        <h2 className="ob-title">NOT YET!</h2>
+        <p className="ob-body">
+          A new map drops at midnight Mountain — in <b>{untilNextMap(now)}</b>.
+        </p>
+        {state === "done" ? (
+          <>
+            <p className="ob-body">✓ You&apos;re on the list — we&apos;ll email you when it&apos;s live (around 8am Mountain).</p>
+            <button className="ob-btn" onClick={onClose}>BACK TO TODAY&apos;S MAP</button>
+          </>
+        ) : (
+          <>
+            <p className="ob-body">Want a heads-up when it&apos;s live? One email a day, stop anytime.</p>
+            {!signedIn && (
+              <input
+                className="ob-input"
+                type="email"
+                placeholder="you@email.com"
+                value={email}
+                onChange={(e) => {
+                  setEmail(e.target.value);
+                  if (error) setError(null);
+                }}
+                onKeyDown={(e) => e.key === "Enter" && save()}
+              />
+            )}
+            {error && <p className="ct-error">{error}</p>}
+            <button className="ob-btn" onClick={save} disabled={state === "saving" || (!signedIn && !email.trim())}>
+              {state === "saving" ? "SAVING…" : "REMIND ME TOMORROW"}
+            </button>
+            <button className="ob-skip" onClick={onClose}>‹ back to today&apos;s map</button>
+          </>
+        )}
       </div>
     </div>
   );

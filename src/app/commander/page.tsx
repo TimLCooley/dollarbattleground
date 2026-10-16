@@ -9,6 +9,9 @@ export const metadata: Metadata = {
 };
 
 // Open to anyone with the link (Tim, 2026-10-16); not linked from the main map yet.
-export default function CommanderPage() {
-  return <CommanderGame />;
+export default async function CommanderPage({ searchParams }: { searchParams: Promise<{ day?: string; unsubscribed?: string }> }) {
+  const sp = await searchParams;
+  const day = sp.day && /^\d+$/.test(sp.day) ? Number(sp.day) : undefined;
+  // keyed by day so flipping between days starts each board fresh
+  return <CommanderGame key={day ?? "today"} day={day} unsubscribed={sp.unsubscribed === "1"} />;
 }

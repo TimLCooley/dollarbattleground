@@ -18,11 +18,13 @@ export async function POST(req: Request) {
   if (!user) return NextResponse.json({ error: "sign in to post your score" }, { status: 401 });
   const body = (await req.json().catch(() => ({}))) as { day?: number; placements?: Placement[]; side?: string };
   const today = dayNumber();
-  if (body.day !== today) return NextResponse.json({ error: "that puzzle has ended — here's today's" }, { status: 409 });
+  const day = Number(body.day);
+  // past days are playable and get a score; only today's puzzle pays main-map rewards
+  if (!Number.isInteger(day) || day < 1 || day > today) return NextResponse.json({ error: "that puzzle isn't open" }, { status: 409 });
   const placements = (Array.isArray(body.placements) ? body.placements : []).map((p) => ({ i: Math.floor(Number(p.i)), kind: p.kind }));
 
   const db = createAdminClient();
-  const d = await getDay(db, today);
+  const d = await getDay(db, day);
   const bad = validate(d.layout, placements);
   if (bad) return NextResponse.json({ error: bad }, { status: 400 });
   const { data: fc } = await db.from("free_claims").select("side").eq("user_id", user.id).maybeSingle();
@@ -33,12 +35,12 @@ export async function POST(req: Request) {
   const score = simulate(d.layout, placements).score;
   const medal = medalFor(score, d.optimal);
   // main-map rewards only for enlisted players
-  const reward = !fc?.side ? null : medal === "perfect" ? "2x2" : medal === "gold" ? "1x1" : null;
+  const reward = !fc?.side || day !== today ? null : medal === "perfect" ? "2x2" : medal === "gold" ? "1x1" : null;
   const { error } = await db
     .from("commander_scores")
-    .insert({ day: today, user_id: user.id, side, placements, score, medal, reward });
+    .insert({ day, user_id: user.id, side, placements, score, medal, reward });
   if (error) {
-    if (error.code === "23505") return NextResponse.json({ error: "you already submitted today" }, { status: 409 });
+    if (error.code === "23505") return NextResponse.json({ error: "you already submitted this day" }, { status: 409 });
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
   // the insert is the once-a-day lock, so the reward can't be paid twice
@@ -52,6 +54,6 @@ export async function POST(req: Request) {
     optimal: d.optimal,
     solution: d.solution,
     thresholds: thresholds(d.optimal),
-    histogram: await histogram(db, today),
+    histogram: await histogram(db, day),
   });
 }

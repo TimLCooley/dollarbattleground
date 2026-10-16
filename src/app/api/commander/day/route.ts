@@ -8,12 +8,17 @@ import { getDay, histogram } from "@/lib/commander/server";
 export const dynamic = "force-dynamic";
 export const maxDuration = 120;
 
-// Today's map. The optimum and medal lines stay hidden until you've submitted.
-export async function GET() {
+// A day's map (?day=N, default today; future days stay hidden). The optimum
+// and medal lines stay hidden until you've submitted for that day.
+export async function GET(req: Request) {
   const isAdmin = !!(await requireAdmin());
   const db = createAdminClient();
   const today = dayNumber();
-  const d = await getDay(db, today);
+  const asked = Number(new URL(req.url).searchParams.get("day") ?? today);
+  const day = Number.isInteger(asked) ? asked : today;
+  if (day > today) return NextResponse.json({ error: "not yet", today }, { status: 404 });
+  if (day < 1) return NextResponse.json({ error: "no such day", today }, { status: 404 });
+  const d = await getDay(db, day);
   const { data: u } = await (await createClient()).auth.getUser();
   const user = u.user && !u.user.is_anonymous ? u.user : null;
   let side: string | null = null;
@@ -21,19 +26,20 @@ export async function GET() {
   if (user) {
     const [{ data: fc }, { data: sc }] = await Promise.all([
       db.from("free_claims").select("side").eq("user_id", user.id).maybeSingle(),
-      db.from("commander_scores").select("score,medal,reward,placements").eq("day", today).eq("user_id", user.id).maybeSingle(),
+      db.from("commander_scores").select("score,medal,reward,placements").eq("day", day).eq("user_id", user.id).maybeSingle(),
     ]);
     side = fc?.side ?? null;
     mine = sc;
   }
   return NextResponse.json({
-    day: today,
+    day,
+    today,
     layout: d.layout,
     side,
     signedIn: !!user,
     isAdmin,
     result: mine
-      ? { ...mine, optimal: d.optimal, solution: d.solution, thresholds: thresholds(d.optimal), histogram: await histogram(db, today) }
+      ? { ...mine, optimal: d.optimal, solution: d.solution, thresholds: thresholds(d.optimal), histogram: await histogram(db, day) }
       : null,
   });
 }

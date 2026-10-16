@@ -500,6 +500,18 @@ export async function runAutopilot(db: Db, opts: { force?: boolean } = {}): Prom
     notes.push(`daily supplies: ${e instanceof Error ? e.message : "failed"}`);
   }
 
+  // Commander reminders: from 8am Mountain, "today's map is live" to everyone who asked.
+  try {
+    const mtHour = Number(new Intl.DateTimeFormat("en-US", { timeZone: "America/Denver", hour: "numeric", hour12: false }).format(new Date()));
+    if (mtHour >= 8) {
+      const { sendCommanderReminders } = await import("@/lib/commander/reminders");
+      const n = await sendCommanderReminders(db);
+      if (n) notes.push(`commander reminders sent to ${n}`);
+    }
+  } catch (e) {
+    notes.push(`commander reminders: ${e instanceof Error ? e.message : "failed"}`);
+  }
+
   // Gold squares run on a schedule so the board can count down to the next:
   // app_config.gold_next = {at}. When it's due, spawn (live 45 min) and pick
   // the next drop 2-4h later, kept inside 9am-10pm Mountain.
