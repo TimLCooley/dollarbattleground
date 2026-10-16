@@ -3,9 +3,10 @@ import { CELLS, SIZE, TREE, WALL, WATER, ownable, reach, simulate, trail, xy, ty
 import { TroopIcon } from "../components/commander/icons";
 
 // How-to-play demo for /commander (website only): a square, silent loop that
-// plays a small hand-made map with the real engine. Each rule gets its moment —
-// the Commander's ground, an arrow over a wall stopped by a tree, a soldier
-// wading water — then a chain of moves on newly taken ground.
+// plays a small hand-made map with the real engine. Each piece is introduced
+// by a pop-up card (what it takes, with a little diagram), then placed on the
+// board: the Commander's 9 squares, an Archer's shot over a wall stopped by a
+// tree, a Soldier wading water — then "order matters" and a chain of moves.
 
 const I = (x: number, y: number) => y * SIZE + x;
 const T = (pts: [number, number][], t: number, terrain: number[]) => pts.forEach(([x, y]) => (terrain[I(x, y)] = t));
@@ -26,16 +27,24 @@ const BEST = 35;
 
 const FPS = 30;
 const s = (sec: number) => Math.round(sec * FPS);
-const T_COMMANDER = s(1.6);
-const MOVE_AT = [s(4.6), s(9.6), s(15.2), s(16.6), s(18), s(19.4)];
-const T_END = s(21.6);
-export const COMMANDER_DEMO_SECONDS = 27;
+// pop-up cards: each piece is introduced, then placed
+type Card = { from: number; to: number; kind: "commander" | "archer" | "soldier" | null; title: string; lines: string[] };
+const CARDS: Card[] = [
+  { from: s(1.4), to: s(4.4), kind: "commander", title: "COMMANDER", lines: ["Holds the 9 squares around it.", "Starts the game."] },
+  { from: s(6.4), to: s(9.6), kind: "archer", title: "ARCHER", lines: ["Takes 3 left and 3 right.", "Over walls and water. Trees stop it."] },
+  { from: s(12.6), to: s(15.8), kind: "soldier", title: "SOLDIER", lines: ["Takes 2 up and 2 down.", "Wades through water. Walls stop it."] },
+  { from: s(18.6), to: s(21.4), kind: null, title: "ORDER MATTERS", lines: ["Troops can only stand on ground you hold —", "including ground you just took."] },
+];
+const T_COMMANDER = s(4.7);
+const MOVE_AT = [s(10), s(16.2), s(22), s(23.3), s(24.6), s(25.9)];
+const T_END = s(27.8);
+export const COMMANDER_DEMO_SECONDS = 33;
 
 const CAPTIONS: { from: number; to: number; text: string }[] = [
-  { from: T_COMMANDER, to: MOVE_AT[0] - 4, text: "Your Commander starts with the ground around it." },
-  { from: MOVE_AT[0], to: MOVE_AT[1] - 4, text: "Archers take 3 left and 3 right. Arrows fly over walls — a tree stops them." },
-  { from: MOVE_AT[1], to: MOVE_AT[2] - 4, text: "Soldiers take 2 up and 2 down. They wade through water — walls stop them." },
-  { from: MOVE_AT[2], to: T_END - 4, text: "Troops only stand on ground you hold — so the order you place them matters." },
+  { from: T_COMMANDER, to: CARDS[1].from - 4, text: "The Commander takes its 9 squares." },
+  { from: MOVE_AT[0], to: CARDS[2].from - 4, text: "Over the wall… stopped by the tree." },
+  { from: MOVE_AT[1], to: CARDS[3].from - 4, text: "Wading through the water." },
+  { from: MOVE_AT[2], to: T_END - 4, text: "Each troop builds on the ground the last one took." },
 ];
 
 const ENEMY = "#d23b3b";
@@ -99,7 +108,7 @@ export const CommanderDemo = () => {
   // the tap: a finger-dot that glides to the next square just before each move
   const next = MOVE_AT.findIndex((t) => frame < t + 6);
   let tap: { x: number; y: number; press: number } | null = null;
-  if (next >= 0 && frame >= MOVE_AT[next] - 14) {
+  if (next >= 0 && frame >= MOVE_AT[next] - 14 && !CARDS.some((c) => frame >= c.from && frame < c.to)) {
     const [tx, ty] = xy(MOVES[next].i);
     const from = next > 0 ? xy(MOVES[next - 1].i) : xy(LAYOUT.commander);
     const k = interpolate(frame, [MOVE_AT[next] - 14, MOVE_AT[next] - 2], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
@@ -231,6 +240,40 @@ export const CommanderDemo = () => {
         </div>
       )}
 
+      {/* pop-up cards */}
+      {CARDS.map((c) => {
+        if (frame < c.from || frame >= c.to) return null;
+        const inn = spring({ frame: frame - c.from, fps, config: { damping: 13, stiffness: 170 } });
+        const out = interpolate(frame, [c.to - 8, c.to], [1, 0], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
+        return (
+          <AbsoluteFill key={c.title} style={{ background: `rgba(10,46,26,${0.6 * out})`, display: "grid", placeItems: "center" }}>
+            <div
+              style={{
+                width: 820,
+                padding: "40px 40px 46px",
+                background: "#124f2b",
+                border: "8px solid #f2c14e",
+                boxShadow: "0 18px 0 rgba(0,0,0,0.35)",
+                textAlign: "center",
+                transform: `scale(${inn * out})`,
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                gap: 22,
+              }}
+            >
+              <div style={{ fontSize: 72, letterSpacing: 6, color: "#f2c14e" }}>{c.title}</div>
+              {c.kind && <Diagram kind={c.kind} frame={frame - c.from} />}
+              <div style={{ fontFamily: "Arial, Helvetica, sans-serif", fontWeight: 700, fontSize: 40, lineHeight: 1.3 }}>
+                {c.lines.map((l) => (
+                  <div key={l}>{l}</div>
+                ))}
+              </div>
+            </div>
+          </AbsoluteFill>
+        );
+      })}
+
       {/* title */}
       {intro > 0 && (
         <AbsoluteFill style={{ background: `rgba(10,46,26,${0.85 * intro})`, display: "grid", placeItems: "center", opacity: intro }}>
@@ -256,3 +299,48 @@ export const CommanderDemo = () => {
     </AbsoluteFill>
   );
 };
+
+// The little picture on each card: the piece in the middle, the squares it takes lighting up in turn.
+function Diagram({ kind, frame }: { kind: "commander" | "archer" | "soldier"; frame: number }) {
+  const C = kind === "soldier" ? 78 : 92;
+  const tile = (key: string, content: React.ReactNode, on: boolean, mark?: string) => (
+    <div
+      key={key}
+      style={{
+        position: "relative",
+        width: C,
+        height: C,
+        background: on ? ME : ENEMY,
+        boxShadow: "inset -5px -5px 0 rgba(0,0,0,0.22), inset 5px 5px 0 rgba(255,255,255,0.12)",
+      }}
+    >
+      {mark && on && (
+        <svg viewBox="0 0 100 100" style={{ position: "absolute", inset: "20%", width: "60%", height: "60%" }}>
+          <polygon points={chevron[mark]} fill="rgba(255,255,255,0.75)" />
+        </svg>
+      )}
+      {content}
+    </div>
+  );
+  const piece = (
+    <div style={{ position: "absolute", inset: "7%", background: "#f6efdb", border: "4px solid #264f9c", color: ME }}>
+      <TroopIcon kind={kind} />
+    </div>
+  );
+  const lit = (d: number) => frame >= 14 + d * 7;
+  if (kind === "commander") {
+    return (
+      <div style={{ display: "grid", gridTemplateColumns: `repeat(3, ${C}px)`, gap: 4 }}>
+        {Array.from({ length: 9 }, (_, k) => tile(String(k), k === 4 ? piece : null, k === 4 || lit(1)))}
+      </div>
+    );
+  }
+  const reachN = kind === "archer" ? 3 : 2;
+  const cells = Array.from({ length: reachN * 2 + 1 }, (_, k) => k - reachN);
+  const dirOf = (d: number) => (kind === "archer" ? (d < 0 ? "l" : "r") : d < 0 ? "u" : "d");
+  return (
+    <div style={{ display: "flex", flexDirection: kind === "archer" ? "row" : "column", gap: 4 }}>
+      {cells.map((d) => tile(String(d), d === 0 ? piece : null, d === 0 || lit(Math.abs(d)), d === 0 ? undefined : dirOf(d)))}
+    </div>
+  );
+}
