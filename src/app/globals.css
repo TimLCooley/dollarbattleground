@@ -3814,3 +3814,5 @@ a.cc-pill-x:hover { color: #f2c14e; text-decoration: underline; }
 .cm-sw.water { background: repeating-linear-gradient(0deg, #2aa198 0 4px, #3fb7ad 4px 6px); }
 .cm-sw.tree .cm-tree-mark { position: absolute; inset: 15%; border-radius: 50% 50% 40% 40%; background: #1f7a3c; }
 .cm-demo { display: block; width: 100%; aspect-ratio: 1; margin: 10px 0 4px; border: 3px solid #0c3c21; background: #155f33; }
+.cm-demo-card { position: relative; max-width: 520px; }
+.cm-watch { margin: 10px 0 4px; }

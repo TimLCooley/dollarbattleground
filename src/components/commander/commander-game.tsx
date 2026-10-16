@@ -50,6 +50,7 @@ const PENDING = "bg_commander_pending";
 const GUEST_SIDE = "bg_commander_side";
 const DRAFT = "bg_commander_draft";
 const BEST = "bg_commander_best";
+const DEMO_PREF = "bg_commander_demo"; // "off" = don't open the video on load
 
 function storedSide(): Side | null {
   try {
@@ -67,6 +68,8 @@ export function CommanderGame() {
   const [placements, setPlacements] = useState<Placement[]>([]);
   const [selected, setSelected] = useState<Troop>("archer");
   const [best, setBest] = useState<{ score: number; placements: Placement[] } | null>(null);
+  const [demoOpen, setDemoOpen] = useState(false);
+  const [demoAuto, setDemoAuto] = useState(true);
   const [focus, setFocus] = useState<number | null>(null);
   const [result, setResult] = useState<Result | null>(null);
   const [showResult, setShowResult] = useState(false);
@@ -81,6 +84,15 @@ export function CommanderGame() {
     try {
       const r = await fetch("/api/commander/day", { cache: "no-store" });
       const d = (await r.json()) as DayResponse;
+      // the how-to-play video opens on load unless the player turned that off
+      let auto = true;
+      try {
+        auto = localStorage.getItem(DEMO_PREF) !== "off";
+      } catch {
+        /* ignore */
+      }
+      setDemoAuto(auto);
+      setDemoOpen(auto);
       try {
         const g = localStorage.getItem(GUEST_SIDE);
         if (g === "red" || g === "blue") setGuestSide(g);
@@ -408,7 +420,7 @@ export function CommanderGame() {
 
       <details className="cm-how">
         <summary>How to play</summary>
-        <video className="cm-demo" src="/commander-demo.mp4" autoPlay muted loop playsInline preload="metadata" aria-label="A 55-second demo of how to play" />
+        <button className="ob-btn cm-watch" onClick={() => setDemoOpen(true)}>▶ WATCH THE VIDEO</button>
         <p className="cm-how-lead">The whole map starts as the enemy&apos;s. Turn as many squares to your color as you can.</p>
         <div className="cm-how-row">
           <span className="cm-unit cm-how-unit">
@@ -443,6 +455,33 @@ export function CommanderGame() {
           <li>One shot. Score 90% of the best possible for a free 1×1 on the main map; hit perfect for a 2×2.</li>
         </ul>
       </details>
+
+      {demoOpen && (
+        <div className="ob-overlay" role="dialog" aria-label="How to play video" onClick={() => setDemoOpen(false)}>
+          <div className="ob-card cm-demo-card" onClick={(e) => e.stopPropagation()}>
+            <button className="cm-x" onClick={() => setDemoOpen(false)} aria-label="Close">×</button>
+            <div className="ob-kicker">◆ HOW TO PLAY ◆</div>
+            <video className="cm-demo" src="/commander-demo.mp4" autoPlay muted playsInline controls aria-label="A 55-second demo of how to play" />
+            <label className="ob-consent">
+              <input
+                type="checkbox"
+                className="ob-check"
+                checked={demoAuto}
+                onChange={(e) => {
+                  setDemoAuto(e.target.checked);
+                  try {
+                    localStorage.setItem(DEMO_PREF, e.target.checked ? "on" : "off");
+                  } catch {
+                    /* ignore */
+                  }
+                }}
+              />
+              <span className="ob-consent-txt">Play this video every time I open Commander</span>
+            </label>
+            <button className="ob-btn" onClick={() => setDemoOpen(false)}>LET&apos;S PLAY →</button>
+          </div>
+        </div>
+      )}
 
       {confirming && (
         <div className="ob-overlay" role="dialog" aria-label="Confirm attack" onClick={() => setConfirming(false)}>
