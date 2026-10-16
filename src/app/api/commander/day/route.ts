@@ -11,7 +11,6 @@ export const maxDuration = 120;
 // Today's map. The optimum and medal lines stay hidden until you've submitted.
 export async function GET() {
   const isAdmin = !!(await requireAdmin());
-  if (process.env.NODE_ENV !== "development" && !isAdmin) return NextResponse.json({ error: "Not found" }, { status: 404 }); // admin-only for now
   const db = createAdminClient();
   const today = dayNumber();
   const d = await getDay(db, today);
