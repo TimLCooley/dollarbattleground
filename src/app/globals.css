@@ -3780,3 +3780,6 @@ a.cc-pill-x:hover { color: #f2c14e; text-decoration: underline; }
 .cm-practice { display: flex; justify-content: center; gap: 10px; }
 .cm-chip { font-family: var(--font-pixel), monospace; font-size: 12px; padding: 7px 12px; background: var(--ground-2); color: var(--gold); border: 3px solid #0c3c21; cursor: pointer; }
 .cm-chip:disabled { opacity: 0.45; cursor: default; }
+.cm-troop.blue { color: var(--blue); }
+.cm-troop.red { color: var(--red); }
+.cm-board .cm-troop { width: 90%; height: 90%; padding: 2%; }

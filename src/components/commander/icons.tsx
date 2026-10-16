@@ -1,38 +1,71 @@
-// Little icons for Commander pieces (16×16 grid).
+// Commander pieces: a little person in the middle, with notches on the sides
+// the troop reaches (Archer ‹ ›, Soldier ˄ ˅). Tunic and notches use the team
+// color via currentColor.
 import type { Kind } from "@/lib/commander/engine";
 
-const Svg = ({ children, title }: { children: React.ReactNode; title: string }) => (
-  <svg viewBox="0 0 16 16" width="100%" height="100%" aria-label={title} role="img">
-    {children}
-  </svg>
-);
+const SKIN = "#e8b98a";
+const DARK = "#3a2a1c";
+const STEEL = "#8a949e";
+const WOOD = "#8a5a2b";
+
+function Person({ helmet = false }: { helmet?: boolean }) {
+  return (
+    <>
+      {/* legs */}
+      <rect x="8.1" y="13.6" width="1.6" height="3" fill={DARK} />
+      <rect x="10.3" y="13.6" width="1.6" height="3" fill={DARK} />
+      {/* tunic + belt */}
+      <path d="M7.4 8.6 h5.2 l0.6 5.2 h-6.4 z" fill="currentColor" />
+      <rect x="7.3" y="11.4" width="5.4" height="0.9" fill={DARK} />
+      {/* head + hair or helmet */}
+      <circle cx="10" cy="6" r="2.3" fill={SKIN} />
+      {helmet ? <path d="M7.6 6 a2.4 2.4 0 0 1 4.8 0 z" fill={STEEL} /> : <path d="M7.8 5.4 a2.3 2.3 0 0 1 4.4 0 z" fill={DARK} />}
+    </>
+  );
+}
+
+const Notch = ({ d }: { d: string }) => <path d={d} fill="currentColor" />;
 
 export function TroopIcon({ kind }: { kind: Kind }) {
-  if (kind === "soldier")
-    return (
-      <Svg title="Soldier">
-        {/* sword */}
-        <line x1="4.5" y1="11.5" x2="13" y2="3" stroke="#7f8a95" strokeWidth="3" strokeLinecap="square" />
-        <line x1="13" y1="3" x2="10" y2="6" stroke="#c9d1d9" strokeWidth="1" />
-        <line x1="2.5" y1="9" x2="7" y2="13.5" stroke="#8a5a2b" strokeWidth="2.6" strokeLinecap="square" />
-        <line x1="2.5" y1="13.5" x2="4.5" y2="11.5" stroke="#5b3a1a" strokeWidth="2.6" strokeLinecap="square" />
-      </Svg>
-    );
-  if (kind === "archer")
-    return (
-      <Svg title="Archer">
-        {/* bow + arrow */}
-        <path d="M6 1.5 Q 15 8 6 14.5" stroke="#8a5a2b" strokeWidth="2.6" fill="none" />
-        <line x1="6" y1="1.5" x2="6" y2="14.5" stroke="#3a2410" strokeWidth="1" />
-        <line x1="1.5" y1="8" x2="12" y2="8" stroke="#6b7079" strokeWidth="2" />
-        <polygon points="15,8 11,5 11,11" fill="#6b7079" />
-      </Svg>
-    );
   return (
-    <Svg title="Commander">
-      {/* banner */}
-      <rect x="2.5" y="1.5" width="2.4" height="13.5" fill="#5b3a1a" />
-      <polygon points="4.9,1.5 15,4.5 4.9,8.5" fill="#f2c14e" stroke="#c9982f" strokeWidth="1" />
-    </Svg>
+    <svg
+      viewBox="0 0 20 20"
+      width="100%"
+      height="100%"
+      role="img"
+      aria-label={kind === "archer" ? "Archer" : kind === "soldier" ? "Soldier" : "Commander"}
+    >
+      {kind === "archer" && (
+        <>
+          <Notch d="M0 10 L3.2 6.6 V13.4 Z" />
+          <Notch d="M20 10 L16.8 6.6 V13.4 Z" />
+          <Person />
+          {/* bow held out to the side, arrow nocked */}
+          <path d="M14.2 6.4 Q16.8 10.2 14.2 14" fill="none" stroke={WOOD} strokeWidth="1.1" />
+          <line x1="14.2" y1="6.4" x2="14.2" y2="14" stroke="#f6efdb" strokeWidth="0.4" />
+          <line x1="11.6" y1="10.2" x2="16.4" y2="10.2" stroke={STEEL} strokeWidth="0.7" />
+        </>
+      )}
+      {kind === "soldier" && (
+        <>
+          <Notch d="M10 0 L6.6 3.2 H13.4 Z" />
+          <Notch d="M10 20 L6.6 16.8 H13.4 Z" />
+          <Person helmet />
+          {/* sword raised, shield */}
+          <line x1="13.9" y1="3.6" x2="13.9" y2="11.4" stroke={STEEL} strokeWidth="1" />
+          <line x1="12.8" y1="11" x2="15" y2="11" stroke={WOOD} strokeWidth="0.9" />
+          <path d="M4.6 9.2 h3 v2.6 q-1.5 1.8 -3 0 z" fill={STEEL} stroke={DARK} strokeWidth="0.3" />
+        </>
+      )}
+      {kind === "commander" && (
+        <>
+          <Person />
+          {/* banner + a little crown */}
+          <line x1="14" y1="2.6" x2="14" y2="15.6" stroke={WOOD} strokeWidth="0.9" />
+          <path d="M14.4 2.8 h4 l-1.1 1.6 l1.1 1.6 h-4 z" fill="#f2c14e" stroke="#c9982f" strokeWidth="0.3" />
+          <path d="M8.2 4.1 l0.6 -1.4 l0.6 0.8 l0.6 -1 l0.6 1 l0.6 -0.8 l0.6 1.4 z" fill="#f2c14e" />
+        </>
+      )}
+    </svg>
   );
 }
