@@ -736,22 +736,38 @@ export function ResultsModal({
             </div>
           ))}
         </div>
-        <div className={"cm-earned" + (result.reward ? " won" : "")}>
-          <div className="cm-earned-k">MAIN MAP REWARD</div>
-          {result.reward ? (
-            <>
-              <div className="cm-earned-v">+1 free {result.reward === "2x2" ? "2×2 strike" : "1×1 square"}</div>
-              <div className="cm-earned-s">It&apos;s already in your supplies — use it to take ground on the main map.</div>
-              <Link className="ob-btn cm-linkbtn" href="/battleground">USE IT ON THE MAIN MAP →</Link>
-            </>
-          ) : !enlisted ? (
-            <div className="cm-earned-s">Enlisted players earn main-map squares here: a free 1×1 for {t.gold}+, a free 2×2 for a perfect {t.perfect}.</div>
-          ) : (
-            <div className="cm-earned-s">
-              No reward this time — {t.gold}+ earns a free 1×1 on the main map, a perfect {t.perfect} earns a free 2×2. New map tomorrow.
-            </div>
-          )}
-        </div>
+        {result.reward ? (
+          <Link className="go-battle cm-reward won" href="/battleground">
+            <span className="go-battle-new">YOU EARNED</span>
+            <span className={"cm-rw-piece " + (result.reward === "2x2" ? "two" : "one")} aria-hidden>
+              {Array.from({ length: result.reward === "2x2" ? 4 : 1 }, (_, k) => (
+                <i key={k} />
+              ))}
+            </span>
+            <span className="go-battle-txt">
+              <span className="go-battle-k">FREE {result.reward === "2x2" ? "2×2" : "1×1"}</span>
+              <span className="go-battle-t">It&apos;s in your supplies — go take ground on the Battleground</span>
+            </span>
+            <span className="go-battle-play">USE IT ▶</span>
+          </Link>
+        ) : (
+          <Link className="go-battle cm-reward" href="/battleground">
+            <span className="go-battle-new">{enlisted ? "BONUS" : "PLAY FREE"}</span>
+            <span className="go-battle-art" aria-hidden>
+              {"rbbrbrrbrrbbbbrr".split("").map((c, k) => (
+                <i key={k} className={c === "r" ? "r" : "b"} />
+              ))}
+            </span>
+            <span className="go-battle-txt">
+              <span className="go-battle-k">THE BATTLEGROUND</span>
+              <span className="cm-rw-chips">
+                <span>{t.gold}+ → free 1×1</span>
+                <span>{t.perfect} → free 2×2</span>
+              </span>
+            </span>
+            <span className="go-battle-play">PLAY ▶</span>
+          </Link>
+        )}
         <div className="cm-res-btns">
           <button className="ob-btn" onClick={onShare}>{copied ? "COPIED!" : "SHARE"}</button>
           {result.score < result.optimal && <button className="ob-btn cm-dark" onClick={onOptimal}>VIEW BEST</button>}
