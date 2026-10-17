@@ -113,7 +113,9 @@ export function Legal() {
           <p>
             <b>What we collect.</b> An account identifier, the side and email you
             provide, your in-game activity (positions, actions, ranks), and
-            purchase records needed to process payments and issue receipts.
+            purchase records needed to process payments and issue receipts. When
+            you visit, the Meta Pixel records page views and key in-game actions for
+            ad measurement (see the Cookie Policy).
           </p>
           <p>
             <b>How we use it.</b> To run the game, process purchases, send the
@@ -150,9 +152,13 @@ export function Legal() {
             and holds your receipts on your device.
           </p>
           <p>
-            We don&apos;t use advertising or third-party tracking cookies. Clearing
-            your browser storage will sign you out and remove locally-held
-            preferences and receipts from that device.
+            We use the Meta Pixel, an advertising measurement tool from Meta
+            (Facebook/Instagram). It sets cookies and tells Meta when pages load and
+            when you take key actions here (like playing or posting a score), so we
+            can measure and improve our ads. It does not receive your email or
+            payment details. You can limit ad tracking in your Meta ad settings or
+            your browser. Clearing your browser storage will sign you out and remove
+            locally-held preferences and receipts from that device.
           </p>
         </section>
 
