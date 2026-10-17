@@ -1,4 +1,4 @@
-import { AbsoluteFill, interpolate, spring, useCurrentFrame, useVideoConfig } from "remotion";
+import { AbsoluteFill, Img, interpolate, spring, staticFile, useCurrentFrame, useVideoConfig } from "remotion";
 import { CELLS, SIZE, TREE, WALL, WATER, ownable, reach, simulate, trail, xy, type Placement } from "../lib/commander/engine";
 import { DEMO_LAYOUT } from "../lib/commander/demo-map";
 import { Ripple, TreeSprite, TroopIcon, Tuft, WALL_BRICK, hasTuft } from "../components/commander/icons";
@@ -276,7 +276,7 @@ export const CommanderDemo = () => {
       {intro > 0 && (
         <AbsoluteFill style={{ background: `rgba(10,46,26,${0.85 * intro})`, display: "grid", placeItems: "center", opacity: intro }}>
           <div style={{ textAlign: "center" }}>
-            <div style={{ fontSize: 110, letterSpacing: 8 }}>COMMANDER</div>
+            <Img src={staticFile("commander-logo-blue.png")} style={{ width: 860, height: "auto", display: "block", margin: "0 auto 18px" }} />
             <div style={{ fontSize: 40, fontFamily: "Arial, Helvetica, sans-serif", fontWeight: 700, color: "#f2c14e" }}>how to play</div>
           </div>
         </AbsoluteFill>

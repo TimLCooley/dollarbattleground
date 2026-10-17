@@ -1,4 +1,4 @@
-import { AbsoluteFill, Audio, OffthreadVideo, interpolate, spring, staticFile, useCurrentFrame, useVideoConfig } from "remotion";
+import { AbsoluteFill, Audio, Img, OffthreadVideo, interpolate, spring, staticFile, useCurrentFrame, useVideoConfig } from "remotion";
 import { CELLS, SIZE, TREE, WALL, WATER, deployable, ownable, reach, simulate, trail, type Layout, type Placement } from "../lib/commander/engine";
 import { Ripple, TreeSprite, TroopIcon, Tuft, WALL_BRICK, hasTuft } from "../components/commander/icons";
 
@@ -157,7 +157,7 @@ function Board({
 function Footer({ frame, from }: { frame: number; from: number }) {
   return (
     <div style={{ position: "absolute", bottom: 90, width: "100%", textAlign: "center", opacity: interpolate(frame, [from, from + 10], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" }) }}>
-      <div style={{ fontFamily: FONT, fontSize: 58, letterSpacing: 6, color: GOLD }}>COMMANDER</div>
+      <Img src={staticFile("commander-logo-blue.png")} style={{ width: 760, height: "auto", display: "block", margin: "0 auto" }} />
       <div style={{ fontFamily: BODY, fontWeight: 700, fontSize: 40, marginTop: 6 }}>a daily strategy puzzle · play free</div>
       <div style={{ fontFamily: BODY, fontWeight: 700, fontSize: 44, marginTop: 14, color: "#fff" }}>dollarbattleground.com</div>
     </div>
@@ -219,12 +219,12 @@ export const CommanderClip = (p: CommanderClipProps) => {
     return (
       <AbsoluteFill style={{ background: bg, color: "#f6efdb", fontFamily: BODY }}>
         {bed}
-        <div style={{ position: "absolute", top: 150, width: "100%", textAlign: "center" }}>
+        <div style={{ position: "absolute", top: 110, width: "100%", textAlign: "center" }}>
           <div style={{ fontFamily: FONT, fontSize: 50, color: GOLD, letterSpacing: 4 }}>HOW TO PLAY</div>
-          <div style={{ fontFamily: FONT, fontSize: 104, letterSpacing: 8, marginTop: 8 }}>COMMANDER</div>
-          <div style={{ fontWeight: 700, fontSize: 42, marginTop: 10 }}>a daily strategy puzzle</div>
+          <Img src={staticFile("commander-logo-blue.png")} style={{ width: 860, height: "auto", display: "block", margin: "14px auto 0" }} />
+          <div style={{ fontWeight: 700, fontSize: 42, marginTop: 22 }}>a daily strategy puzzle</div>
         </div>
-        <div style={{ position: "absolute", top: 450, left: 30, width: 1020, height: 1020, border: "8px solid #0c3c21", boxSizing: "border-box" }}>
+        <div style={{ position: "absolute", top: 500, left: 30, width: 1020, height: 1020, border: "8px solid #0c3c21", boxSizing: "border-box" }}>
           <OffthreadVideo src={staticFile("commander-demo.mp4")} muted style={{ width: "100%", height: "100%" }} />
         </div>
         <div style={{ position: "absolute", bottom: 150, width: "100%", textAlign: "center" }}>
