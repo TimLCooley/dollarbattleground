@@ -23,6 +23,7 @@ import {
 } from "@/lib/commander/engine";
 import { LoginOtp } from "@/components/login-otp";
 import { track } from "@/lib/track";
+import { CommanderLogo } from "./logo";
 import { Notches, Ripple, TreeSprite, TroopIcon, Tuft, hasTuft, sway, wallClass } from "./icons";
 
 type Side = "red" | "blue";
@@ -307,7 +308,7 @@ export function CommanderGame({ day: askedDay, unsubscribed = false }: { day?: n
   if (!side)
     return (
       <div className="cm-wrap">
-        <Header day={data.day} today={data.today} onNext={() => setRemindOpen(true)} />
+        <Header day={data.day} today={data.today} onNext={() => setRemindOpen(true)} side={side} />
         <div className="ob-overlay" role="dialog" aria-label="Choose your color">
           <div className="ob-card">
             <div className="ob-kicker">◆ COMMANDER #{data.day} ◆</div>
@@ -344,7 +345,7 @@ export function CommanderGame({ day: askedDay, unsubscribed = false }: { day?: n
 
   return (
     <div className={"cm-wrap side-" + side}>
-      <Header day={data.day} today={data.today} layout={L} onNext={() => setRemindOpen(true)} />
+      <Header day={data.day} today={data.today} layout={L} onNext={() => setRemindOpen(true)} side={side} />
       {unsubscribed && <div className="cm-banner">You won&apos;t get Commander reminders anymore.</div>}
       {data.day < data.today && (
         <p className="cm-past">
@@ -576,7 +577,7 @@ export function CommanderGame({ day: askedDay, unsubscribed = false }: { day?: n
 
 const dayHref = (n: number, today: number) => (n >= today ? "/" : `/?day=${n}`);
 
-function Header({ day, today, layout, onNext }: { day: number; today: number; layout?: Layout; onNext: () => void }) {
+function Header({ day, today, layout, onNext, side }: { day: number; today: number; layout?: Layout; onNext: () => void; side?: Side | null }) {
   return (
     <>
       <Link className="go-battle" href="/battleground">
@@ -594,7 +595,9 @@ function Header({ day, today, layout, onNext }: { day: number; today: number; la
       </Link>
       <div className="cm-head">
         <span />
-        <h1 className="cm-title">COMMANDER</h1>
+        <h1 className="cm-title">
+          <CommanderLogo side={side} />
+        </h1>
         <span />
       </div>
       <div className="cm-daynav">
