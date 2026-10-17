@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { CELLS, SIZE, TREE, WALL, WATER, deployable, ownable, prune, simulate, solve, trail, type Kind, type Placement } from "@/lib/commander/engine";
 import { DEMO_LAYOUT } from "@/lib/commander/demo-map";
+import { CommanderLogo } from "./logo";
 import { Notches, Ripple, TreeSprite, TroopIcon, Tuft, hasTuft, sway, wallClass } from "./icons";
 
 // The interactive tutorial (/commander/tutorial): five short steps on the same
@@ -121,7 +122,7 @@ export function CommanderTutorial() {
   if (done)
     return (
       <div className={"cm-wrap side-" + side}>
-        <TutHeader />
+        <TutHeader side={side} />
         <div className="cm-tut-done">
           <div className="ob-kicker">◆ TUTORIAL COMPLETE ◆</div>
           <h2 className="ob-title">YOU&apos;RE READY</h2>
@@ -138,7 +139,7 @@ export function CommanderTutorial() {
 
   return (
     <div className={"cm-wrap side-" + side}>
-      <TutHeader />
+      <TutHeader side={side} />
       <div className="cm-tut-dots" aria-label={`Step ${step + 1} of ${STEPS.length}`}>
         {STEPS.map((_, k) => (
           <span key={k} className={k === step ? "on" : k < step ? "past" : ""} />
@@ -235,13 +236,15 @@ export function CommanderTutorial() {
   );
 }
 
-function TutHeader() {
+function TutHeader({ side }: { side: "red" | "blue" }) {
   return (
     <div className="cm-head">
       <Link href="/" className="cm-back">
         ‹ today&apos;s map
       </Link>
-      <h1 className="cm-title">COMMANDER</h1>
+      <h1 className="cm-title">
+        <CommanderLogo side={side} />
+      </h1>
       <div className="cm-day">TUTORIAL</div>
     </div>
   );

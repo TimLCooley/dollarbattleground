@@ -6,6 +6,7 @@ import { createClient } from "@/utils/supabase/client";
 import { track } from "@/lib/track";
 import { FieldRadio } from "./announcer";
 import { TroopIcon } from "./commander/icons";
+import { CommanderLogo } from "./commander/logo";
 import { Insignia, rankFor, type InsigniaSpec } from "@/lib/ranks";
 import { addReceipt } from "@/lib/receipts";
 import { SpendConfirm, type PendingSpend } from "./spend-confirm";
@@ -1148,7 +1149,9 @@ export function BoardView({
           </span>
         </span>
         <span className="go-commander-txt">
-          <span className="go-commander-k">COMMANDER</span>
+          <span className="go-commander-k">
+            <CommanderLogo side={side} className="go-commander-logo" />
+          </span>
           <span className="go-commander-t">A daily strategy puzzle — new map every day</span>
         </span>
         <span className="go-commander-play">PLAY ▶</span>

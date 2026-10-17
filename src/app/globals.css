@@ -3907,3 +3907,9 @@ a.cc-pill-x:hover { color: #f2c14e; text-decoration: underline; }
 .go-battle-t { font-size: 14px; line-height: 1.2; }
 .go-battle-play { flex: none; font-family: var(--font-pixel), monospace; font-size: 13px; color: var(--ink); background: var(--gold); border: 2px solid var(--gold-d); padding: 8px 10px; box-shadow: var(--shadow-pix); }
 @media (prefers-reduced-motion: reduce) { .go-battle { animation: none; } }
+
+/* the COMMANDER wordmark (blue/red per player) */
+.cm-title { line-height: 0; text-shadow: none; }
+.cm-logo { display: block; width: min(100%, 360px); height: auto; margin: 0 auto; }
+.go-commander-logo { display: block; width: 170px; max-width: 100%; height: auto; }
+@media (max-width: 420px) { .cm-logo { width: min(100%, 280px); } .go-commander-logo { width: 140px; } }
