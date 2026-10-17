@@ -91,7 +91,7 @@ export default function AdminXPage() {
       </section>
 
       <p className="admx-back">
-        <a href="/">‹ back to the board</a>
+        <a href="/battleground">‹ back to the board</a>
       </p>
 
       <style>{`

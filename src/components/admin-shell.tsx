@@ -37,7 +37,7 @@ export function AdminShell({
             </h1>
           </div>
         </div>
-        <Link href="/" className="adm-exit">
+        <Link href="/battleground" className="adm-exit">
           ‹ BOARD
         </Link>
       </header>

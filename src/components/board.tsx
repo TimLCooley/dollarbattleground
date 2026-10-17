@@ -1137,7 +1137,7 @@ export function BoardView({
       )}
 
       {/* gold, land grab and drops now speak through the Field Radio; this spot goes to Commander */}
-      <a className="go-commander" href="/commander">
+      <Link className="go-commander" href="/">
         <span className="go-commander-new">NEW GAME</span>
         <span className="go-commander-art" aria-hidden>
           <span className={"cm-troop " + side}>
@@ -1152,7 +1152,7 @@ export function BoardView({
           <span className="go-commander-t">A daily strategy puzzle — new map every day</span>
         </span>
         <span className="go-commander-play">PLAY ▶</span>
-      </a>
+      </Link>
       <div className="board-wrap">
         <div
           ref={boardRef}
@@ -1474,7 +1474,7 @@ export function BoardView({
 }
 
 const VIEWS: { href: string; label: string }[] = [
-  { href: "/", label: "Home" },
+  { href: "/battleground", label: "Home" },
   { href: "/red", label: "Red" },
   { href: "/blue", label: "Blue" },
   { href: "/both", label: "Both" },
@@ -1487,7 +1487,7 @@ function startOver() {
   } catch {
     /* ignore */
   }
-  window.location.href = "/";
+  window.location.href = "/battleground";
 }
 
 export function ViewNav({ active }: { active: string }) {

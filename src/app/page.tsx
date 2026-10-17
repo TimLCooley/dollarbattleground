@@ -1,5 +1,17 @@
-import { HomeExperience } from "@/components/home-experience";
+import type { Metadata } from "next";
+import { CommanderGame } from "@/components/commander/commander-game";
 
-export default function Home() {
-  return <HomeExperience />;
+export const dynamic = "force-dynamic";
+
+export const metadata: Metadata = {
+  title: "Commander — a daily strategy puzzle | Dollar Battleground",
+  description: "Place your troops, take the most ground. A new map every day, the same one for everyone. One shot.",
+};
+
+// Home is Commander (Tim, 2026-10-16); the Red vs Blue map lives at /battleground.
+export default async function Home({ searchParams }: { searchParams: Promise<{ day?: string; unsubscribed?: string }> }) {
+  const sp = await searchParams;
+  const day = sp.day && /^\d+$/.test(sp.day) ? Number(sp.day) : undefined;
+  // keyed by day so flipping between days starts each board fresh
+  return <CommanderGame key={day ?? "today"} day={day} unsubscribed={sp.unsubscribed === "1"} />;
 }

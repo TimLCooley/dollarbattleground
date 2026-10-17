@@ -130,7 +130,7 @@ export function CommanderTutorial() {
             <li>Practice as much as you like; your best layout is saved. Only Attack counts.</li>
             <li>Score 90% of the best possible for a free square on the main map — a perfect score earns a 2×2.</li>
           </ul>
-          <Link className="ob-btn cm-linkbtn" href="/commander">PLAY TODAY&apos;S MAP →</Link>
+          <Link className="ob-btn cm-linkbtn" href="/">PLAY TODAY&apos;S MAP →</Link>
           <button className="ob-skip" onClick={() => go(0)}>replay the tutorial</button>
         </div>
       </div>
@@ -228,7 +228,7 @@ export function CommanderTutorial() {
         </>
       )}
 
-      <Link className="ob-skip cm-tut-skip" href="/commander">
+      <Link className="ob-skip cm-tut-skip" href="/">
         skip the tutorial
       </Link>
     </div>
@@ -238,7 +238,7 @@ export function CommanderTutorial() {
 function TutHeader() {
   return (
     <div className="cm-head">
-      <Link href="/commander" className="cm-back">
+      <Link href="/" className="cm-back">
         ‹ today&apos;s map
       </Link>
       <h1 className="cm-title">COMMANDER</h1>
