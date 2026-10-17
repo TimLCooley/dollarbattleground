@@ -23,6 +23,7 @@ import {
 } from "@/lib/commander/engine";
 import { LoginOtp } from "@/components/login-otp";
 import { track } from "@/lib/track";
+import { pixel } from "@/lib/pixel";
 import { CommanderLogo } from "./logo";
 import { Notches, Ripple, TreeSprite, TroopIcon, Tuft, hasTuft, sway, wallClass } from "./icons";
 
@@ -644,7 +645,10 @@ function RemindModal({ signedIn, onClose }: { signedIn: boolean; onClose: () => 
       body: JSON.stringify(signedIn ? {} : { email }),
     }).catch(() => null);
     const j = r ? await r.json().catch(() => ({})) : {};
-    if (r?.ok) setState("done");
+    if (r?.ok) {
+      setState("done");
+      pixel("Lead", { content_name: "commander reminder" });
+    }
     else {
       setError(j.error ?? "Couldn't save that — try again.");
       setState("idle");

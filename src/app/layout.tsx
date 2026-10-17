@@ -3,6 +3,7 @@ import { Silkscreen, Schoolbell } from "next/font/google";
 import "./globals.css";
 import { AdminReturn } from "@/components/admin-return";
 import { VersionWatch } from "@/components/version-watch";
+import { MetaPixel } from "@/components/meta-pixel";
 import { FaviconSwitcher } from "@/components/favicon-switcher";
 
 const silkscreen = Silkscreen({
@@ -44,6 +45,7 @@ export default function RootLayout({
         {children}
         <AdminReturn />
         <VersionWatch />
+        <MetaPixel />
       </body>
     </html>
   );
