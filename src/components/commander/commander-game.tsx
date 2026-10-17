@@ -339,6 +339,9 @@ export function CommanderGame({ day: askedDay, unsubscribed = false }: { day?: n
     );
 
   const at = new Map<number, Kind>(shown.map((p) => [p.i, p.kind]));
+  // after you've submitted, number the troops so you can learn the order —
+  // on your layout and on the best one (never while you're still playing)
+  const order = locked ? new Map(shown.map((p, k) => [p.i, k + 1])) : null;
   at.set(L.commander, "commander");
   // trail markers: which way each captured square was taken (the latest troop wins)
   const trails = new Map<number, string>();
@@ -403,6 +406,7 @@ export function CommanderGame({ day: askedDay, unsubscribed = false }: { day?: n
               {kind && (
                 <span className={"cm-troop " + side}>
                   <TroopIcon kind={kind} />
+                  {order?.has(i) && <span className="cm-plus">{order.get(i)}</span>}
                 </span>
               )}
             </button>

@@ -3927,3 +3927,5 @@ a.cc-pill-x:hover { color: #f2c14e; text-decoration: underline; }
 .cm-rw-chips span { font-family: var(--font-pixel), monospace; font-size: 10px; background: rgba(0, 0, 0, 0.3); border: 1px solid rgba(255, 255, 255, 0.35); padding: 3px 6px; white-space: nowrap; }
 @keyframes cm-reward-glow { 0%, 100% { box-shadow: 0 4px 0 rgba(0, 0, 0, 0.35), 0 0 0 0 rgba(255, 224, 138, 0.7); transform: scale(1); } 50% { box-shadow: 0 4px 0 rgba(0, 0, 0, 0.35), 0 0 22px 6px rgba(255, 224, 138, 0.45); transform: scale(1.02); } }
 @media (prefers-reduced-motion: reduce) { .cm-reward.won { animation: none; } }
+.cm-board .cm-plus { font-size: 12px; padding: 1px 4px; top: -7px; right: -7px; border: 1px solid var(--gold-d); z-index: 2; }
+@media (max-width: 420px) { .cm-board .cm-plus { font-size: 9px; padding: 0 3px; } }

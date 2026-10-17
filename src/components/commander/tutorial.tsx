@@ -69,6 +69,7 @@ export function CommanderTutorial() {
   const [placements, setPlacements] = useState<Placement[]>([]);
   const [selected, setSelected] = useState<Troop>("archer");
   const [done, setDone] = useState(false);
+  const [answer, setAnswer] = useState(false); // "Show me" was used: number the troops so the order can be learned
   const [side] = useState<"red" | "blue">(() => (typeof window === "undefined" ? "blue" : storedSide()));
 
   const S = STEPS[step];
@@ -109,6 +110,7 @@ export function CommanderTutorial() {
       return;
     }
     setDone(false);
+    setAnswer(false);
     setStep(n);
     setPlacements([]);
     setSelected(STEPS[n].archer > 0 ? "archer" : "soldier");
@@ -180,6 +182,7 @@ export function CommanderTutorial() {
               {k && (
                 <span className={"cm-troop " + side}>
                   <TroopIcon kind={k} />
+                  {answer && placements.findIndex((p) => p.i === i) >= 0 && <span className="cm-plus">{placements.findIndex((p) => p.i === i) + 1}</span>}
                 </span>
               )}
             </button>
@@ -216,7 +219,13 @@ export function CommanderTutorial() {
               ↺ Reset
             </button>
             {S.answer && (
-              <button className="cm-chip" onClick={() => setPlacements(solve(L).placements)}>
+              <button
+                className="cm-chip"
+                onClick={() => {
+                  setPlacements(solve(L).placements);
+                  setAnswer(true);
+                }}
+              >
                 Show me
               </button>
             )}
