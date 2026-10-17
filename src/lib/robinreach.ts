@@ -35,11 +35,15 @@ export async function setCrosspost(db: Db, patch: Partial<CrosspostConfig>): Pro
 
 // TikTok wants a hook first, the founder's voice, and a few hashtags — none
 // of which the X copy carries. Keep the agents' line, add the frame.
-export function tiktokCaption(faction: "red" | "blue", copy: string): { title: string; content: string } {
+// Commander (the daily strategy puzzle, home page since 2026-10-16) has its own tags.
+export const COMMANDER_TAGS = "#dailypuzzle #strategygame #puzzlegame #indiegame #browsergame";
+
+export function tiktokCaption(faction: "red" | "blue", copy: string, commander = false): { title: string; content: string } {
   const line = copy.replace(/\s*https?:\/\/\S+/g, "").replace(/\s*dollarbattleground\.com\S*/gi, "").trim();
   const side = faction === "red" ? "Red" : "Blue";
-  const title = line.split(/[.!?]/)[0].slice(0, 80) || `${side} update`;
-  const content = `${line}\n\ndollarbattleground.com\n\n#redvsblue #indiegame #browsergame #${side.toLowerCase()}team`;
+  const title = line.split(/[.!?]/)[0].slice(0, 80) || (commander ? "Today's Commander puzzle" : `${side} update`);
+  const tags = commander ? COMMANDER_TAGS : `#redvsblue #indiegame #browsergame #${side.toLowerCase()}team`;
+  const content = `${line}\n\ndollarbattleground.com\n\n${tags}`;
   return { title, content };
 }
 
@@ -55,10 +59,15 @@ async function rr(path: string, init: RequestInit & { brand: string }): Promise<
 // publishes in the background; we record its post id and check later.
 export async function crosspostToTikTok(
   db: Db,
-  post: { id: number; faction: "red" | "blue"; copy: string; media_url: string },
+  post: { id: number; faction: "red" | "blue"; copy: string; media_url: string; commander?: boolean },
 ): Promise<{ ok: boolean; postId?: number; error?: string }> {
   const cfg = await getCrosspost(db);
-  return publishViaRobinReach(db, { ...post, profileIds: cfg.team_profile_ids, labels: ["battleground", post.faction], ...tiktokCaption(post.faction, post.copy) });
+  return publishViaRobinReach(db, {
+    ...post,
+    profileIds: cfg.team_profile_ids,
+    labels: post.commander ? ["commander"] : ["battleground", post.faction],
+    ...tiktokCaption(post.faction, post.copy, post.commander),
+  });
 }
 
 // The founder's own clip: the caption is already written for TikTok.
@@ -68,7 +77,9 @@ export async function publishFounderClip(
 ): Promise<{ ok: boolean; postId?: number; error?: string }> {
   const cfg = await getCrosspost(db);
   const title = post.copy.split("\n")[0].split(/[.!?]/)[0].slice(0, 80) || "Founder's log";
-  return publishViaRobinReach(db, { ...post, profileIds: cfg.founder_profile_ids, labels: ["battleground", "founder"], title, content: post.copy });
+  // the Developer talks about Commander now — its tags ride along
+  const content = /#\w/.test(post.copy) ? post.copy : `${post.copy}\n\n${COMMANDER_TAGS}`;
+  return publishViaRobinReach(db, { ...post, profileIds: cfg.founder_profile_ids, labels: ["commander", "founder"], title, content });
 }
 
 async function publishViaRobinReach(

@@ -364,7 +364,21 @@ Respond ONLY JSON: {"headline":"<UPPERCASE, <=6 words>","spoken":"<what you say>
       const posted = await fetch(`${SB}/rest/v1/agent_posts?status=eq.posted&select=format,impressions,likes`, { headers: sbh }).then((r) => r.json());
       for (const r of posted ?? []) { if (r.format === "video") reach.videos++; reach.views += Number(r.impressions ?? 0); reach.likes += Number(r.likes ?? 0); }
     } catch {}
+    // COMMANDER (2026-10-16): the new version and now the home page — the
+    // Developer's story is "thanks for the feedback, we built this".
+    let cmd = null;
+    try {
+      const dn = Math.round((Date.UTC(...new Date().toLocaleDateString("en-CA", { timeZone: "America/Denver" }).split("-").map((v, k) => (k === 1 ? Number(v) - 1 : Number(v)))) - Date.UTC(2026, 9, 15)) / 86_400_000) + 1;
+      const [dayRow] = await fetch(`${SB}/rest/v1/commander_days?day=eq.${dn}&select=day,optimal,layout`, { headers: sbh }).then((r) => r.json());
+      const plays = await fetch(`${SB}/rest/v1/commander_scores?select=day,medal`, { headers: sbh }).then((r) => r.json());
+      const WD = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"], LV = ["Easy", "Gentle", "Medium", "Tricky", "Hard"], DIF = [2, 0, 1, 2, 3, 4, 4];
+      const wd = dayRow?.layout?.weekday ?? 0;
+      cmd = { day: dn, weekday: WD[wd], level: LV[DIF[wd]], best: dayRow?.optimal, archers: dayRow?.layout?.troops?.archer, soldiers: dayRow?.layout?.troops?.soldier, plays: Array.isArray(plays) ? plays.length : 0, perfect: Array.isArray(plays) ? plays.filter((r) => r.medal === "perfect").length : 0 };
+    } catch {}
     const material = [
+      cmd
+        ? `COMMANDER — THE NEW VERSION (true): people tried the map game and told you it had nothing to DO; you listened and built Commander, a daily strategy puzzle game. A new map every day (the same one for everyone), Monday easiest to Friday/Saturday hardest; you get Archers (take 3 squares left and right, fly over walls and water, trees stop them) and Soldiers (take 2 up and down, wade water, walls stop them); they can only stand on ground you already hold, so the order matters; practice all you want, one shot counts; after you submit it shows the best possible layout. There's a how-to video and a 2-minute tutorial. It's now the home page. Today is Commander #${cmd.day}, ${cmd.weekday} (${cmd.level}), ${cmd.archers} Archers and ${cmd.soldiers} Soldiers, best possible ${cmd.best}. ${cmd.plays} scores posted so far${cmd.perfect ? `, ${cmd.perfect} perfect` : ", nobody perfect yet"}.`
+        : "COMMANDER: the new daily strategy puzzle version, now the home page.",
       `THE BUSINESS SIDE (true numbers): ${reach.videos} videos posted by the news desks so far, ${reach.views} views and ${reach.likes} likes on X in total; ${recruits} people have picked a side; the game is behind a countdown wall until launch; I post three videos a day (Red, Blue, me).`,
       built.length ? `BUILT RECENTLY (commit notes, translate to plain talk, never say "commit"): ${built.map((b) => `"${b.split("\n")[0]}"`).join("; ")}` : "BUILT RECENTLY: nothing new shipped in the last 3 days",
       `LAST 24 HOURS: ${n("player_new") + n("waitlist_new")} enlisted; ${takeovers.length} positions changed hands (Red took ${byside.red}, Blue took ${byside.blue})${latest.length ? `; latest: ${latest.join(" / ")}` : ""}`,
@@ -381,7 +395,7 @@ Respond ONLY JSON: {"headline":"<UPPERCASE, <=6 words>","spoken":"<what you say>
     const pool = freshT.length ? freshT : DEV_THEMES;
     const topic = pool[Math.floor(Math.random() * pool.length)];
     plan_topic = topic;
-    sys = `${GUIDE}\nYou are THE DEVELOPER: Tim Cooley, the real person MAKING Dollar Battleground (a live territory war, Red vs Blue, one map, one side wins). You are OUTSIDE the fiction and can break the fourth wall — the Red/Blue commanders, field reporters and news desks are characters you built; you're the one building the stage.
+    sys = `${GUIDE}\nTHE STORY RIGHT NOW (outranks the topic): thank people for the feedback — it worked; you've launched a new version called COMMANDER, a daily strategy puzzle game. Talk about Commander (what it is, why you built it, what's hard about it, what people scored), not the old map. Say "daily strategy puzzle game" in your own words at least once.\nYou are THE DEVELOPER: Tim Cooley, the real person MAKING Dollar Battleground (it started as a live territory map, Red vs Blue; now its home page is Commander, the daily strategy puzzle). You are OUTSIDE the fiction and can break the fourth wall — the Red/Blue commanders, field reporters and news desks are characters you built; you're the one building the stage.
 WHO YOU ARE ON CAMERA: a producer whose game isn't working yet, and who's honest about that. Slightly unsure, curious, a little amused, warm — a slight smile, not a grin. Not a salesman, not a commander, not a spokesperson. You know it's a strange little internet war and you find it funny that anyone (including you) cares this much.
 THE ONE RULE ABOVE ALL: every clip makes it obvious that YOU MADE THIS. In the first sentence or two you say some version of "I've been working on this game" / "so I'm making this game where…" / "I built…". A stranger scrolling past must know within five seconds that this is the person building it — otherwise you're just another anchor, and that reads fake.
 YOUR SUBJECT IS THE MAKING, NEVER THE MATCH: what you built, what broke, what surprised you, what you're testing, why you're doing this, what it's like directing AI characters that go off-script, how hard the marketing and business side is. The map/score is at most a one-line aside ("board's still dead even, by the way") — never the topic. You never commentate the war; that's the news desks' job.
@@ -392,9 +406,9 @@ HARD RULES: never invent statistics, events or features — only the real materi
 REAL MATERIAL (the only facts you may use):
 - ${material.join("\n- ")}
 Openings you can riff on (don't copy one verbatim every time): ${DEV_OPENINGS.map((o) => `"${o}"`).join(" | ")}
-Write today's clip to camera: 35-55 words, ONE thought, and it must be clear in the first two sentences that you are the person making this game. Sound like you're actually talking — contractions, short sentences, an aside is fine, no headline-speak, no "welcome to". The map and the countdown are passing context at most, never the subject. Finish the thought inside the time; don't start a second one. The "headline" field is unused for you — keep it short.${standing ? `\nTIM'S STANDING NOTES (outrank everything): ${standing}` : ""}${devNotes.length ? `\nTIM'S NOTES ON YOUR LAST CLIPS (fix these): ${devNotes.map((n) => `"${n}"`).join(" | ")}` : ""}
+Write today's clip to camera: 35-55 words, ONE thought, and it must be clear in the first two sentences that you are the person making this game — today, the one who listened to feedback and built Commander. Sound like you're actually talking — contractions, short sentences, an aside is fine, no headline-speak, no "welcome to". The map and the countdown are passing context at most, never the subject. Finish the thought inside the time; don't start a second one. The "headline" field is unused for you — keep it short.${standing ? `\nTIM'S STANDING NOTES (outrank everything): ${standing}` : ""}${devNotes.length ? `\nTIM'S NOTES ON YOUR LAST CLIPS (fix these): ${devNotes.map((n) => `"${n}"`).join(" | ")}` : ""}
 THE GOLD STANDARD (Tim's words: "this is gold — stuff like this makes ME interesting"): "Okay, weird thing about building a game with AI news anchors. They lie. Not on purpose — they just… invent stuff. One of them made up a 24-hour freeze rule that doesn't exist." — a builder telling on his own robots: specific, true, a little amused, no pitch. Aim for that.
-Respond ONLY JSON: {"headline":"<short, unused>","spoken":"<what you say>","caption":"<the TikTok caption as a person would write it: one or two casual lines, lowercase is fine, no pitch, no site name (it's on screen); 0-3 hashtags at most; <=200 chars>","angle":"founder","locator":"DEV LOG"}`;
+Respond ONLY JSON: {"headline":"<short, unused>","spoken":"<what you say>","caption":"<the TikTok caption as a person would write it: one or two casual lines about Commander, lowercase is fine, no pitch, no site name (it's on screen); no hashtags (they're added); <=200 chars>","angle":"founder","locator":"DEV LOG"}`;
   } else if (kind === "recruit") {
     sys = `${GUIDE}\nYou are ${who.name}, the ${SIDE} team's anchor at the ${team.network} desk on Dollar Battleground (a live territory war, Red vs Blue; site dollarbattleground.com). Composed, direct, on camera. It's a GAME — no real-world harm, no real politics.`;
     user = `Write a RECRUITING SPOT for ${Side}, delivered straight to camera. This is an ad: clear offer, real urgency, call to action. Every spot is an experiment — vary the hook and the wording; don't sound like the last one.
@@ -736,6 +750,65 @@ Respond ONLY JSON: {"headline":"<UPPERCASE invitation a stranger understands, <=
   return true;
 }
 
+// ---------- COMMANDER clips (free, no HeyGen) — the home page since 2026-10-16 ----------
+// nextmove: "Where would you place the next Archer?" on YESTERDAY's map (never spoils today)
+// hard:     "I can't believe how hard this is" — a weak run on today's map + results card
+// tutorial: the how-to-play video framed for phones
+const CMD_KINDS = ["nextmove", "hard", "tutorial"];
+const cmdDayNumber = () => {
+  const [y, m, d] = new Date().toLocaleDateString("en-CA", { timeZone: "America/Denver" }).split("-").map(Number);
+  return Math.round((Date.UTC(y, m - 1, d) - Date.UTC(2026, 9, 15)) / 86_400_000) + 1;
+};
+const CMD_WD = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+const CMD_LV = ["Easy", "Gentle", "Medium", "Tricky", "Hard"];
+const CMD_DIF = [2, 0, 1, 2, 3, 4, 4];
+
+async function commanderClip({ kind = "nextmove", auto = false }) {
+  if (!CMD_KINDS.includes(kind)) kind = "nextmove";
+  const today = cmdDayNumber();
+  let want = kind === "nextmove" ? today - 1 : today;
+  if (want < 1) { kind = "hard"; want = today; }
+  const [row] = kind === "tutorial" ? [null] : await fetch(`${SB}/rest/v1/commander_days?day=eq.${want}&select=day,layout,solution,optimal`, { headers: sbh }).then((r) => r.json());
+  if (kind !== "tutorial" && !row) { console.log(`COMMANDER: no puzzle for day ${want}`); return false; }
+  const wd = row?.layout?.weekday ?? 0;
+  const troops = row ? Number(row.layout.troops.archer) + Number(row.layout.troops.soldier) : 0;
+  const seconds = kind === "tutorial" ? 58 : kind === "nextmove" ? 15 : Math.ceil(1.6 + (troops * 16) / 30 + 1.2 + 3.2 + 3);
+  const nextKind = row ? (row.solution.slice(1).reverse().find((p) => p.kind === "archer") ? "Archer" : "Soldier") : "Archer";
+  const caption = {
+    nextmove: `Where would you place the next ${nextKind}? A, B or C? Yesterday's Commander puzzle — a new map every day at dollarbattleground.com`,
+    hard: `I can't believe how hard today's Commander puzzle is. Can you beat my score? dollarbattleground.com`,
+    tutorial: `How to play Commander — a daily strategy puzzle. Place your troops, take the most ground. A new map every day: dollarbattleground.com`,
+  }[kind];
+  const props = { variant: kind, day: row?.day ?? today, dayLabel: row ? `${CMD_WD[wd]} · ${CMD_LV[CMD_DIF[wd]]}` : "", layout: row?.layout ?? null, solution: row?.solution ?? [], optimal: row?.optimal ?? 0, seconds };
+  console.log("COMMANDER CLIP:", kind, `day ${props.day}`, `${seconds}s`);
+  if (process.env.PLAN_ONLY) return false;
+  props.audioSrc = await musicBed(seconds, "bed", -24);
+  props.audioVolume = 0.5;
+  await writeFile("/tmp/cmd-props.json", JSON.stringify(props));
+  execSync("npx remotion render src/remotion/index.ts CommanderClip /tmp/cmd.mp4 --props=/tmp/cmd-props.json --concurrency=1", { stdio: "inherit" });
+  const key = `commander-${kind}-${props.day}-${Date.now()}.mp4`;
+  await fetch(`${SB}/storage/v1/object/media/${key}`, { method: "POST", headers: { ...sbh, "Content-Type": "video/mp4" }, body: await readFile("/tmp/cmd.mp4") });
+  const mediaUrl = `${SB}/storage/v1/object/public/media/${key}`;
+  console.log("HOSTED:", mediaUrl);
+  const ap = (await cfg("autopilot")) ?? {};
+  const reviewMin = Number(ap.review_minutes) || 60;
+  // posts through the team pipeline (Tim's channels via RobinReach); the faction is only bookkeeping
+  const f = Math.floor(Date.now() / 86_400_000) % 2 === 0 ? "red" : "blue";
+  await fetch(`${SB}/rest/v1/agent_posts`, { method: "POST", headers: { ...sbh, "Content-Type": "application/json", Prefer: "return=minimal" }, body: JSON.stringify({
+    agent: "commander", faction: f, status: "queued", format: "video", angle: "recruit", network: f, x_account: f, video_kind: "dispatch", media_url: mediaUrl, copy: caption,
+    reason: `${auto ? "" : "MANUAL TEST — posts only if you press Post now · "}[theme:cmd_${kind}] Commander clip (${kind}, no HeyGen) — day ${props.day}`,
+    scheduled_for: auto ? new Date(Date.now() + reviewMin * 60_000).toISOString() : null,
+    video_spec: { kind: `cmd_${kind}`, commander: true, day: props.day, topic: `commander · ${kind}`, rendered_at: new Date().toISOString(), placeholder: false, free: true, music: !!props.audioSrc },
+  }) });
+  console.log(`QUEUED commander ${kind} clip${auto ? "" : " (manual test)"}`);
+  return true;
+}
+
+if (mode === "commander") {
+  await commanderClip({ kind: process.argv[3] || "nextmove" });
+  process.exit(0);
+}
+
 if (mode === "dispatch") {
   const side = ["red", "blue", "both"].includes(process.argv[3]) ? process.argv[3] : "red";
   const kind = ["launch", "hook", "explainer", "pickside", "spots", "recap", "dispatch"].includes(process.argv[4]) ? process.argv[4] : "hook";
@@ -872,9 +945,26 @@ if (mode === "due") {
     try { if (await produce({ faction, kind, target: p })) made++; } catch (e) { console.log(`placeholder #${p.id} failed:`, e?.message ?? e); }
   }
   if (list.length) console.log(`\nDone — ${made}/${list.length} placeholder(s) rendered.`);
-  // Free text clips: ONE a day total (Tim, 2026-10-08), sides alternate by day,
-  // shape = the least-used of the last 7 days. The board is out of rotation.
+  // COMMANDER clips (2026-10-16): two a day — the first after 15:00 UTC, the
+  // second after 21:00 UTC. Kind = least used this week; the tutorial at most
+  // every 4 days. The old map free clips are retired.
   try {
+    const dayStartMT = new Date(`${new Date().toLocaleDateString("en-CA", { timeZone: "America/Denver" })}T00:00:00-06:00`).toISOString();
+    const todays = await fetch(`${SB}/rest/v1/agent_posts?agent=eq.commander&status=in.(queued,posted)&or=(scheduled_for.gte.${dayStartMT},posted_at.gte.${dayStartMT})&select=id`, { headers: sbh }).then((r) => r.json());
+    const have = Array.isArray(todays) ? todays.length : 0;
+    const hour = new Date().getUTCHours();
+    if (have < (hour >= 21 ? 2 : hour >= 15 ? 1 : 0)) {
+      const week = new Date(Date.now() - 7 * 86_400_000).toISOString();
+      const recent = await fetch(`${SB}/rest/v1/agent_posts?agent=eq.commander&created_at=gte.${week}&select=video_spec,created_at`, { headers: sbh }).then((r) => r.json());
+      const used = (recent ?? []).map((r) => r.video_spec?.kind);
+      const tutRecent = (recent ?? []).some((r) => r.video_spec?.kind === "cmd_tutorial" && Date.now() - new Date(r.created_at).getTime() < 4 * 86_400_000);
+      const pool = CMD_KINDS.filter((k) => k !== "tutorial" || !tutRecent);
+      const kind = pool.map((k) => [k, used.filter((u) => u === `cmd_${k}`).length]).sort((x, y) => x[1] - y[1])[0][0];
+      await commanderClip({ kind, auto: true });
+    } else console.log(`commander clips: ${have} today`);
+  } catch (e) { console.log("commander clip failed:", e?.message ?? e); }
+  // (retired 2026-10-16) the old map free clip — kept behind a flag
+  if (process.env.MAP_FREE_CLIPS) try {
     const dayStartMT = new Date(`${new Date().toLocaleDateString("en-CA", { timeZone: "America/Denver" })}T00:00:00-06:00`).toISOString();
     // counted by when it goes out (scheduled/posted today), not when it was rendered
     const made = await fetch(`${SB}/rest/v1/agent_posts?video_kind=eq.dispatch&status=in.(queued,posted)&or=(scheduled_for.gte.${dayStartMT},posted_at.gte.${dayStartMT})&select=id`, { headers: sbh }).then((r) => r.json());
