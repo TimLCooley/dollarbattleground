@@ -580,8 +580,17 @@ function Header({ day, today, layout, onNext }: { day: number; today: number; la
   return (
     <>
       <Link className="go-battle" href="/battleground">
-        <span className="go-battle-k">🗺 BATTLEGROUND</span>
-        <span className="go-battle-t">Back to the live map — Red vs Blue →</span>
+        <span className="go-battle-new">LIVE MAP</span>
+        <span className="go-battle-art" aria-hidden>
+          {"rbbrbrrbrrbbbbrr".split("").map((c, k) => (
+            <i key={k} className={c === "r" ? "r" : "b"} />
+          ))}
+        </span>
+        <span className="go-battle-txt">
+          <span className="go-battle-k">THE BATTLEGROUND</span>
+          <span className="go-battle-t">Red vs Blue on one live map — take squares for your side</span>
+        </span>
+        <span className="go-battle-play">PLAY ▶</span>
       </Link>
       <div className="cm-head">
         <span />
