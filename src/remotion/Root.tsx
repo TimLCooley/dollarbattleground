@@ -4,6 +4,7 @@ import { SocialClip, DEFAULT_SOCIAL_PROPS } from "./SocialClip";
 import { ComingSoon, DEFAULT_COMING_SOON } from "./ComingSoon";
 import { Dispatch, DEFAULT_DISPATCH } from "./Dispatch";
 import { CommanderDemo, COMMANDER_DEMO_SECONDS } from "./CommanderDemo";
+import { CommanderClip, DEFAULT_COMMANDER_CLIP } from "./CommanderClip";
 
 const FPS = 30;
 
@@ -57,6 +58,16 @@ export const RemotionRoot = () => {
         calculateMetadata={({ props }) => ({
           durationInFrames: Math.round((props.seconds || 7) * FPS),
         })}
+      />
+      <Composition
+        id="CommanderClip"
+        component={CommanderClip}
+        durationInFrames={Math.round(DEFAULT_COMMANDER_CLIP.seconds * FPS)}
+        fps={FPS}
+        width={1080}
+        height={1920}
+        defaultProps={DEFAULT_COMMANDER_CLIP}
+        calculateMetadata={({ props }) => ({ durationInFrames: Math.round((props.seconds || 15) * FPS) })}
       />
       <Composition
         id="CommanderDemo"

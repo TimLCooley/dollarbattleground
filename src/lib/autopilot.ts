@@ -216,6 +216,7 @@ interface PostRow {
   video_kind: string | null;
   media_url: string | null;
   scheduled_for: string | null;
+  video_spec: { commander?: boolean } | null;
 }
 
 export class NotReady extends Error {}
@@ -265,7 +266,7 @@ export async function publishPost(db: Db, id: number): Promise<{ id: string; vid
       await db.from("agent_posts").update({ status: "denied", deny_reason: "text posts retired with the team X accounts", decided_at: new Date().toISOString() }).eq("id", id);
       return { id: "skipped", video: false, replyId: null };
     }
-    const r = await crosspostToTikTok(db, { id: p.id, faction: f, copy: stripLink(p.copy), media_url: p.media_url });
+    const r = await crosspostToTikTok(db, { commander: !!p.video_spec?.commander, id: p.id, faction: f, copy: stripLink(p.copy), media_url: p.media_url });
     if (!r.ok) throw new Error(r.error ?? "RobinReach refused the clip");
     await db
       .from("agent_posts")
@@ -338,7 +339,7 @@ export async function publishPost(db: Db, id: number): Promise<{ id: string; vid
       const xErr = e instanceof Error ? e.message : "X failed";
       const cp = await getCrosspost(db);
       if (!cp.tiktok) throw e;
-      const r = await crosspostToTikTok(db, { id: p.id, faction: f, copy: text, media_url: produced.url });
+      const r = await crosspostToTikTok(db, { commander: !!p.video_spec?.commander, id: p.id, faction: f, copy: text, media_url: produced.url });
       if (!r.ok) throw new Error(`${xErr}; mirror also failed: ${r.error}`);
       await db
         .from("agent_posts")
@@ -379,7 +380,7 @@ export async function publishPost(db: Db, id: number): Promise<{ id: string; vid
     try {
       const cp = await getCrosspost(db);
       if (cp.tiktok) {
-        const r = await crosspostToTikTok(db, { id: p.id, faction: f, copy: text, media_url: mediaUrl });
+        const r = await crosspostToTikTok(db, { commander: !!p.video_spec?.commander, id: p.id, faction: f, copy: text, media_url: mediaUrl });
         if (!r.ok) console.error(`tiktok crosspost failed for #${p.id}:`, r.error);
       }
     } catch (e) {
