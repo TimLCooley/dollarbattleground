@@ -3913,3 +3913,17 @@ a.cc-pill-x:hover { color: #f2c14e; text-decoration: underline; }
 .cm-logo { display: block; width: min(100%, 360px); height: auto; margin: 0 auto; }
 .go-commander-logo { display: block; width: 170px; max-width: 100%; height: auto; }
 @media (max-width: 420px) { .cm-logo { width: min(100%, 280px); } .go-commander-logo { width: 140px; } }
+
+/* results: the Battleground reward as a card, like the cross-game buttons */
+.cm-reward { margin: 12px 0 2px; }
+.cm-reward.won { background: linear-gradient(135deg, #5a4210 0%, #8a6416 50%, #5a4210 100%); border-color: #ffe08a; animation: cm-reward-glow 1.6s ease-in-out infinite; }
+.cm-reward.won .go-battle-new { background: var(--gold); color: var(--ink); border-color: #fff; }
+.cm-reward.won .go-battle-k { font-size: 20px; color: #ffe08a; }
+.cm-rw-piece { flex: none; display: grid; gap: 3px; padding: 4px; background: #0e3f22; border: 2px solid var(--gold); }
+.cm-rw-piece.one { grid-template-columns: 30px; }
+.cm-rw-piece.two { grid-template-columns: repeat(2, 15px); }
+.cm-rw-piece i { display: block; aspect-ratio: 1; background: var(--me, var(--blue)); box-shadow: inset -3px -3px 0 rgba(0, 0, 0, 0.25), inset 2px 2px 0 rgba(255, 255, 255, 0.2); }
+.cm-rw-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 3px; }
+.cm-rw-chips span { font-family: var(--font-pixel), monospace; font-size: 10px; background: rgba(0, 0, 0, 0.3); border: 1px solid rgba(255, 255, 255, 0.35); padding: 3px 6px; white-space: nowrap; }
+@keyframes cm-reward-glow { 0%, 100% { box-shadow: 0 4px 0 rgba(0, 0, 0, 0.35), 0 0 0 0 rgba(255, 224, 138, 0.7); transform: scale(1); } 50% { box-shadow: 0 4px 0 rgba(0, 0, 0, 0.35), 0 0 22px 6px rgba(255, 224, 138, 0.45); transform: scale(1.02); } }
+@media (prefers-reduced-motion: reduce) { .cm-reward.won { animation: none; } }
