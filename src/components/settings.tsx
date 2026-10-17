@@ -195,7 +195,7 @@ export function Settings() {
   return (
     <>
       <div className="cartridge settings">
-        <Link href="/" className="back-btn" aria-label="Home">
+        <Link href="/battleground" className="back-btn" aria-label="Back to the Battleground">
           ‹ HOME
         </Link>
         <header className="bg-header">

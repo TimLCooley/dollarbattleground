@@ -140,7 +140,7 @@ export function FieldReport() {
   return (
     <>
       <div className="cartridge fieldreport">
-        <Link href="/" className="back-btn" aria-label="Home">
+        <Link href="/battleground" className="back-btn" aria-label="Back to the Battleground">
           ‹ HOME
         </Link>
         <GearLink />

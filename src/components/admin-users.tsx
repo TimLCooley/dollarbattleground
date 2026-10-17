@@ -52,7 +52,7 @@ export function AdminUsers() {
 
   function viewAs(p: PlayerRow) {
     // You stay signed in as you; the board loads as this player (?as=).
-    if (p.id) window.open(`/?as=${encodeURIComponent(p.id)}`, "_blank");
+    if (p.id) window.open(`/battleground?as=${encodeURIComponent(p.id)}`, "_blank");
   }
 
   async function send() {

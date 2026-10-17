@@ -86,7 +86,7 @@ export function CommanderGame({ day: askedDay, unsubscribed = false }: { day?: n
       const r = await fetch(`/api/commander/day${askedDay ? `?day=${askedDay}` : ""}`, { cache: "no-store" });
       if (!r.ok) {
         // a future day (or a bad link) — back to today's map
-        window.location.replace("/commander");
+        window.location.replace("/");
         return;
       }
       const d = (await r.json()) as DayResponse;
@@ -138,7 +138,9 @@ export function CommanderGame({ day: askedDay, unsubscribed = false }: { day?: n
   }
 
   useEffect(() => {
-    track("commander_open");
+    // where they came from (social links carry ?ref=) — the home page is Commander now
+    const ref = new URLSearchParams(window.location.search).get("ref");
+    track("commander_open", ref ? { ref } : undefined);
     // load() only sets state after its fetch resolves
     // eslint-disable-next-line react-hooks/set-state-in-effect
     void load();
@@ -236,7 +238,7 @@ export function CommanderGame({ day: askedDay, unsubscribed = false }: { day?: n
       return;
     }
     if (!d.side && !d.isAdmin) {
-      window.location.href = "/?ref=commander";
+      window.location.href = "/battleground?ref=commander";
       return;
     }
     setPosting(true);
@@ -248,7 +250,7 @@ export function CommanderGame({ day: askedDay, unsubscribed = false }: { day?: n
       });
       const j = await r.json();
       if (!r.ok) {
-        if (j.needsEnlist) window.location.href = "/?ref=commander";
+        if (j.needsEnlist) window.location.href = "/battleground?ref=commander";
         else setError(j.error ?? "Couldn't post your score.");
         if (r.status === 409) void load();
         return;
@@ -346,7 +348,7 @@ export function CommanderGame({ day: askedDay, unsubscribed = false }: { day?: n
       {unsubscribed && <div className="cm-banner">You won&apos;t get Commander reminders anymore.</div>}
       {data.day < data.today && (
         <p className="cm-past">
-          A past puzzle — play it and post a score. Main-map rewards come from <Link href="/commander">today&apos;s map</Link>.
+          A past puzzle — play it and post a score. Main-map rewards come from <Link href="/">today&apos;s map</Link>.
         </p>
       )}
 
@@ -545,7 +547,7 @@ export function CommanderGame({ day: askedDay, unsubscribed = false }: { day?: n
                   Scores post under your name. New here? Enlist free on the main map — your first square is free — and your score posts
                   when you come back.
                 </p>
-                <Link className="ob-btn cm-linkbtn" href="/?ref=commander">ENLIST FREE →</Link>
+                <Link className="ob-btn cm-linkbtn" href="/battleground?ref=commander">ENLIST FREE →</Link>
                 <button className="ob-skip" onClick={() => setLoginOpen(true)}>Already enlisted? Log in</button>
                 <button className="ob-skip" onClick={() => setNeedLogin(false)}>‹ back to the battle</button>
               </>
@@ -572,12 +574,12 @@ export function CommanderGame({ day: askedDay, unsubscribed = false }: { day?: n
   );
 }
 
-const dayHref = (n: number, today: number) => (n >= today ? "/commander" : `/commander?day=${n}`);
+const dayHref = (n: number, today: number) => (n >= today ? "/" : `/?day=${n}`);
 
 function Header({ day, today, layout, onNext }: { day: number; today: number; layout?: Layout; onNext: () => void }) {
   return (
     <>
-      <Link className="go-battle" href="/">
+      <Link className="go-battle" href="/battleground">
         <span className="go-battle-k">🗺 BATTLEGROUND</span>
         <span className="go-battle-t">Back to the live map — Red vs Blue →</span>
       </Link>
@@ -724,7 +726,7 @@ export function ResultsModal({
             <>
               <div className="cm-earned-v">+1 free {result.reward === "2x2" ? "2×2 strike" : "1×1 square"}</div>
               <div className="cm-earned-s">It&apos;s already in your supplies — use it to take ground on the main map.</div>
-              <Link className="ob-btn cm-linkbtn" href="/">USE IT ON THE MAIN MAP →</Link>
+              <Link className="ob-btn cm-linkbtn" href="/battleground">USE IT ON THE MAIN MAP →</Link>
             </>
           ) : !enlisted ? (
             <div className="cm-earned-s">Enlisted players earn main-map squares here: a free 1×1 for {t.gold}+, a free 2×2 for a perfect {t.perfect}.</div>
@@ -738,7 +740,7 @@ export function ResultsModal({
           <button className="ob-btn" onClick={onShare}>{copied ? "COPIED!" : "SHARE"}</button>
           {result.score < result.optimal && <button className="ob-btn cm-dark" onClick={onOptimal}>VIEW BEST</button>}
         </div>
-        <Link className="ob-skip" href="/">‹ back to the main map</Link>
+        <Link className="ob-skip" href="/battleground">‹ back to the main map</Link>
       </div>
     </div>
   );

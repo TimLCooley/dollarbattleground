@@ -308,7 +308,7 @@ export function HomeExperience() {
       window.setTimeout(() => syncStatus(promoted), 400);
       // came from /commander with a score waiting? take them back to post it
       try {
-        if (localStorage.getItem("bg_commander_pending")) window.setTimeout(() => (window.location.href = "/commander"), 4500);
+        if (localStorage.getItem("bg_commander_pending")) window.setTimeout(() => (window.location.href = "/"), 4500);
       } catch {
         /* ignore */
       }
@@ -391,7 +391,7 @@ export function HomeExperience() {
         </div>
       )}
 
-      <ViewNav active="/" />
+      <ViewNav active="/battleground" />
 
       {ready && !player && <Onboarding onEnlist={handleEnlist} />}
 

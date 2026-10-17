@@ -32,10 +32,10 @@ export async function sendCommanderReminders(db: Db): Promise<number> {
   <h1 style="margin:0 0 12px;font-size:24px">Today's battle is live</h1>
   <p style="margin:0 0 6px;font-size:16px">${weekday} · <b>${level}</b> · ${army}.</p>
   <p style="margin:0 0 18px;font-size:16px">A new map, the same one for everyone. Practice all you like — one shot counts.</p>
-  <a href="${SITE}/commander" style="display:inline-block;background:#f2c14e;color:#14331d;padding:12px 18px;font-weight:bold;text-decoration:none">PLAY TODAY'S MAP →</a>
+  <a href="${SITE}/" style="display:inline-block;background:#f2c14e;color:#14331d;padding:12px 18px;font-weight:bold;text-decoration:none">PLAY TODAY'S MAP →</a>
   <p style="margin:22px 0 0;font-size:12px;color:#cdd8cf">You asked for a daily reminder. <a href="${unsub}" style="color:#cdd8cf">Stop these emails</a>.</p>
 </div>`,
-      text: `Commander #${today} is live — ${weekday} · ${level} · ${army}.\nPlay: ${SITE}/commander\n\nStop these reminders: ${unsub}`,
+      text: `Commander #${today} is live — ${weekday} · ${level} · ${army}.\nPlay: ${SITE}/\n\nStop these reminders: ${unsub}`,
     });
     if (res.ok) {
       sent++;

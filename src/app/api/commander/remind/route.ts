@@ -27,5 +27,5 @@ export async function GET(req: Request) {
   if (token && /^[0-9a-f-]{36}$/i.test(token)) {
     await createAdminClient().from("commander_reminders").update({ active: false }).eq("token", token);
   }
-  return NextResponse.redirect(new URL("/commander?unsubscribed=1", req.url));
+  return NextResponse.redirect(new URL("/?unsubscribed=1", req.url));
 }
