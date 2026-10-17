@@ -3874,11 +3874,6 @@ a.cc-pill-x:hover { color: #f2c14e; text-decoration: underline; }
 .field-radio.drop .fr-msg { color: #b9f5c8; }
 
 /* Main map ⇄ Commander: a big button each way */
-.go-battle { display: flex; flex-direction: column; align-items: center; gap: 2px; width: 100%; max-width: 460px; box-sizing: border-box; margin: 0 auto 10px; padding: 10px 14px; background: var(--gold); border: 3px solid var(--gold-d); box-shadow: var(--shadow-pix); color: var(--ink); text-decoration: none; text-align: center; }
-.go-battle:hover { filter: brightness(1.06); }
-.go-battle-k { font-family: var(--font-pixel), monospace; font-size: 14px; letter-spacing: 1px; }
-.go-battle-t { font-size: 14px; font-weight: 700; }
-.go-battle { max-width: none; margin: 0; }
 .cm-scorebar { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
 .cm-scorebar .cm-score { justify-content: flex-start; }
 .cm-scorebar .cm-practice { gap: 8px; }
@@ -3898,3 +3893,17 @@ a.cc-pill-x:hover { color: #f2c14e; text-decoration: underline; }
 @keyframes go-pulse { 0%, 100% { box-shadow: 0 4px 0 rgba(0, 0, 0, 0.35), 0 0 0 0 rgba(242, 193, 78, 0.55); transform: scale(1); } 50% { box-shadow: 0 4px 0 rgba(0, 0, 0, 0.35), 0 0 0 7px rgba(242, 193, 78, 0); transform: scale(1.015); } }
 @media (max-width: 420px) { .go-commander-art .cm-troop:last-child { display: none; } .go-commander-t { font-size: 13px; } }
 @media (prefers-reduced-motion: reduce) { .go-commander { animation: none; } }
+
+/* Commander → Battleground: the matching 'other game' card (red/blue, pulsing) */
+.go-battle { position: relative; display: flex; align-items: center; gap: 12px; width: 100%; box-sizing: border-box; margin: 8px 0 0; padding: 12px 12px 12px 14px; background: linear-gradient(115deg, #8f2a2a 0%, #6e1f1f 48%, #23468f 52%, #1b3670 100%); border: 3px solid var(--gold); color: var(--cream); text-decoration: none; box-shadow: 0 4px 0 rgba(0, 0, 0, 0.35); animation: go-pulse 2.2s ease-in-out infinite; }
+.go-battle:hover { filter: brightness(1.12); }
+.go-battle-new { position: absolute; top: -10px; left: 12px; background: #e8453c; color: #fff; font-family: var(--font-pixel), monospace; font-size: 10px; letter-spacing: 1px; padding: 3px 7px; border: 2px solid #fff; transform: rotate(-3deg); }
+.go-battle-art { flex: none; display: grid; grid-template-columns: repeat(4, 9px); gap: 2px; padding: 3px; background: #0e3f22; border: 2px solid var(--gold-d); }
+.go-battle-art i { width: 9px; height: 9px; display: block; box-shadow: inset -1px -1px 0 rgba(0, 0, 0, 0.25); }
+.go-battle-art i.r { background: var(--red); }
+.go-battle-art i.b { background: var(--blue); }
+.go-battle-txt { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0; text-align: left; }
+.go-battle-k { font-family: var(--font-pixel), monospace; font-size: 15px; letter-spacing: 2px; color: var(--gold); }
+.go-battle-t { font-size: 14px; line-height: 1.2; }
+.go-battle-play { flex: none; font-family: var(--font-pixel), monospace; font-size: 13px; color: var(--ink); background: var(--gold); border: 2px solid var(--gold-d); padding: 8px 10px; box-shadow: var(--shadow-pix); }
+@media (prefers-reduced-motion: reduce) { .go-battle { animation: none; } }
