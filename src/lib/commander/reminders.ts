@@ -4,7 +4,7 @@ import { sendEmail, isEmailConfigured } from "@/lib/email";
 import { DIFFICULTY, DIFFICULTY_NAME, WEEKDAY, dayNumber } from "./engine";
 import { getDay } from "./server";
 
-const SITE = "https://dollarbattleground.com";
+const SITE = "https://commanderbg.com";
 
 /** "Today's Commander is live" — once a day to everyone who asked to be reminded. */
 export async function sendCommanderReminders(db: Db): Promise<number> {

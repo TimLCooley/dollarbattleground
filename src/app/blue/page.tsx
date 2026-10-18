@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { Command } from "@/components/board";
 
 export const metadata: Metadata = {
-  title: "Blue Command — Dollar Battleground",
+  title: "Blue Command — Commander",
 };
 
 export default function BluePage() {

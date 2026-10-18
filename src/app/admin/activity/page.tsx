@@ -5,7 +5,7 @@ import { ActivityFeed } from "@/components/activity-feed";
 import { AdminDenied } from "@/components/admin-denied";
 
 export const metadata: Metadata = {
-  title: "Activity — Dollar Battleground",
+  title: "Activity — Commander",
 };
 
 export default async function AdminActivityPage() {

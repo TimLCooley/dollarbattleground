@@ -39,11 +39,11 @@ export async function setCrosspost(db: Db, patch: Partial<CrosspostConfig>): Pro
 export const COMMANDER_TAGS = "#dailypuzzle #strategygame #puzzlegame #indiegame #browsergame";
 
 export function tiktokCaption(faction: "red" | "blue", copy: string, commander = false): { title: string; content: string } {
-  const line = copy.replace(/\s*https?:\/\/\S+/g, "").replace(/\s*dollarbattleground\.com\S*/gi, "").trim();
+  const line = copy.replace(/\s*https?:\/\/\S+/g, "").replace(/\s*(?:commanderbg|dollarbattleground)\.com\S*/gi, "").trim();
   const side = faction === "red" ? "Red" : "Blue";
   const title = line.split(/[.!?]/)[0].slice(0, 80) || (commander ? "Today's Commander puzzle" : `${side} update`);
   const tags = commander ? COMMANDER_TAGS : `#redvsblue #indiegame #browsergame #${side.toLowerCase()}team`;
-  const content = `${line}\n\ndollarbattleground.com\n\n${tags}`;
+  const content = `${line}\n\ncommanderbg.com\n\n${tags}`;
   return { title, content };
 }
 
@@ -107,7 +107,7 @@ async function publishViaRobinReach(
           // X takes a ≤280 cut of the caption; Instagram publishes video as a Reel.
           // RobinReach refuses X posts containing links — the site goes in the bio.
           twitter: (() => {
-            const t = content.replace(/\s*https?:\/\/\S+/g, "").replace(/\s*(www\.)?dollarbattleground\.com\S*/gi, "").replace(/\n{3,}/g, "\n\n").trim();
+            const t = content.replace(/\s*https?:\/\/\S+/g, "").replace(/\s*(www\.)?(?:commanderbg|dollarbattleground)\.com\S*/gi, "").replace(/\n{3,}/g, "\n\n").trim();
             return { content: t.length > 280 ? t.slice(0, 277).replace(/\s+\S*$/, "") + "…" : t };
           })(),
           instagram: { post_type: "reels", content },

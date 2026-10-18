@@ -268,7 +268,7 @@ export const WarReport = (props: WarReportProps) => {
           boxShadow: "0 6px 18px rgba(0,0,0,.45)",
         }}
       >
-        ▶ dollarbattleground.com
+        ▶ commanderbg.com
       </div>
 
       {/* war wire ticker */}

@@ -17,7 +17,7 @@ import { regionName } from "@/lib/intel";
 // clicks are measured (email → visits, for the Intel brief). The Sergeant
 // (Gemini) adds one in-character line when available; templates never wait on it.
 
-const SITE = "https://dollarbattleground.com";
+const SITE = "https://commanderbg.com";
 const TAKEOVER_COOLDOWN_MS = 60 * 60_000;
 const REMINDER_AFTER_MS = 3 * 24 * 60 * 60_000;
 const REMINDER_GAP_MS = 3 * 24 * 60 * 60_000;
@@ -107,7 +107,7 @@ function wrap(inner: string, footer: string): string {
   return `
     <div style="font-family:system-ui,Arial,sans-serif;background:#124f2b;padding:24px;color:#f6efdb">
       <div style="max-width:480px;margin:0 auto;background:#155f33;border:3px solid #0c3c21;padding:24px">
-        <h1 style="margin:0 0 14px;font-size:18px;letter-spacing:1px;color:#f2c14e">$ DOLLAR BATTLEGROUND</h1>
+        <h1 style="margin:0 0 14px;font-size:18px;letter-spacing:1px;color:#f2c14e">COMMANDER</h1>
         ${inner}
         <p style="margin:18px 0 0;font-size:11px;color:#efe4c4;opacity:.7">${footer}</p>
       </div>
@@ -357,7 +357,7 @@ export async function sendWaitlistNudges(db: Db): Promise<number> {
           `<p style="margin:0 0 10px;font-size:17px;font-weight:700;color:${COLOR[side]}">You picked ${NAME[side]}. The board is live.</p>
            <p style="margin:0 0 6px;font-size:14px;color:#efe4c4">Your first tile is free — claim it and you're on the line.</p>
            ${cta(url, "CLAIM YOUR FREE TILE →", side)}`,
-          `You're getting this because you joined the waitlist at dollarbattleground.com. This is the only nudge we'll send.`,
+          `You're getting this because you joined the waitlist at commanderbg.com. This is the only nudge we'll send.`,
         ),
     });
     if (id) sent++;
@@ -387,7 +387,7 @@ export async function sendWaitlistWelcome(db: Db, email: string, side: Side | nu
          ${days > 0 ? `<p style="margin:0 0 10px;font-size:14px;color:#efe4c4">Enlistment closes in <b>${days}</b> day${days === 1 ? "" : "s"}. When the gates open you get first call — pick your position before the other side does.</p>` : ""}
          <p style="margin:0 0 6px;font-size:14px;color:#efe4c4">Until then, bring a friend. The side with more boots holds more ground.</p>
          ${cta(url, "SHARE THE FRONT →", s)}`,
-        `You're getting this because you enlisted at dollarbattleground.com. You'll get one signal when mobilization begins.`,
+        `You're getting this because you enlisted at commanderbg.com. You'll get one signal when mobilization begins.`,
       ),
   });
 }
@@ -422,7 +422,7 @@ export async function sendLaunchEmails(db: Db, limit: number): Promise<{ sent: n
            <p style="margin:0 0 10px;font-size:14px;color:#efe4c4">The map is live. Your first position is free — ${side ? `take it before ${enemy} does` : "pick your side and take it"}. Officers commission from the field.</p>
            <p style="margin:0 0 6px;font-size:14px;color:#efe4c4">The founding class is whoever shows up first. That's you, if you move.</p>
            ${cta(url, side ? "TAKE YOUR POSITION →" : "PICK YOUR SIDE →", s)}`,
-          `You asked us to signal you when the gates opened at dollarbattleground.com. This is that signal.`,
+          `You asked us to signal you when the gates opened at commanderbg.com. This is that signal.`,
         ),
     });
     if (id) sent++;
@@ -485,7 +485,7 @@ export async function sendBroadcast(db: Db): Promise<number> {
                <p style="margin:0 0 10px;font-size:14px;color:#efe4c4">Report in daily and there's a free square waiting each time.</p>
                ${cta(url, "CLAIM YOUR SUPPLIES →", s)}
                <p style="margin:14px 0 0;font-size:13px;color:#efe4c4">— The General</p>`,
-          "You're getting this because you signed up at dollarbattleground.com.",
+          "You're getting this because you signed up at commanderbg.com.",
         ),
     });
     if (id) sent++;

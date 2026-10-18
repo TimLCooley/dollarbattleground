@@ -20,7 +20,7 @@ export type { Db };
 // (a text column holding JSON); the last tick's result in autopilot_state.
 
 export const DEFAULT_GOAL =
-  "Recruit 1,000 contacts in the 15-day campaign — 500 for each side. The war is LIVE at dollarbattleground.com: get people to pick your side and take their first position.";
+  "Recruit 1,000 contacts in the 15-day campaign — 500 for each side. The war is LIVE at commanderbg.com: get people to pick your side and take their first position.";
 
 export interface AutopilotConfig {
   enabled: boolean;
@@ -224,7 +224,7 @@ export class NotReady extends Error {}
 // X throttles posts that carry an external link, so the link never goes in
 // the post body: strip it, publish, then reply to ourselves with the CTA +
 // the attributed /r/<id> link as the first comment.
-const LINK_RE = /\s*(?:at|→|:|—|–|-)?\s*(?:https?:\/\/)?(?:www\.)?dollarbattleground\.com(?:\/r\/\d+)?\/?[.!]?/gi;
+const LINK_RE = /\s*(?:at|→|:|—|–|-)?\s*(?:https?:\/\/)?(?:www\.)?(?:commanderbg|dollarbattleground)\.com(?:\/r\/\d+)?\/?[.!]?/gi;
 export function stripLink(copy: string): string {
   return copy
     .replace(LINK_RE, "")
@@ -320,7 +320,7 @@ export async function publishPost(db: Db, id: number): Promise<{ id: string; vid
       console.error(`refresh-at-post failed for #${p.id}, using the draft:`, e instanceof Error ? e.message : e);
     }
   }
-  const hasLink = /dollarbattleground\.com/i.test(copy);
+  const hasLink = /(?:commanderbg|dollarbattleground)\.com/i.test(copy);
   const text = hasLink ? stripLink(copy) : copy;
 
   let tweet: { id: string };
@@ -355,7 +355,7 @@ export async function publishPost(db: Db, id: number): Promise<{ id: string; vid
   let replyId: string | null = null;
   if (hasLink) {
     try {
-      const r = await postTweet(f, `${REPLY_CTA[f]} https://dollarbattleground.com/r/${p.id}`, tweet.id);
+      const r = await postTweet(f, `${REPLY_CTA[f]} https://commanderbg.com/r/${p.id}`, tweet.id);
       replyId = r.id;
     } catch (e) {
       console.error(`link reply failed for #${p.id}:`, e instanceof Error ? e.message : e);

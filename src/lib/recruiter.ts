@@ -73,12 +73,12 @@ export function chooseAngle(recruitPct: number, recentAngles: Angle[] = [], phas
 // who has never seen the game — the pitch comes first, the scoreboard is
 // seasoning.
 const PITCH =
-  "WHAT THE GAME IS (the reader has never heard of it): Dollar Battleground is a live map where Red and Blue fight for territory. You pick a side, your first position is free, then you take positions, launch strikes and barrages to take ground. A strike commissions you as an officer. The map is public and every move shows up live.\nMONEY RULE: never mention spending money or prices — no dollar amounts, ever. \"First position is free\" is fine; \"$5\" is not.";
+  "WHAT THE GAME IS (the reader has never heard of it): Commander is a live map where Red and Blue fight for territory. You pick a side, your first position is free, then you take positions, launch strikes and barrages to take ground. A strike commissions you as an officer. The map is public and every move shows up live.\nMONEY RULE: never mention spending money or prices — no dollar amounts, ever. \"First position is free\" is fine; \"$5\" is not.";
 
 const ANGLE_GUIDE: Record<Angle, string> = {
   recruit:
-    "THIS IS AN AD, and every ad is an EXPERIMENT. Quality bar = the first style example: that clear, that direct, 2–4 short sentences, ending with the link dollarbattleground.com. Ingredients to draw from: the real countdown ('N days left…'), the offer (pick your side / first position's free / join as an officer), where we need boots by front. But NEVER reuse the wording or opening of a recent post — lead with this post's assigned theme, vary the hook, the length, the front you name. No scoreboard. No story. Say it straight.",
-  teaser: "A coming-soon hook that makes someone want to pick a side before launch. Include the link dollarbattleground.com.",
+    "THIS IS AN AD, and every ad is an EXPERIMENT. Quality bar = the first style example: that clear, that direct, 2–4 short sentences, ending with the link commanderbg.com. Ingredients to draw from: the real countdown ('N days left…'), the offer (pick your side / first position's free / join as an officer), where we need boots by front. But NEVER reuse the wording or opening of a recent post — lead with this post's assigned theme, vary the hook, the length, the front you name. No scoreboard. No story. Say it straight.",
+  teaser: "A coming-soon hook that makes someone want to pick a side before launch. Include the link commanderbg.com.",
   update: "A war-desk update: what actually happened on the map — ground gained or lost, by direction (the east, the south, the center). NO link. Reads like an account reporting, not selling.",
   hype: "Pump your own side. Swagger with specifics. NO link.",
   taunt: "Rib the other team — playful, dry, never cruel, never about real people or real politics. NO link.",
@@ -87,12 +87,12 @@ const ANGLE_GUIDE: Record<Angle, string> = {
 const EXEMPLARS: Record<Angle, string[]> = {
   recruit: [
     // The Commander's gold standard — match this SHAPE: countdown → pick your side + first position's free → where we need boots (by front) → link.
-    "15 days left to join Blue's founding class. Pick your side, first position's free. We need boots on the western and center fronts. dollarbattleground.com",
-    "14 days left to join Red's founding class. Claim your spot — first position's free. We need officers on the eastern front. dollarbattleground.com",
-    "Join as an officer: one strike commissions you Second Lieutenant. 13 days left in Blue's recruiting window. We need boots in the south. dollarbattleground.com",
-    "We're looking for the best. 12 days left to claim your spot in Red's founding class — first position's free. Hold the center with us. dollarbattleground.com",
+    "15 days left to join Blue's founding class. Pick your side, first position's free. We need boots on the western and center fronts. commanderbg.com",
+    "14 days left to join Red's founding class. Claim your spot — first position's free. We need officers on the eastern front. commanderbg.com",
+    "Join as an officer: one strike commissions you Second Lieutenant. 13 days left in Blue's recruiting window. We need boots in the south. commanderbg.com",
+    "We're looking for the best. 12 days left to claim your spot in Red's founding class — first position's free. Hold the center with us. commanderbg.com",
   ],
-  teaser: ["The map opens soon. Red or Blue — decide before your neighbor does: dollarbattleground.com"],
+  teaser: ["The map opens soon. Red or Blue — decide before your neighbor does: commanderbg.com"],
   update: [
     "Overnight: Blue pushed up from the south and took ground. Red held the east. The map is close.",
     "The northwest has changed hands three times this week. Nobody's holding it. Nobody's leaving it alone either.",
@@ -208,7 +208,7 @@ function parseDraft(text: string | null | undefined, input: DecideInput, angle: 
     const copy = p.copy.trim();
     // Guardrails the model may have ignored: no prices, ever; link only on recruit/teaser.
     if (/\$\s?\d|\d+\s?(dollars?|bucks)\b/i.test(copy)) return null;
-    const linked = /dollarbattleground\.com/i.test(copy);
+    const linked = /(?:commanderbg|dollarbattleground)\.com/i.test(copy);
     const shouldLink = angle === "recruit" || angle === "teaser";
     if (shouldLink && !linked) return null;
     if (!shouldLink && linked) return null;

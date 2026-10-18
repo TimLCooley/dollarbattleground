@@ -19,7 +19,7 @@ interface Post {
 }
 
 const DEFAULT_GOAL =
-  "Build the pre-launch waitlist — get people to dollarbattleground.com and picking a side.";
+  "Build the pre-launch waitlist — get people to commanderbg.com and picking a side.";
 
 export function RecruiterPanel() {
   const [goal, setGoal] = useState(DEFAULT_GOAL);

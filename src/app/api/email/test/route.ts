@@ -35,7 +35,7 @@ export async function POST(req: Request) {
   const html = `
     <div style="font-family:system-ui,Arial,sans-serif;background:#124f2b;padding:24px;color:#f6efdb">
       <div style="max-width:480px;margin:0 auto;background:#155f33;border:3px solid #0c3c21;padding:24px">
-        <h1 style="margin:0 0 8px;font-size:20px;letter-spacing:1px;color:#f2c14e">$ DOLLAR BATTLEGROUND</h1>
+        <h1 style="margin:0 0 8px;font-size:20px;letter-spacing:1px;color:#f2c14e">COMMANDER</h1>
         <p style="margin:0 0 12px;font-size:16px">Field radio check, soldier.</p>
         <p style="margin:0 0 12px;font-size:15px;color:#efe4c4">
           If you're reading this, dispatches are wired up and coming through loud and clear.
@@ -48,7 +48,7 @@ export async function POST(req: Request) {
 
   const result = await sendEmail({
     to,
-    subject: "Field radio check — Dollar Battleground",
+    subject: "Field radio check — Commander",
     html,
   });
 

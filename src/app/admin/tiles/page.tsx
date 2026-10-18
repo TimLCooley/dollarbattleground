@@ -5,7 +5,7 @@ import { AdminTiles } from "@/components/admin-tiles";
 import { AdminDenied } from "@/components/admin-denied";
 
 export const metadata: Metadata = {
-  title: "Tile Log — Dollar Battleground",
+  title: "Tile Log — Commander",
 };
 
 export default async function AdminTilesPage() {

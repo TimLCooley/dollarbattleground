@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/utils/supabase/admin";
 
-// Attribution redirect. Recruiter posts link here (dollarbattleground.com/r/<id>);
+// Attribution redirect. Recruiter posts link here (commanderbg.com/r/<id>);
 // we log the click on that post, then land the visitor on /red or /blue — the
 // perspective screens that lock the recruit's side. Impressions → measured VISITS.
 

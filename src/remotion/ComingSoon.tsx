@@ -20,7 +20,7 @@ export type ComingSoonProps = {
 export const DEFAULT_COMING_SOON: ComingSoonProps = {
   headline: "COMING SOON",
   tagline: "Pay to paint the map. Red vs Blue. Winner takes the board.",
-  url: "dollarbattleground.com",
+  url: "commanderbg.com",
   seconds: 7,
 };
 
@@ -78,7 +78,7 @@ export const ComingSoon = (props: ComingSoonProps) => {
             $
           </div>
           <div style={{ color: "#fff", fontWeight: 800, fontSize: 22, letterSpacing: 1 }}>
-            DOLLAR BATTLEGROUND
+            COMMANDER
           </div>
         </div>
 
