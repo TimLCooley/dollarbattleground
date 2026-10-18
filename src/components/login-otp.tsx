@@ -7,6 +7,7 @@ import { track } from "@/lib/track";
 import { resolveTestEmail } from "@/lib/test-email";
 
 import { CampaignCountdown } from "./campaign-countdown";
+import { friendlyAuthError } from "@/lib/auth-errors";
 
 type Step = "email" | "code";
 
@@ -44,14 +45,14 @@ export function LoginOtp({
         options: { shouldCreateUser: true },
       });
       if (err) {
-        setError(err.message || "Couldn't send your code. Try again.");
+        setError(friendlyAuthError(err.message, "send"));
         setBusy(false);
         return;
       }
       setStep("code");
       track("email_entered", { returning: true });
     } catch {
-      setError("Couldn't reach command. Try again.");
+      setError(friendlyAuthError(null, "network"));
     } finally {
       setBusy(false);
     }
@@ -77,14 +78,14 @@ export function LoginOtp({
           .error;
       }
       if (err) {
-        setError(err.message || "That code didn't work. Check it and retry.");
+        setError(friendlyAuthError(err.message, "verify"));
         setBusy(false);
         return;
       }
       track("code_verified", { returning: true });
       onSignedIn();
     } catch {
-      setError("Couldn't verify. Try again.");
+      setError(friendlyAuthError(null, "network"));
     } finally {
       setBusy(false);
     }

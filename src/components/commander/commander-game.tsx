@@ -22,6 +22,7 @@ import {
   type Placement,
 } from "@/lib/commander/engine";
 import { LoginOtp } from "@/components/login-otp";
+import { EnlistInline } from "./enlist-inline";
 import { track } from "@/lib/track";
 import { pixel } from "@/lib/pixel";
 import { CommanderLogo } from "./logo";
@@ -81,6 +82,7 @@ export function CommanderGame({ day: askedDay, unsubscribed = false }: { day?: n
   const [posting, setPosting] = useState(false);
   const [needLogin, setNeedLogin] = useState(false);
   const [loginOpen, setLoginOpen] = useState(false);
+  const [enlistOpen, setEnlistOpen] = useState(false);
   const [copied, setCopied] = useState(false);
 
   async function load() {
@@ -240,7 +242,17 @@ export function CommanderGame({ day: askedDay, unsubscribed = false }: { day?: n
       return;
     }
     if (!d.side && !d.isAdmin) {
-      window.location.href = "/battleground?ref=commander";
+      const er = await fetch("/api/commander/enlist", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ side: guestSide ?? storedSide() ?? "blue" }),
+      });
+      if (!er.ok) {
+        const ej = (await er.json().catch(() => ({}))) as { error?: string };
+        setError(ej.error ?? "We couldn't enlist you just now. Try Attack again in a moment.");
+        return;
+      }
+      void load(); // reloads as an enlisted player and posts the saved score
       return;
     }
     setPosting(true);
@@ -252,8 +264,10 @@ export function CommanderGame({ day: askedDay, unsubscribed = false }: { day?: n
       });
       const j = await r.json();
       if (!r.ok) {
-        if (j.needsEnlist) window.location.href = "/battleground?ref=commander";
-        else setError(j.error ?? "Couldn't post your score.");
+        if (j.needsEnlist) {
+          setNeedLogin(true);
+          setEnlistOpen(true);
+        } else setError(j.error ?? "Couldn't post your score — tap Attack again in a moment.");
         if (r.status === 409) void load();
         return;
       }
@@ -545,15 +559,25 @@ export function CommanderGame({ day: askedDay, unsubscribed = false }: { day?: n
                   void load();
                 }}
               />
+            ) : enlistOpen ? (
+              <EnlistInline
+                side={side}
+                onBack={() => setEnlistOpen(false)}
+                onDone={() => {
+                  setEnlistOpen(false);
+                  setNeedLogin(false);
+                  void load(); // signed in + enlisted now: the saved score posts and results open
+                }}
+              />
             ) : (
               <>
                 <div className="ob-kicker">◆ POST YOUR SCORE ◆</div>
                 <h2 className="ob-title">{sim.score} POINTS</h2>
                 <p className="ob-body">
-                  Scores post under your name. New here? Enlist free on the main map — your first square is free — and your score posts
-                  when you come back.
+                  Scores post under your name. New here? Enlist free — it takes an email and a code, you stay right here, and you get a free
+                  square on the Battleground.
                 </p>
-                <Link className="ob-btn cm-linkbtn" href="/battleground?ref=commander">ENLIST FREE →</Link>
+                <button className="ob-btn" onClick={() => setEnlistOpen(true)}>ENLIST FREE →</button>
                 <button className="ob-skip" onClick={() => setLoginOpen(true)}>Already enlisted? Log in</button>
                 <button className="ob-skip" onClick={() => setNeedLogin(false)}>‹ back to the battle</button>
               </>

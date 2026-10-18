@@ -8,6 +8,7 @@ import { ResendCode } from "./resend-code";
 import { track } from "@/lib/track";
 
 import { CampaignCountdown } from "./campaign-countdown";
+import { friendlyAuthError } from "@/lib/auth-errors";
 
 type Step = "email" | "code";
 
@@ -63,7 +64,7 @@ export function ClaimTile({
         options: { shouldCreateUser: true },
       });
       if (err) {
-        setError(err.message || "Couldn't send your code. Try again.");
+        setError(friendlyAuthError(err.message, "send"));
         setBusy(false);
         return;
       }
@@ -71,7 +72,7 @@ export function ClaimTile({
       setStep("code");
       track("email_entered");
     } catch {
-      setError("Couldn't reach command. Try again.");
+      setError(friendlyAuthError(null, "network"));
     } finally {
       setBusy(false);
     }
@@ -96,7 +97,7 @@ export function ClaimTile({
           .error;
       }
       if (err) {
-        setError(err.message || "That code didn't work. Check it and retry.");
+        setError(friendlyAuthError(err.message, "verify"));
         setBusy(false);
         return;
       }
@@ -109,7 +110,7 @@ export function ClaimTile({
       track("code_verified");
       onConfirm(mail, optIn);
     } catch {
-      setError("Couldn't verify. Try again.");
+      setError(friendlyAuthError(null, "network"));
       setBusy(false);
     }
   }
