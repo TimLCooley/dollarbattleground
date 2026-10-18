@@ -3929,3 +3929,11 @@ a.cc-pill-x:hover { color: #f2c14e; text-decoration: underline; }
 @media (prefers-reduced-motion: reduce) { .cm-reward.won { animation: none; } }
 .cm-board .cm-plus { font-size: 12px; padding: 1px 4px; top: -7px; right: -7px; border: 1px solid var(--gold-d); z-index: 2; }
 @media (max-width: 420px) { .cm-board .cm-plus { font-size: 9px; padding: 0 3px; } }
+
+/* results: where you stand + counts on the chart */
+.cm-standing { display: flex; flex-wrap: wrap; justify-content: center; gap: 4px 12px; font-size: 14px; color: var(--parch); }
+.cm-standing b { color: var(--gold); font-family: var(--font-pixel), monospace; font-size: 13px; }
+.cm-hist { margin: 18px 0 18px; }
+.cm-n { position: absolute; bottom: 100%; left: 50%; transform: translateX(-50%); font-size: 11px; color: var(--cream); white-space: nowrap; margin-bottom: 2px; }
+.cm-sc { position: absolute; top: calc(100% + 3px); left: 50%; transform: translateX(-50%); font-size: 10px; color: var(--parch); white-space: nowrap; }
+.cm-bar.you .cm-sc { color: var(--gold); font-weight: 700; }
