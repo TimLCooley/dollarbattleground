@@ -30,7 +30,7 @@ export const DEFAULT_DISPATCH: DispatchProps = {
   redPct: 50,
   bluePct: 50,
   openSpots: 100,
-  url: "commanderbg.com",
+  url: "CommanderBG.com",
   seconds: 12,
 };
 

@@ -291,6 +291,7 @@ export const CommanderDemo = () => {
             <div style={{ fontSize: 50, color: "#f2c14e" }}>Best possible: {BEST}.</div>
             <div style={{ fontSize: 50, color: "#f2c14e", marginBottom: 40 }}>Can you find it?</div>
             <div style={{ fontSize: 32, opacity: 0.9 }}>A new map every day · Monday easy → Friday hard</div>
+            <div style={{ fontSize: 40, marginTop: 26, color: "#fff" }}>CommanderBG.com</div>
           </div>
         </AbsoluteFill>
       )}

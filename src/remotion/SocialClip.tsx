@@ -65,7 +65,7 @@ export const DEFAULT_SOCIAL_PROPS: SocialClipProps = {
   redPct: 58,
   bluePct: 42,
   locator: "THE CENTER",
-  url: "commanderbg.com",
+  url: "CommanderBG.com",
   variant: "field",
   seconds: 10,
 };
