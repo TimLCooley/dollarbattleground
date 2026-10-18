@@ -48,7 +48,9 @@ const BLURB: Record<Troop, string> = {
   archer: "3 left + 3 right · over walls & water, trees stop it",
   soldier: "2 up + 2 down · through trees, wades water, walls stop it",
 };
-const MEDAL: Record<string, string> = { perfect: "💎 PERFECT!", gold: "🥇 GOLD", silver: "🥈 SILVER", bronze: "🥉 BRONZE" };
+// medal tiers read as stars; a perfect score takes the castle
+const STARS: Record<string, string> = { perfect: "🏰", gold: "⭐⭐⭐", silver: "⭐⭐", bronze: "⭐" };
+const MEDAL: Record<string, string> = { perfect: "🏰 CASTLE!", gold: "⭐⭐⭐ 3 STARS", silver: "⭐⭐ 2 STARS", bronze: "⭐ 1 STAR" };
 const PENDING = "bg_commander_pending";
 const GUEST_SIDE = "bg_commander_side";
 const DRAFT = "bg_commander_draft";
@@ -291,17 +293,14 @@ export function CommanderGame({ day: askedDay, unsubscribed = false }: { day?: n
   }
   function shareText() {
     if (!data || !result || !L) return "";
-    const took: Record<string, number> = { soldier: 0, archer: 0 };
-    let prev = simulate(L, []).score;
-    result.placements.forEach((p, k) => {
-      const now = simulate(L, result.placements.slice(0, k + 1)).score;
-      took[p.kind] = (took[p.kind] ?? 0) + (now - prev);
-      prev = now;
-    });
-    const medal = result.medal ? " " + MEDAL[result.medal].split(" ")[0] : "";
-    const lines = [`I conquered ${took.soldier + took.archer} spots in Commander${medal}`];
-    if (took.soldier) lines.push(`🗡️ Soldiers - ${took.soldier}`);
-    if (took.archer) lines.push(`🏹 Archers - ${took.archer}`);
+    // your color vs. the ground still held by the other side
+    let land = 0;
+    for (let i = 0; i < CELLS; i++) if (ownable(L, i)) land++;
+    const mine = side === "red" ? "🟥 Red" : "🟦 Blue";
+    const theirs = side === "red" ? "🟦 Blue" : "🟥 Red";
+    const lines = [`I scored ${result.score} points in Commander`];
+    if (result.medal) lines.push(`Rank: ${STARS[result.medal]}`);
+    lines.push(`${mine} - ${result.score}`, `${theirs} - ${land - result.score}`);
     lines.push(`Play 👉 ${shareLink()}`);
     return lines.join("\n");
   }
@@ -772,7 +771,7 @@ export function ResultsModal({
           <div className="cm-res-n">{result.score}</div>
           <div className="cm-res-medal">{result.medal ? MEDAL[result.medal] : `${t.bronze - result.score} short of a medal`}</div>
         </div>
-        <div className="cm-lines">🥉 {t.bronze}+ · 🥈 {t.silver}+ · 🥇 {t.gold}+ · 💎 {t.perfect}</div>
+        <div className="cm-lines">⭐ {t.bronze}+ · ⭐⭐ {t.silver}+ · ⭐⭐⭐ {t.gold}+ · 🏰 {t.perfect}</div>
         <div className="cm-standing">
           {total <= 1 ? (
             <span>
