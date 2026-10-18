@@ -10,6 +10,7 @@ import { getGate } from "@/lib/gate";
 function isExempt(path: string): boolean {
   return (
     path === "/coming-soon" ||
+    path === "/handoff" ||
     path.startsWith("/api/") ||
     path.startsWith("/auth/") ||
     path.startsWith("/r/") ||
