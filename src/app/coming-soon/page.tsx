@@ -138,7 +138,7 @@ export default function ComingSoonPage() {
     <main className="cs-wrap">
       <div className="cs-card">
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img className="cs-logo" src="/logo.png" alt="Battleground" />
+        <img className="cs-logo" src="/commander-logo-blue.png" alt="Commander" />
         <div className="cs-badge">◆ CLASSIFIED ◆</div>
         <h1 className="cs-title">COMING SOON</h1>
         <p className="cs-tag">
