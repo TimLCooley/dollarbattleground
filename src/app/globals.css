@@ -3940,3 +3940,12 @@ a.cc-pill-x:hover { color: #f2c14e; text-decoration: underline; }
 
 /* the new BATTLEGROUND wordmark is wider than the old one — cap by width, not height */
 .wordmark-logo { height: auto; width: min(86%, 380px); max-width: 86%; }
+
+/* readable "about" text under Commander (for people, search engines and AI assistants) */
+.seo-about { max-width: 560px; margin: 8px auto 40px; padding: 0 16px; color: var(--parch); font-size: 15px; line-height: 1.5; }
+.seo-about h2 { font-family: var(--font-pixel), monospace; font-size: 14px; color: var(--gold); margin: 18px 0 8px; }
+.seo-about h3 { font-family: var(--font-pixel), monospace; font-size: 12px; color: var(--cream); margin: 16px 0 6px; }
+.seo-about dl { margin: 0; display: flex; flex-direction: column; gap: 10px; }
+.seo-about dt { font-weight: 700; color: var(--cream); }
+.seo-about dd { margin: 2px 0 0; }
+.seo-about a { color: var(--gold); }

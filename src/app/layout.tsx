@@ -18,9 +18,25 @@ const schoolbell = Schoolbell({
   weight: "400",
 });
 
+const SITE_DESCRIPTION =
+  "Play Commander, a free daily strategy puzzle: place Archers and Soldiers to take the most ground. A new map every day, the same for everyone — plus the Battleground, Red vs Blue on one live map.";
+
 export const metadata: Metadata = {
-  title: "CommanderBG",
-  description: "One dollar. One tile. Turn the whole board your color.",
+  metadataBase: new URL("https://commanderbg.com"),
+  title: "CommanderBG — a free daily strategy puzzle game",
+  description: SITE_DESCRIPTION,
+  applicationName: "CommanderBG",
+  keywords: ["daily puzzle", "strategy puzzle", "daily strategy game", "puzzle game", "browser game", "free online game", "Commander", "CommanderBG", "red vs blue", "territory game"],
+  openGraph: {
+    type: "website",
+    siteName: "CommanderBG",
+    locale: "en_US",
+    url: "/",
+    title: "CommanderBG — a free daily strategy puzzle game",
+    description: SITE_DESCRIPTION,
+  },
+  twitter: { card: "summary_large_image", title: "CommanderBG — a free daily strategy puzzle game", description: SITE_DESCRIPTION },
+  alternates: { canonical: "/" },
 };
 
 export const viewport: Viewport = {
