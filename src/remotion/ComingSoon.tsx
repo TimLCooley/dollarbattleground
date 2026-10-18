@@ -20,7 +20,7 @@ export type ComingSoonProps = {
 export const DEFAULT_COMING_SOON: ComingSoonProps = {
   headline: "COMING SOON",
   tagline: "Pay to paint the map. Red vs Blue. Winner takes the board.",
-  url: "commanderbg.com",
+  url: "CommanderBG.com",
   seconds: 7,
 };
 

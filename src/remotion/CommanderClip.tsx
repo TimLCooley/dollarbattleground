@@ -157,9 +157,10 @@ function Board({
 function Footer({ frame, from }: { frame: number; from: number }) {
   return (
     <div style={{ position: "absolute", bottom: 90, width: "100%", textAlign: "center", opacity: interpolate(frame, [from, from + 10], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" }) }}>
-      <Img src={staticFile("commander-logo-blue.png")} style={{ width: 760, height: "auto", display: "block", margin: "0 auto" }} />
-      <div style={{ fontFamily: BODY, fontWeight: 700, fontSize: 40, marginTop: 6 }}>a daily strategy puzzle · play free</div>
-      <div style={{ fontFamily: BODY, fontWeight: 700, fontSize: 44, marginTop: 14, color: "#fff" }}>commanderbg.com</div>
+      {/* the brand is CommanderBG; Commander is the puzzle mode */}
+      <div style={{ fontFamily: FONT, fontSize: 112, letterSpacing: 2, color: GOLD, textShadow: "0 6px 0 rgba(0,0,0,0.35)" }}>CommanderBG</div>
+      <div style={{ fontFamily: BODY, fontWeight: 700, fontSize: 40, marginTop: 10 }}>Commander · a daily strategy puzzle · play free</div>
+      <div style={{ fontFamily: BODY, fontWeight: 700, fontSize: 44, marginTop: 14, color: "#fff" }}>CommanderBG.com</div>
     </div>
   );
 }
@@ -229,7 +230,7 @@ export const CommanderClip = (p: CommanderClipProps) => {
         </div>
         <div style={{ position: "absolute", bottom: 150, width: "100%", textAlign: "center" }}>
           <div style={{ fontWeight: 700, fontSize: 44 }}>A new map every day — the same for everyone.</div>
-          <div style={{ fontWeight: 700, fontSize: 48, marginTop: 16, color: "#fff" }}>commanderbg.com</div>
+          <div style={{ fontWeight: 700, fontSize: 48, marginTop: 16, color: "#fff" }}>CommanderBG.com</div>
         </div>
       </AbsoluteFill>
     );
@@ -264,7 +265,7 @@ export const CommanderClip = (p: CommanderClipProps) => {
         {count !== null && count > 0 && (
           <div style={{ position: "absolute", top: 1560, width: "100%", textAlign: "center", fontFamily: FONT, fontSize: 130, color: GOLD }}>{count}</div>
         )}
-        {frame >= T_REVEAL + 6 && (
+        {frame >= T_REVEAL + 6 && frame < s(11.6) && (
           <div style={{ position: "absolute", top: 1550, left: 60, right: 60, textAlign: "center", fontFamily: BODY, fontWeight: 700, fontSize: 50, lineHeight: 1.2 }}>
             <span style={{ fontFamily: FONT, color: GOLD, fontSize: 70 }}>{answer}!</span> It takes {q.gainNext} more squares — and sets up the perfect {p.optimal}.
           </div>
@@ -274,7 +275,7 @@ export const CommanderClip = (p: CommanderClipProps) => {
             A, B or C? Answer in the comments.
           </div>
         )}
-        {frame >= s(11.6) && <AbsoluteFill style={{ background: "rgba(10,46,26,0.82)", opacity: interpolate(frame, [s(11.6), s(12)], [0, 1]) }}><Footer frame={frame} from={s(11.6)} /></AbsoluteFill>}
+        {frame >= s(11.6) && <AbsoluteFill style={{ background: "rgba(10,46,26,0.96)", opacity: interpolate(frame, [s(11.6), s(12)], [0, 1]) }}><Footer frame={frame} from={s(11.6)} /></AbsoluteFill>}
       </AbsoluteFill>
     );
   }
@@ -303,7 +304,7 @@ export const CommanderClip = (p: CommanderClipProps) => {
           </div>
         </AbsoluteFill>
       )}
-      {frame >= doneAt + s(3.2) && <AbsoluteFill style={{ background: "rgba(10,46,26,0.88)", opacity: interpolate(frame, [doneAt + s(3.2), doneAt + s(3.6)], [0, 1]) }}><Footer frame={frame} from={doneAt + s(3.2)} /></AbsoluteFill>}
+      {frame >= doneAt + s(3.2) && <AbsoluteFill style={{ background: "rgba(10,46,26,0.96)", opacity: interpolate(frame, [doneAt + s(3.2), doneAt + s(3.6)], [0, 1]) }}><Footer frame={frame} from={doneAt + s(3.2)} /></AbsoluteFill>}
     </AbsoluteFill>
   );
 };

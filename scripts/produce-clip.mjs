@@ -590,7 +590,7 @@ Respond ONLY JSON: {"headline":"<UPPERCASE, <=6 words>","spoken":"<what you say 
     bedSrc, bedVolume: 0.16,
     network: tim ? `${SIDE} TEAM` : team.network, accent: team.accent, anchorSrc: "_wr/clip.mp4", reporterName: who.name,
     role: founder || tim ? "founder" : kind === "recruit" ? "anchor" : "field", headline: plan.headline, redPct, bluePct,
-    locator: plan.locator || (founder ? "DEV LOG" : tim ? `RECRUITING FOR ${SIDE}` : kind === "recruit" ? "RECRUITING" : "THE CENTER"), url: "commanderbg.com",
+    locator: plan.locator || (founder ? "DEV LOG" : tim ? `RECRUITING FOR ${SIDE}` : kind === "recruit" ? "RECRUITING" : "THE CENTER"), url: "CommanderBG.com",
     variant: founder ? "plain" : tim ? "recruiter" : kind === "recruit" ? "breaking" : "field", seconds: clipSeconds,
     ...(tim ? { side: faction, commissionsOpen, commissionsLeft, daysLeft: daysLeft ?? null } : {}),
   };
@@ -728,7 +728,7 @@ Respond ONLY JSON: {"headline":"<UPPERCASE invitation a stranger understands, <=
   const shape = launch ? "launch" : kind;
   const seconds = shape === "hook" ? 1.9 * Math.min(3, plan.lines.length) + 2.6 : Math.min(16, 7.5 + plan.lines.length * 1.1 + 2.4);
   const audioSrc = await musicBed(seconds, "bed", -24);
-  const props = { variant: shape, side: launch ? null : side, headline: plan.headline, lines: plan.lines.slice(0, 3), board, redPct, bluePct, openSpots: open, url: "commanderbg.com", seconds, audioSrc, audioVolume: 0.5, stats };
+  const props = { variant: shape, side: launch ? null : side, headline: plan.headline, lines: plan.lines.slice(0, 3), board, redPct, bluePct, openSpots: open, url: "CommanderBG.com", seconds, audioSrc, audioVolume: 0.5, stats };
   await writeFile("/tmp/dispatch-props.json", JSON.stringify(props));
   execSync("npx remotion render src/remotion/index.ts Dispatch /tmp/dispatch.mp4 --props=/tmp/dispatch-props.json --concurrency=1", { stdio: "inherit" });
   const key = `dispatch-${shape}-${launch ? "both" : side}-${Date.now()}.mp4`;
