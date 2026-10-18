@@ -5,7 +5,7 @@ import { ViewNav } from "./board";
 
 const ENTITY = "TLC Collective, LLC";
 const GAME = "Commander";
-const CONTACT = "support@dollarbattleground.com"; // TODO: support@commanderbg.com once its inbound mail is set up
+const CONTACT = "support@commanderbg.com";
 const EFFECTIVE = "September 13, 2026";
 
 export function Legal() {
