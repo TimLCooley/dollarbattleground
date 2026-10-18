@@ -69,7 +69,7 @@ export async function sendEmail(opts: {
     let res = await send(FROM_EMAIL);
     if (!res.ok && FALLBACK_FROM && FALLBACK_FROM !== FROM_EMAIL && (res.status === 403 || res.status === 422)) {
       const why = await res.clone().text().catch(() => "");
-      if (/verif|domain/i.test(why)) res = await send(FALLBACK_FROM);
+      if (/verif|domain|authori[sz]ed|not allowed/i.test(why)) res = await send(FALLBACK_FROM);
     }
 
     if (!res.ok) {
