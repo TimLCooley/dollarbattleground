@@ -35,13 +35,10 @@ export interface PlayerRow {
 export async function GET() {
   if (!(await requireAdmin())) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   const db = createAdminClient();
-  const users: User[] = [];
-  for (let page = 1; page <= 10; page++) {
-    const { data, error } = await db.auth.admin.listUsers({ page, perPage: 200 });
-    if (error || !data) break;
-    users.push(...data.users);
-    if (data.users.length < 200) break;
-  }
+  // real (non-anonymous) accounts only, straight from the database — paging the
+  // auth API capped out once every visitor got an anonymous session
+  const { data: realUsers } = await db.rpc("admin_real_users");
+  const users = (realUsers ?? []) as unknown as User[];
   const byId = new Map(users.map((u) => [u.id, u]));
   const [{ data: claims }, { data: bank }, { data: tiles }, { data: stats }, { data: wl }] = await Promise.all([
     db.from("free_claims").select("user_id,side,founding_officer,created_at").order("created_at", { ascending: true }),

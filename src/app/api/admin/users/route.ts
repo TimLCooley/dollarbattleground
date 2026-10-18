@@ -33,13 +33,10 @@ export async function GET() {
   const db = createAdminClient();
 
   // 1) all auth users (paged)
-  const users: User[] = [];
-  for (let page = 1; page <= 10; page++) {
-    const { data, error } = await db.auth.admin.listUsers({ page, perPage: 200 });
-    if (error || !data) break;
-    users.push(...data.users);
-    if (data.users.length < 200) break;
-  }
+  // real (non-anonymous) accounts only, straight from the database — paging the
+  // auth API capped out once every visitor got an anonymous session
+  const { data: realUsers } = await db.rpc("admin_real_users");
+  const users = (realUsers ?? []) as unknown as User[];
 
   // 2) tiles held + team per owner
   const { data: tiles } = await db
