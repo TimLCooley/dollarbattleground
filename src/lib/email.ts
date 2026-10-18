@@ -8,6 +8,10 @@ import "server-only";
 const KEY = process.env.RESEND_API_KEY;
 const FROM_EMAIL = process.env.RESEND_FROM_EMAIL;
 const FROM_NAME = process.env.RESEND_FROM_NAME || "Commander";
+// While a new sending domain is still verifying in Resend, a send it rejects for
+// that reason goes out from the previous domain instead (2026-10-17 move to
+// commanderbg.com) — nobody misses an email during the switch.
+const FALLBACK_FROM = process.env.RESEND_FALLBACK_FROM || "noreply@dollarbattleground.com";
 
 export interface SendResult {
   ok: boolean;
@@ -45,21 +49,28 @@ export async function sendEmail(opts: {
     };
 
   try {
-    const res = await fetch("https://api.resend.com/emails", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        from: `${FROM_NAME} <${FROM_EMAIL}>`,
-        to: opts.to,
-        subject: opts.subject,
-        html: withSite(opts.html),
-        text: `${opts.text ?? stripHtml(opts.html)}\n\ncommanderbg.com`,
-        ...(opts.replyTo ? { reply_to: opts.replyTo } : {}),
-      }),
-    });
+    const send = (from: string) =>
+      fetch("https://api.resend.com/emails", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          from: `${FROM_NAME} <${from}>`,
+          to: opts.to,
+          subject: opts.subject,
+          html: withSite(opts.html),
+          text: `${opts.text ?? stripHtml(opts.html)}\n\ncommanderbg.com`,
+          ...(opts.replyTo ? { reply_to: opts.replyTo } : {}),
+        }),
+      });
+
+    let res = await send(FROM_EMAIL);
+    if (!res.ok && FALLBACK_FROM && FALLBACK_FROM !== FROM_EMAIL && (res.status === 403 || res.status === 422)) {
+      const why = await res.clone().text().catch(() => "");
+      if (/verif|domain/i.test(why)) res = await send(FALLBACK_FROM);
+    }
 
     if (!res.ok) {
       let msg = `send failed (${res.status})`;
