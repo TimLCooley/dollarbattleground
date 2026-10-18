@@ -4,7 +4,7 @@ import { CommanderGame } from "@/components/commander/commander-game";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "Commander — a daily strategy puzzle",
+  title: "Commander — a daily strategy puzzle · CommanderBG",
   description: "Place your troops, take the most ground. A new map every day, the same one for everyone. One shot.",
 };
 

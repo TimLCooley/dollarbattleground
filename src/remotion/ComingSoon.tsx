@@ -78,7 +78,7 @@ export const ComingSoon = (props: ComingSoonProps) => {
             $
           </div>
           <div style={{ color: "#fff", fontWeight: 800, fontSize: 22, letterSpacing: 1 }}>
-            COMMANDER
+            COMMANDERBG
           </div>
         </div>
 

@@ -7,7 +7,7 @@ import "server-only";
 
 const KEY = process.env.RESEND_API_KEY;
 const FROM_EMAIL = process.env.RESEND_FROM_EMAIL;
-const FROM_NAME = process.env.RESEND_FROM_NAME || "Commander";
+const FROM_NAME = process.env.RESEND_FROM_NAME || "CommanderBG";
 // While a new sending domain is still verifying in Resend, a send it rejects for
 // that reason goes out from the previous domain instead (2026-10-17 move to
 // commanderbg.com) — nobody misses an email during the switch.

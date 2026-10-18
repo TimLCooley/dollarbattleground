@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { CommanderTutorial } from "@/components/commander/tutorial";
 
 export const metadata: Metadata = {
-  title: "Commander tutorial — learn to play",
+  title: "Commander tutorial — learn to play · CommanderBG",
   description: "Five quick steps on the same map as the how-to-play video: Archers, Soldiers, terrain, and why the order you place them matters.",
 };
 

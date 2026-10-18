@@ -107,7 +107,7 @@ function wrap(inner: string, footer: string): string {
   return `
     <div style="font-family:system-ui,Arial,sans-serif;background:#124f2b;padding:24px;color:#f6efdb">
       <div style="max-width:480px;margin:0 auto;background:#155f33;border:3px solid #0c3c21;padding:24px">
-        <h1 style="margin:0 0 14px;font-size:18px;letter-spacing:1px;color:#f2c14e">COMMANDER</h1>
+        <h1 style="margin:0 0 14px;font-size:18px;letter-spacing:1px;color:#f2c14e">COMMANDERBG</h1>
         ${inner}
         <p style="margin:18px 0 0;font-size:11px;color:#efe4c4;opacity:.7">${footer}</p>
       </div>

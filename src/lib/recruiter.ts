@@ -73,7 +73,7 @@ export function chooseAngle(recruitPct: number, recentAngles: Angle[] = [], phas
 // who has never seen the game — the pitch comes first, the scoreboard is
 // seasoning.
 const PITCH =
-  "WHAT THE GAME IS (the reader has never heard of it): Commander is a live map where Red and Blue fight for territory. You pick a side, your first position is free, then you take positions, launch strikes and barrages to take ground. A strike commissions you as an officer. The map is public and every move shows up live.\nMONEY RULE: never mention spending money or prices — no dollar amounts, ever. \"First position is free\" is fine; \"$5\" is not.";
+  "WHAT THE GAME IS (the reader has never heard of it): The Battleground (on CommanderBG) is a live map where Red and Blue fight for territory. You pick a side, your first position is free, then you take positions, launch strikes and barrages to take ground. A strike commissions you as an officer. The map is public and every move shows up live.\nMONEY RULE: never mention spending money or prices — no dollar amounts, ever. \"First position is free\" is fine; \"$5\" is not.";
 
 const ANGLE_GUIDE: Record<Angle, string> = {
   recruit:

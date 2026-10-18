@@ -5,7 +5,7 @@ import { AdminUsers } from "@/components/admin-users";
 import { AdminDenied } from "@/components/admin-denied";
 
 export const metadata: Metadata = {
-  title: "Users — Commander",
+  title: "Users — CommanderBG",
 };
 
 export default async function AdminUsersPage() {

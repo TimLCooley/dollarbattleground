@@ -5,7 +5,7 @@ import { AdminPanel } from "@/components/admin-panel";
 import { AdminDenied } from "@/components/admin-denied";
 
 export const metadata: Metadata = {
-  title: "Roster — Commander",
+  title: "Roster — CommanderBG",
 };
 
 export default async function AdminPage() {

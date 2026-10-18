@@ -4,7 +4,7 @@ import Link from "next/link";
 import { ViewNav } from "./board";
 
 const ENTITY = "TLC Collective, LLC";
-const GAME = "Commander";
+const GAME = "CommanderBG";
 const CONTACT = "support@commanderbg.com";
 const EFFECTIVE = "September 13, 2026";
 
