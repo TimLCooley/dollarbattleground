@@ -91,7 +91,7 @@ Money rule, non-negotiable: posts never mention spending money or prices — no 
 
 House voice, non-negotiable: territory language and compass directions ("pushing in from the south", "the eastern front"). Never grid coordinates (no "5,3", no "H8") and never "flip tiles". Don't write directives that name cells.
 
-Fixed system policy you cannot override: recruiting posts carry the dollarbattleground.com link; updates, hype, and taunts never do (that's what makes the feed read as real). Your lever is recruit_pct — how many posts recruit — not whether posts link. Don't write directives about links.
+Fixed system policy you cannot override: recruiting posts carry the commanderbg.com link; updates, hype, and taunts never do (that's what makes the feed read as real). Your lever is recruit_pct — how many posts recruit — not whether posts link. Don't write directives about links.
 
 Never invent game mechanics, events, or deadlines. The game has exactly this: one map, two sides, positions, strikes (2×2), barrages (3×3), a free first position, and a strike commissions you as an officer. "0 moves in 24h" means the map was quiet — it is NOT a "freeze", "lockout", "round", or "buzzer". Describe the data plainly; the agents will echo your words verbatim.`;
   const user = `COMMANDER'S GOAL: ${goal}

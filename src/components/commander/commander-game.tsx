@@ -285,7 +285,7 @@ export function CommanderGame({ day: askedDay, unsubscribed = false }: { day?: n
       rows.push(row);
     }
     const medal = result.medal ? MEDAL[result.medal].split(" ")[0] : "";
-    return `Commander #${data.day} ${me} ${result.score}/${result.optimal} ${medal}\n${rows.join("\n")}\ndollarbattleground.com/commander`;
+    return `Commander #${data.day} ${me} ${result.score}/${result.optimal} ${medal}\n${rows.join("\n")}\ncommanderbg.com/commander`;
   }
 
   async function share() {

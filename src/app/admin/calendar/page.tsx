@@ -5,7 +5,7 @@ import { SocialCalendar } from "@/components/social-calendar";
 import { AdminDenied } from "@/components/admin-denied";
 
 export const metadata: Metadata = {
-  title: "Calendar — Dollar Battleground",
+  title: "Calendar — Commander",
 };
 
 export default async function AdminCalendarPage() {

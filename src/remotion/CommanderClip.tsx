@@ -159,7 +159,7 @@ function Footer({ frame, from }: { frame: number; from: number }) {
     <div style={{ position: "absolute", bottom: 90, width: "100%", textAlign: "center", opacity: interpolate(frame, [from, from + 10], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" }) }}>
       <Img src={staticFile("commander-logo-blue.png")} style={{ width: 760, height: "auto", display: "block", margin: "0 auto" }} />
       <div style={{ fontFamily: BODY, fontWeight: 700, fontSize: 40, marginTop: 6 }}>a daily strategy puzzle · play free</div>
-      <div style={{ fontFamily: BODY, fontWeight: 700, fontSize: 44, marginTop: 14, color: "#fff" }}>dollarbattleground.com</div>
+      <div style={{ fontFamily: BODY, fontWeight: 700, fontSize: 44, marginTop: 14, color: "#fff" }}>commanderbg.com</div>
     </div>
   );
 }
@@ -229,7 +229,7 @@ export const CommanderClip = (p: CommanderClipProps) => {
         </div>
         <div style={{ position: "absolute", bottom: 150, width: "100%", textAlign: "center" }}>
           <div style={{ fontWeight: 700, fontSize: 44 }}>A new map every day — the same for everyone.</div>
-          <div style={{ fontWeight: 700, fontSize: 48, marginTop: 16, color: "#fff" }}>dollarbattleground.com</div>
+          <div style={{ fontWeight: 700, fontSize: 48, marginTop: 16, color: "#fff" }}>commanderbg.com</div>
         </div>
       </AbsoluteFill>
     );

@@ -97,7 +97,7 @@ export async function POST(req: Request) {
     const text = mail.text ?? "";
     const html = mail.html ?? "";
 
-    const meta = `<hr style="margin-top:20px;border:none;border-top:1px solid #ddd"><p style="color:#888;font-size:12px">Forwarded by Dollar Battleground · to: ${escapeHtml(to)} · from: ${escapeHtml(from)}</p>`;
+    const meta = `<hr style="margin-top:20px;border:none;border-top:1px solid #ddd"><p style="color:#888;font-size:12px">Forwarded by Commander · to: ${escapeHtml(to)} · from: ${escapeHtml(from)}</p>`;
     const bodyHtml =
       (html || `<pre style="white-space:pre-wrap">${escapeHtml(text)}</pre>`) + meta;
 
