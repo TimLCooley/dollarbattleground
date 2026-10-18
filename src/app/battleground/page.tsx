@@ -3,7 +3,9 @@ import { HomeExperience } from "@/components/home-experience";
 
 export const metadata: Metadata = {
   title: "The Battleground — CommanderBG",
-  description: "Red vs Blue on one shared map. Take squares for your side.",
+  description: "The Battleground: Red vs Blue on one live map. Pick a side, take squares, and help your color hold the most ground. Your first square is free — on CommanderBG.",
+  alternates: { canonical: "/battleground" },
+  openGraph: { title: "The Battleground — Red vs Blue on one live map", url: "/battleground" },
 };
 
 // The live Red vs Blue map. It used to be the home page; Commander is now (2026-10-16).
