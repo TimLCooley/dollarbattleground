@@ -15,7 +15,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ id: string }> }
       const { data } = await db.from("email_log").select("meta").eq("id", eid).single();
       await db.rpc("bump_email_clicks", { eid });
       const t = (data as { meta?: { target?: string } } | null)?.meta?.target;
-      if (t && /^https:\/\/(commanderbg|dollarbattleground)\.com\//.test(t)) target = new URL(t.replace("https://commanderbg.com/", "https://commanderbg.com/"));
+      if (t && /^https:\/\/(commanderbg|dollarbattleground)\.com\//.test(t)) target = new URL(t); // old-domain targets pass through the login handoff in src/proxy.ts
     } catch {
       /* still redirect */
     }
