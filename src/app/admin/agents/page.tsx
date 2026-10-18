@@ -5,7 +5,7 @@ import { CommandCenter } from "@/components/command-center";
 import { AdminDenied } from "@/components/admin-denied";
 
 export const metadata: Metadata = {
-  title: "Agents — Commander",
+  title: "Agents — CommanderBG",
 };
 
 export default async function AdminAgentsPage() {

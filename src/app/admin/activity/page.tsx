@@ -5,7 +5,7 @@ import { ActivityFeed } from "@/components/activity-feed";
 import { AdminDenied } from "@/components/admin-denied";
 
 export const metadata: Metadata = {
-  title: "Activity — Commander",
+  title: "Activity — CommanderBG",
 };
 
 export default async function AdminActivityPage() {

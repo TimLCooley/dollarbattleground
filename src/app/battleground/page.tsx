@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { HomeExperience } from "@/components/home-experience";
 
 export const metadata: Metadata = {
-  title: "The Battleground — Commander",
+  title: "The Battleground — CommanderBG",
   description: "Red vs Blue on one shared map. Take squares for your side.",
 };
 

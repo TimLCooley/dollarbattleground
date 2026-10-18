@@ -19,7 +19,7 @@ const schoolbell = Schoolbell({
 });
 
 export const metadata: Metadata = {
-  title: "Commander",
+  title: "CommanderBG",
   description: "One dollar. One tile. Turn the whole board your color.",
 };
 

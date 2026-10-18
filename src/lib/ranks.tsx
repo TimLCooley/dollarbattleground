@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 
-// US Army-style rank ladder for Commander.
+// US Army-style rank ladder for CommanderBG.
 // Points come from the FIELD, not dollars: flip a tile = 3 pts, report for
 // duty (a return 8h+ apart) = 1 pt. Enlisted climb on that score. Officers are
 // commissioned by a paid strike ($5+) and climb on the same score. Tunable.

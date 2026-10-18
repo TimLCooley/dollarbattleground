@@ -10,7 +10,7 @@ const clients = new Map<string, Stripe>();
 export function stripeWithKey(secret: string): Stripe {
   let c = clients.get(secret);
   if (!c) {
-    c = new Stripe(secret, { appInfo: { name: "Commander" } });
+    c = new Stripe(secret, { appInfo: { name: "CommanderBG" } });
     clients.set(secret, c);
   }
   return c;
