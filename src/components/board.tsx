@@ -1068,12 +1068,11 @@ export function BoardView({
     <div className={"cartridge" + (lockedSide ? ` ${lockedSide}-cmd` : "")}>
       <header className="bg-header">
         <HeaderMenu />
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          className="wordmark-logo"
-          src={`/logo-${side}.png`}
-          alt="Battleground"
-        />
+        <picture>
+          <source srcSet={`/battleground-logo-${side}.webp`} type="image/webp" />
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img className="wordmark-logo" src={`/battleground-logo-${side}.png`} alt="Battleground" />
+        </picture>
         <div className={"roundline rl-" + side}>
           <Link href="/report" className="rl-ranklink" title="Field report">
             {insignia && insignia.kind !== "none" && (

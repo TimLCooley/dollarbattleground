@@ -3937,3 +3937,6 @@ a.cc-pill-x:hover { color: #f2c14e; text-decoration: underline; }
 .cm-n { position: absolute; bottom: 100%; left: 50%; transform: translateX(-50%); font-size: 11px; color: var(--cream); white-space: nowrap; margin-bottom: 2px; }
 .cm-sc { position: absolute; top: calc(100% + 3px); left: 50%; transform: translateX(-50%); font-size: 10px; color: var(--parch); white-space: nowrap; }
 .cm-bar.you .cm-sc { color: var(--gold); font-weight: 700; }
+
+/* the new BATTLEGROUND wordmark is wider than the old one — cap by width, not height */
+.wordmark-logo { height: auto; width: min(86%, 380px); max-width: 86%; }
