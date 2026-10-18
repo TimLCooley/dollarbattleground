@@ -284,29 +284,39 @@ export function CommanderGame({ day: askedDay, unsubscribed = false }: { day?: n
     }
   }
 
+  // Share (Tim, 2026-10-18): simple and spoiler-free — what your troops took,
+  // your medal, and a link that opens the same puzzle. Never the best score.
+  function shareLink() {
+    return `https://commanderbg.com/?day=${data?.day ?? 1}&ref=share`;
+  }
   function shareText() {
-    if (!data || !result || !L || !side) return "";
-    const me = side === "blue" ? "🟦" : "🟥";
-    const them = side === "blue" ? "🟥" : "🟦";
-    const fin = simulate(L, result.placements).final;
-    const rows: string[] = [];
-    for (let y = 0; y < SIZE; y++) {
-      let row = "";
-      for (let x = 0; x < SIZE; x++) {
-        const i = y * SIZE + x;
-        row += fin[i] ? me : L.terrain[i] === WALL ? "⬛" : L.terrain[i] === WATER ? "💧" : them;
-      }
-      rows.push(row);
-    }
-    const medal = result.medal ? MEDAL[result.medal].split(" ")[0] : "";
-    return `Commander #${data.day} ${me} ${result.score}/${result.optimal} ${medal}\n${rows.join("\n")}\ncommanderbg.com/commander`;
+    if (!data || !result || !L) return "";
+    const took: Record<string, number> = { soldier: 0, archer: 0 };
+    let prev = simulate(L, []).score;
+    result.placements.forEach((p, k) => {
+      const now = simulate(L, result.placements.slice(0, k + 1)).score;
+      took[p.kind] = (took[p.kind] ?? 0) + (now - prev);
+      prev = now;
+    });
+    const medal = result.medal ? " " + MEDAL[result.medal].split(" ")[0] : "";
+    const lines = [`I conquered ${took.soldier + took.archer} spots in Commander${medal}`];
+    if (took.soldier) lines.push(`🗡️ Soldiers - ${took.soldier}`);
+    if (took.archer) lines.push(`🏹 Archers - ${took.archer}`);
+    lines.push(`Play 👉 ${shareLink()}`);
+    return lines.join("\n");
   }
 
-  async function share() {
+  async function share(via: "native" | "copy" | "x" | "facebook" | "whatsapp" | "reddit") {
     const text = shareText();
-    track("commander_share");
+    const link = shareLink();
+    track("commander_share", { via });
+    const enc = encodeURIComponent;
     try {
-      if (navigator.share && /Mobi|Android|iPhone/i.test(navigator.userAgent)) await navigator.share({ text });
+      if (via === "native" && navigator.share) await navigator.share({ text });
+      else if (via === "x") window.open(`https://x.com/intent/post?text=${enc(text)}`, "_blank", "noopener");
+      else if (via === "facebook") window.open(`https://www.facebook.com/sharer/sharer.php?u=${enc(link)}`, "_blank", "noopener");
+      else if (via === "whatsapp") window.open(`https://wa.me/?text=${enc(text)}`, "_blank", "noopener");
+      else if (via === "reddit") window.open(`https://www.reddit.com/submit?url=${enc(link)}&title=${enc(text.split("\n")[0])}`, "_blank", "noopener");
       else {
         await navigator.clipboard.writeText(text);
         setCopied(true);
@@ -736,10 +746,11 @@ export function ResultsModal({
   result: Result;
   enlisted?: boolean;
   copied: boolean;
-  onShare: () => void;
+  onShare: (via: "native" | "copy" | "x" | "facebook" | "whatsapp" | "reddit") => void;
   onClose: () => void;
   onOptimal: () => void;
 }) {
+  const [sharing, setSharing] = useState(false);
   const t = result.thresholds;
   const lo = Math.min(t.bronze - 5, ...result.histogram.map((h) => h.score), result.score);
   const hi = result.optimal;
@@ -828,9 +839,35 @@ export function ResultsModal({
           </Link>
         )}
         <div className="cm-res-btns">
-          <button className="ob-btn" onClick={onShare}>{copied ? "COPIED!" : "SHARE"}</button>
+          <button
+            className="ob-btn"
+            onClick={() => {
+              const phone = typeof navigator !== "undefined" && !!navigator.share && /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent);
+              if (phone) onShare("native");
+              else setSharing((v) => !v);
+            }}
+          >
+            {copied ? "COPIED!" : "SHARE"}
+          </button>
           {result.score < result.optimal && <button className="ob-btn cm-dark" onClick={onOptimal}>VIEW BEST</button>}
         </div>
+        {sharing && (
+          <div className="cm-share-row" role="group" aria-label="Share your result">
+            {(
+              [
+                ["x", "X"],
+                ["facebook", "Facebook"],
+                ["whatsapp", "WhatsApp"],
+                ["reddit", "Reddit"],
+                ["copy", copied ? "Copied!" : "Copy"],
+              ] as const
+            ).map(([via, label]) => (
+              <button key={via} className="cm-chip" onClick={() => onShare(via)}>
+                {label}
+              </button>
+            ))}
+          </div>
+        )}
         <Link className="ob-skip" href="/battleground">‹ back to the main map</Link>
       </div>
     </div>
