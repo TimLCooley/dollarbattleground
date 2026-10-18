@@ -722,6 +722,11 @@ export function ResultsModal({
   const buckets = Array.from({ length: Math.max(1, hi - lo + 1) }, (_, k) => lo + k);
   const count = new Map(result.histogram.map((h) => [h.score, h.players]));
   const max = Math.max(1, ...result.histogram.map((h) => h.players));
+  // how you stack up against everyone who played this day
+  const total = result.histogram.reduce((n, h) => n + h.players, 0);
+  const rank = 1 + result.histogram.filter((h) => h.score > result.score).reduce((n, h) => n + h.players, 0);
+  const tied = Math.max(0, (count.get(result.score) ?? 1) - 1);
+  const top = Math.max(1, Math.round((rank / Math.max(1, total)) * 100));
   return (
     <div className="ob-overlay" role="dialog" aria-label="Results" onClick={onClose}>
       <div className="ob-card cm-results" onClick={(e) => e.stopPropagation()}>
@@ -733,12 +738,38 @@ export function ResultsModal({
           <div className="cm-res-medal">{result.medal ? MEDAL[result.medal] : `${t.bronze - result.score} short of a medal`}</div>
         </div>
         <div className="cm-lines">🥉 {t.bronze}+ · 🥈 {t.silver}+ · 🥇 {t.gold}+ · 💎 {t.perfect}</div>
+        <div className="cm-standing">
+          {total <= 1 ? (
+            <span>
+              <b>1</b> player — you&apos;re the first to post a score
+            </span>
+          ) : (
+            <span>
+              <b>#{rank}</b> of <b>{total}</b> players
+            </span>
+          )}
+          {total >= 5 && (
+            <span>
+              top <b>{top}%</b>
+            </span>
+          )}
+          {tied > 0 && (
+            <span>
+              tied with <b>{tied}</b> other{tied === 1 ? "" : "s"}
+            </span>
+          )}
+        </div>
         <div className="cm-hist" aria-label="Score distribution">
-          {buckets.map((s) => (
-            <div key={s} className={"cm-bar" + (s === result.score ? " you" : "")} style={{ height: `${((count.get(s) ?? 0) / max) * 100}%` }}>
-              {s === result.score && <span className="cm-you">You</span>}
-            </div>
-          ))}
+          {buckets.map((s) => {
+            const n = count.get(s) ?? 0;
+            const me = s === result.score;
+            return (
+              <div key={s} className={"cm-bar" + (me ? " you" : "")} style={{ height: `${(n / max) * 100}%` }}>
+                {(me || n > 0) && <span className={me ? "cm-you" : "cm-n"}>{me ? (n > 1 ? `You +${n - 1}` : "You") : n}</span>}
+                {n > 0 && <span className="cm-sc">{s}</span>}
+              </div>
+            );
+          })}
         </div>
         {result.reward ? (
           <Link className="go-battle cm-reward won" href="/battleground">
