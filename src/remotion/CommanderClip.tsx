@@ -159,7 +159,7 @@ function Footer({ frame, from }: { frame: number; from: number }) {
     <div style={{ position: "absolute", bottom: 90, width: "100%", textAlign: "center", opacity: interpolate(frame, [from, from + 10], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" }) }}>
       {/* the brand is CommanderBG; Commander is the puzzle mode */}
       <div style={{ fontFamily: FONT, fontSize: 112, letterSpacing: 2, color: GOLD, textShadow: "0 6px 0 rgba(0,0,0,0.35)" }}>CommanderBG</div>
-      <div style={{ fontFamily: BODY, fontWeight: 700, fontSize: 40, marginTop: 10 }}>Commander · a daily strategy puzzle · play free</div>
+      <div style={{ fontFamily: BODY, fontWeight: 700, fontSize: 40, marginTop: 10 }}>a daily strategy puzzle · play free</div>
       <div style={{ fontFamily: BODY, fontWeight: 700, fontSize: 44, marginTop: 14, color: "#fff" }}>CommanderBG.com</div>
     </div>
   );
@@ -258,7 +258,7 @@ export const CommanderClip = (p: CommanderClipProps) => {
     return (
       <AbsoluteFill style={{ background: bg, color: "#f6efdb" }}>
         {bed}
-        {title(`Where would you place the next ${Kind}?`, `Yesterday's Commander #${p.day} · ${p.dayLabel}`)}
+        {title(`Where would you place the next ${Kind}?`, `Yesterday's CommanderBG #${p.day} · ${p.dayLabel}`)}
         <div style={{ position: "absolute", top: 520, left: 40 }}>
           <Board L={L} moves={moves} at={at} frame={frame} options={frame >= s(1.8) ? q.options.map((o) => ({ ...o, revealAt: T_REVEAL })) : undefined} />
         </div>
@@ -290,7 +290,7 @@ export const CommanderClip = (p: CommanderClipProps) => {
   return (
     <AbsoluteFill style={{ background: bg, color: "#f6efdb" }}>
       {bed}
-      {title("I can't believe how hard this is", `Commander #${p.day} · ${p.dayLabel}`)}
+      {title("I can't believe how hard this is", `CommanderBG #${p.day} · ${p.dayLabel}`)}
       <div style={{ position: "absolute", top: 480, left: 40 }}>
         <Board L={L} moves={run} at={at} frame={frame} />
       </div>

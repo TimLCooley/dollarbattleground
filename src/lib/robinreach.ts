@@ -41,7 +41,7 @@ export const COMMANDER_TAGS = "#dailypuzzle #strategygame #puzzlegame #indiegame
 export function tiktokCaption(faction: "red" | "blue", copy: string, commander = false): { title: string; content: string } {
   const line = copy.replace(/\s*https?:\/\/\S+/g, "").replace(/\s*(?:commanderbg|dollarbattleground)\.com\S*/gi, "").trim();
   const side = faction === "red" ? "Red" : "Blue";
-  const title = line.split(/[.!?]/)[0].slice(0, 80) || (commander ? "Today's Commander puzzle" : `${side} update`);
+  const title = line.split(/[.!?]/)[0].slice(0, 80) || (commander ? "Today's CommanderBG puzzle" : `${side} update`);
   const tags = commander ? COMMANDER_TAGS : `#redvsblue #indiegame #browsergame #${side.toLowerCase()}team`;
   const content = `${line}\n\ncommanderbg.com\n\n${tags}`;
   return { title, content };

@@ -26,7 +26,7 @@ export async function sendCommanderReminders(db: Db): Promise<number> {
     const unsub = `${SITE}/api/commander/remind?unsub=${r.token}`;
     const res = await sendEmail({
       to: r.email,
-      subject: `Commander #${today} is live — ${weekday} · ${level}`,
+      subject: `CommanderBG #${today} is live — ${weekday} · ${level}`,
       html: `<div style="font-family:Arial,Helvetica,sans-serif;max-width:480px;margin:0 auto;padding:20px;background:#155f33;color:#f6efdb">
   <p style="margin:0 0 6px;font-size:12px;letter-spacing:2px;color:#f2c14e">COMMANDER #${today}</p>
   <h1 style="margin:0 0 12px;font-size:24px">Today's battle is live</h1>
@@ -35,7 +35,7 @@ export async function sendCommanderReminders(db: Db): Promise<number> {
   <a href="${SITE}/" style="display:inline-block;background:#f2c14e;color:#14331d;padding:12px 18px;font-weight:bold;text-decoration:none">PLAY TODAY'S MAP →</a>
   <p style="margin:22px 0 0;font-size:12px;color:#cdd8cf">You asked for a daily reminder. <a href="${unsub}" style="color:#cdd8cf">Stop these emails</a>.</p>
 </div>`,
-      text: `Commander #${today} is live — ${weekday} · ${level} · ${army}.\nPlay: ${SITE}/\n\nStop these reminders: ${unsub}`,
+      text: `CommanderBG #${today} is live — ${weekday} · ${level} · ${army}.\nPlay: ${SITE}/\n\nStop these reminders: ${unsub}`,
     });
     if (res.ok) {
       sent++;

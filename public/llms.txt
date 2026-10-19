@@ -2,7 +2,7 @@
 
 > CommanderBG (https://commanderbg.com) is a free browser game site with two modes: Commander, a daily strategy puzzle, and the Battleground, a live Red vs Blue territory map.
 
-## Commander — the daily strategy puzzle
+## CommanderBG — the daily strategy puzzle
 - A new map every day at midnight Mountain Time; everyone gets the same map.
 - Difficulty follows the week: Monday easiest, Friday and Saturday hardest, Sunday medium.
 - Your Commander holds the 3×3 around it. You place Archers (take 3 squares left and right; fly over walls and water; trees stop them) and Soldiers (take 2 squares up and down; walk through trees and wade water; walls stop them).
@@ -12,7 +12,7 @@
 
 ## The Battleground
 - Red vs Blue on one shared live map. Players take squares for their side; the first square is free.
-- Good Commander scores earn free squares on the Battleground.
+- Good CommanderBG scores earn free squares on the Battleground.
 
 ## Links
 - Play today's puzzle: https://commanderbg.com/

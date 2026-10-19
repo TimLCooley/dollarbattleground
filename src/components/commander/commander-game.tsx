@@ -299,7 +299,7 @@ export function CommanderGame({ day: askedDay, unsubscribed = false }: { day?: n
     for (let i = 0; i < CELLS; i++) if (ownable(L, i)) land++;
     const mine = side === "red" ? "🟥 Red" : "🟦 Blue";
     const theirs = side === "red" ? "🟦 Blue" : "🟥 Red";
-    const lines = [`I scored ${result.score} points in Commander`];
+    const lines = [`I scored ${result.score} points in CommanderBG`];
     if (result.medal) lines.push(`Rank: ${STARS[result.medal]}`);
     lines.push(`${mine} - ${result.score}`, `${theirs} - ${land - result.score}`);
     lines.push(`Play 👉 ${shareLink()}`);
@@ -400,7 +400,7 @@ export function CommanderGame({ day: askedDay, unsubscribed = false }: { day?: n
           </div>
         </div>
       )}
-      {unsubscribed && <div className="cm-banner">You won&apos;t get Commander reminders anymore.</div>}
+      {unsubscribed && <div className="cm-banner">You won&apos;t get CommanderBG reminders anymore.</div>}
       {data.day < data.today && (
         <p className="cm-past">
           A past puzzle — play it and post a score. Main-map rewards come from <Link href="/">today&apos;s map</Link>.
@@ -558,7 +558,7 @@ export function CommanderGame({ day: askedDay, unsubscribed = false }: { day?: n
                   }
                 }}
               />
-              <span className="ob-consent-txt">Play this video every time I open Commander</span>
+              <span className="ob-consent-txt">Play this video every time I open CommanderBG</span>
             </label>
             <button className="ob-btn" onClick={() => setDemoOpen(false)}>LET&apos;S PLAY →</button>
             <Link className="ob-skip" href="/commander/tutorial">or learn by playing — the 2-minute tutorial</Link>
