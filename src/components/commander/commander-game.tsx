@@ -83,6 +83,7 @@ export function CommanderGame({ day: askedDay, unsubscribed = false }: { day?: n
   const [confirming, setConfirming] = useState(false);
   const [posting, setPosting] = useState(false);
   const [needLogin, setNeedLogin] = useState(false);
+  const [signIn, setSignIn] = useState(false); // "Already enlisted? Log in" — e.g. on a new computer
   const [loginOpen, setLoginOpen] = useState(false);
   const [enlistOpen, setEnlistOpen] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -335,6 +336,16 @@ export function CommanderGame({ day: askedDay, unsubscribed = false }: { day?: n
         <Header day={data.day} today={data.today} onNext={() => setRemindOpen(true)} side={side} />
         <div className="ob-overlay" role="dialog" aria-label="Choose your color">
           <div className="ob-card">
+            {signIn ? (
+              <LoginOtp
+                onBack={() => setSignIn(false)}
+                onSignedIn={() => {
+                  setSignIn(false);
+                  void load(); // your color comes back with your account
+                }}
+              />
+            ) : (
+            <>
             <div className="ob-kicker">◆ COMMANDER #{data.day} ◆</div>
             <h2 className="ob-title">TODAY&apos;S BATTLE</h2>
             <p className="ob-body">Place your troops, take the most ground. A new map every day — same one for everyone. Which color are you?</p>
@@ -356,6 +367,9 @@ export function CommanderGame({ day: askedDay, unsubscribed = false }: { day?: n
                 </button>
               ))}
             </div>
+            <button className="ob-skip" onClick={() => setSignIn(true)}>Already enlisted? Log in</button>
+            </>
+            )}
           </div>
         </div>
       </div>
@@ -372,7 +386,20 @@ export function CommanderGame({ day: askedDay, unsubscribed = false }: { day?: n
 
   return (
     <div className={"cm-wrap side-" + side}>
-      <Header day={data.day} today={data.today} layout={L} onNext={() => setRemindOpen(true)} side={side} />
+      <Header day={data.day} today={data.today} layout={L} onNext={() => setRemindOpen(true)} side={side} onLogin={data.signedIn ? undefined : () => setSignIn(true)} />
+      {signIn && (
+        <div className="ob-overlay" role="dialog" aria-label="Log in" onClick={() => setSignIn(false)}>
+          <div className="ob-card" onClick={(e) => e.stopPropagation()}>
+            <LoginOtp
+              onBack={() => setSignIn(false)}
+              onSignedIn={() => {
+                setSignIn(false);
+                void load();
+              }}
+            />
+          </div>
+        </div>
+      )}
       {unsubscribed && <div className="cm-banner">You won&apos;t get Commander reminders anymore.</div>}
       {data.day < data.today && (
         <p className="cm-past">
@@ -615,7 +642,7 @@ export function CommanderGame({ day: askedDay, unsubscribed = false }: { day?: n
 
 const dayHref = (n: number, today: number) => (n >= today ? "/" : `/?day=${n}`);
 
-function Header({ day, today, layout, onNext, side }: { day: number; today: number; layout?: Layout; onNext: () => void; side?: Side | null }) {
+function Header({ day, today, layout, onNext, side, onLogin }: { day: number; today: number; layout?: Layout; onNext: () => void; side?: Side | null; onLogin?: () => void }) {
   return (
     <>
       <Link className="go-battle" href="/battleground">
@@ -636,7 +663,7 @@ function Header({ day, today, layout, onNext, side }: { day: number; today: numb
         <h1 className="cm-title">
           <CommanderLogo side={side} />
         </h1>
-        <span />
+        {onLogin ? <button className="cm-link-btn cm-login" onClick={onLogin}>Log in</button> : <span />}
       </div>
       <div className="cm-daynav">
         {day > 1 ? <Link href={dayHref(day - 1, today)}>‹ Prev</Link> : <span />}
