@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { HomeExperience } from "@/components/home-experience";
 
 export const metadata: Metadata = {
-  title: "The Battleground — CommanderBG",
+  title: "CommanderBG: Battle Ground",
   description: "The Battleground: Red vs Blue on one live map. Pick a side, take squares, and help your color hold the most ground. Your first square is free — on CommanderBG.",
   alternates: { canonical: "/battleground" },
   openGraph: { title: "The Battleground — Red vs Blue on one live map", url: "/battleground" },

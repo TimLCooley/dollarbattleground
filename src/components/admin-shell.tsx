@@ -29,7 +29,7 @@ export function AdminShell({
       <header className="adm-head">
         <div className="adm-brand">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img className="adm-logo" src="/commander-logo-blue.png" alt="Commander" />
+          <img className="adm-logo" src="/commander-logo-blue.png" alt="CommanderBG" />
           <div>
             <div className="adm-kicker">◆ COMMAND CONSOLE ◆</div>
             <h1 className="adm-title">

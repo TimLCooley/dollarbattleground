@@ -4,13 +4,13 @@ import { AboutCommander } from "@/components/commander/about";
 
 export const dynamic = "force-dynamic";
 
-const DESC = "Commander is a free daily strategy puzzle: place Archers and Soldiers to take the most ground. A new map every day, the same for everyone — practice as much as you like, one shot counts.";
+const DESC = "CommanderBG is a free daily strategy puzzle: place Archers and Soldiers to take the most ground. A new map every day, the same for everyone — practice as much as you like, one shot counts.";
 export const metadata: Metadata = {
-  title: "Commander — a free daily strategy puzzle · CommanderBG",
+  title: "CommanderBG — a free daily strategy puzzle",
   description: DESC,
   alternates: { canonical: "/" },
-  openGraph: { title: "Commander — a free daily strategy puzzle", description: DESC, url: "/" },
-  twitter: { card: "summary_large_image", title: "Commander — a free daily strategy puzzle", description: DESC },
+  openGraph: { title: "CommanderBG — a free daily strategy puzzle", description: DESC, url: "/" },
+  twitter: { card: "summary_large_image", title: "CommanderBG — a free daily strategy puzzle", description: DESC },
 };
 
 // Home is Commander (Tim, 2026-10-16); the Red vs Blue map lives at /battleground.
