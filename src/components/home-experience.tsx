@@ -7,6 +7,7 @@ import { Onboarding } from "./onboarding";
 import { PromotionModal } from "./promotion";
 import { rankFor, RANKS, type Rank } from "@/lib/ranks";
 import { createClient } from "@/utils/supabase/client";
+import { isAdminUser } from "@/lib/admin-shared";
 import { track } from "@/lib/track";
 import { rollDrop } from "@/lib/drops";
 import { FeedbackButton } from "./feedback-button";
@@ -164,6 +165,8 @@ export function HomeExperience() {
         if (u.user && !u.user.is_anonymous) {
           const { data } = await supabase.rpc("my_status");
           const st = data as { side?: string | null; joined?: string | null; captures?: number; founding_officer?: boolean; paid_officer?: boolean; founding_number?: number } | null;
+          // the admin never claims a free square; they play Blue (same as Commander)
+          if (st && !st.side && isAdminUser(u.user)) st.side = "blue";
           if (st?.side === "red" || st?.side === "blue") {
             const p: Player = {
               side: st.side,
