@@ -386,7 +386,7 @@ export function CommanderGame({ day: askedDay, unsubscribed = false }: { day?: n
 
   return (
     <div className={"cm-wrap side-" + side}>
-      <Header day={data.day} today={data.today} layout={L} onNext={() => setRemindOpen(true)} side={side} onLogin={data.signedIn ? undefined : () => setSignIn(true)} />
+      <Header day={data.day} today={data.today} layout={L} onNext={() => setRemindOpen(true)} side={side} signedIn={data.signedIn} onLogin={() => setSignIn(true)} />
       {signIn && (
         <div className="ob-overlay" role="dialog" aria-label="Log in" onClick={() => setSignIn(false)}>
           <div className="ob-card" onClick={(e) => e.stopPropagation()}>
@@ -642,7 +642,7 @@ export function CommanderGame({ day: askedDay, unsubscribed = false }: { day?: n
 
 const dayHref = (n: number, today: number) => (n >= today ? "/" : `/?day=${n}`);
 
-function Header({ day, today, layout, onNext, side, onLogin }: { day: number; today: number; layout?: Layout; onNext: () => void; side?: Side | null; onLogin?: () => void }) {
+function Header({ day, today, layout, onNext, side, signedIn, onLogin }: { day: number; today: number; layout?: Layout; onNext: () => void; side?: Side | null; signedIn?: boolean; onLogin?: () => void }) {
   return (
     <>
       <Link className="go-battle" href="/battleground">
@@ -663,7 +663,7 @@ function Header({ day, today, layout, onNext, side, onLogin }: { day: number; to
         <h1 className="cm-title">
           <CommanderLogo side={side} />
         </h1>
-        {onLogin ? <button className="cm-link-btn cm-login" onClick={onLogin}>Log in</button> : <span />}
+        {onLogin ? <Menu signedIn={!!signedIn} onLogin={onLogin} /> : <span />}
       </div>
       <div className="cm-daynav">
         {day > 1 ? <Link href={dayHref(day - 1, today)}>‹ Prev</Link> : <span />}
@@ -679,6 +679,42 @@ function Header({ day, today, layout, onNext, side, onLogin }: { day: number; to
         )}
       </div>
     </>
+  );
+}
+
+/** Top-right hamburger: Log in / Log out for now; more items later. */
+function Menu({ signedIn, onLogin }: { signedIn: boolean; onLogin: () => void }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="cm-menu">
+      <button className="cm-burger" aria-label="Menu" aria-expanded={open} onClick={() => setOpen(!open)}>
+        <span />
+        <span />
+        <span />
+      </button>
+      {open && (
+        <>
+          <div className="cm-menu-scrim" onClick={() => setOpen(false)} />
+          <div className="cm-menu-list" role="menu">
+            {signedIn ? (
+              <form action="/auth/sign-out" method="post">
+                <button type="submit" role="menuitem">Log out</button>
+              </form>
+            ) : (
+              <button
+                role="menuitem"
+                onClick={() => {
+                  setOpen(false);
+                  onLogin();
+                }}
+              >
+                Log in
+              </button>
+            )}
+          </div>
+        </>
+      )}
+    </div>
   );
 }
 
