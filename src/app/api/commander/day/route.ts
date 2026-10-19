@@ -24,7 +24,9 @@ export async function GET(req: Request) {
   let side: string | null = null;
   let mine = null;
   if (user) {
-    const [{ data: fc }, { data: sc }] = await Promise.all([
+    const [, { data: fc }, { data: sc }] = await Promise.all([
+      // last seen, for the admin list
+      db.from("player_seen").upsert({ user_id: user.id, seen_at: new Date().toISOString() }).then(() => ({ data: null })),
       db.from("free_claims").select("side").eq("user_id", user.id).maybeSingle(),
       db.from("commander_scores").select("score,medal,reward,placements").eq("day", day).eq("user_id", user.id).maybeSingle(),
     ]);

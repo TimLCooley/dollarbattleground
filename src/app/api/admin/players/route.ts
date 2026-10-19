@@ -47,10 +47,23 @@ export async function GET() {
     db.from("player_stats").select("user_id,last_action_at"),
     db.from("waitlist").select("email,side,created_at"),
   ]);
-  const [{ data: events }, { data: paid }] = await Promise.all([
+  const [{ data: events }, { data: paid }, { data: scores }, { data: lastSeen }] = await Promise.all([
     db.from("tile_events").select("owner_id,created_at").not("owner_id", "is", null),
     db.from("player_stats").select("user_id,spent_cents"),
+    db.from("commander_scores").select("user_id,created_at"),
+    db.from("player_seen").select("user_id,seen_at"),
   ]);
+  // Last active = the latest real thing they did: sign in, a Battleground move,
+  // a CommanderBG score, or opening either mode (player_seen). (Not last_daily_on — the daily supply drop stamps
+  // that on everyone, so it read "16h ago" for the whole list.)
+  const seenAt = new Map<string, string>();
+  const saw = (id: string | null | undefined, at: string | null | undefined) => {
+    if (id && at && at > (seenAt.get(id) ?? "")) seenAt.set(id, at);
+  };
+  for (const e of (events ?? []) as { owner_id: string; created_at: string }[]) saw(e.owner_id, e.created_at);
+  for (const c of (scores ?? []) as { user_id: string; created_at: string }[]) saw(c.user_id, c.created_at);
+  for (const v of (lastSeen ?? []) as { user_id: string; seen_at: string }[]) saw(v.user_id, v.seen_at);
+  for (const u of users) saw(u.id, u.last_sign_in_at);
   const caps = new Map<string, number>();
   for (const e of (events ?? []) as { owner_id: string }[]) caps.set(e.owner_id, (caps.get(e.owner_id) ?? 0) + 1);
   const paidOfficer = new Set(((paid ?? []) as { user_id: string; spent_cents: number | null }[]).filter((x) => Number(x.spent_cents ?? 0) >= 500).map((x) => x.user_id));
@@ -76,14 +89,14 @@ export async function GET() {
     const email = u?.email ?? "(no email)";
     seen.add(email.toLowerCase());
     const b = bankBy.get(c.user_id);
-    const times = [u?.last_sign_in_at, lastBy.get(c.user_id), b?.last_daily_on].filter(Boolean) as string[];
+    saw(c.user_id, lastBy.get(c.user_id));
     rows.push({
       id: c.user_id,
       email,
       side: c.side,
       founder: c.founding_officer ? ++n : null,
       joined: c.created_at,
-      lastActive: times.sort().at(-1) ?? null,
+      lastActive: seenAt.get(c.user_id) ?? null,
       held: held.get(c.user_id) ?? 0,
       strikes: b?.strikes ?? 0,
       blocks: b?.blocks ?? 0,
@@ -102,7 +115,7 @@ export async function GET() {
     seen.add(key);
     rows.push({
       id: u.id, email: u.email, side: null, founder: null, joined: u.created_at,
-      lastActive: u.last_sign_in_at ?? null, held: held.get(u.id) ?? 0,
+      lastActive: seenAt.get(u.id) ?? null, held: held.get(u.id) ?? 0,
       strikes: bankBy.get(u.id)?.strikes ?? 0, blocks: bankBy.get(u.id)?.blocks ?? 0, singles: bankBy.get(u.id)?.singles ?? 0,
       lastDaily: null, waitlistOnly: false,
       status: u.email_confirmed_at ? "verified" : "pending",

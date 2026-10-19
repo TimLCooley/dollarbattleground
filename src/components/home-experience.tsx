@@ -206,6 +206,7 @@ export function HomeExperience() {
   async function syncStatus(p: Player) {
     try {
       rollDrop("open");
+      createClient().rpc("touch_seen").then(() => {}, () => {}); // last seen, for the admin list
       // Come back daily: a free 1×1 once per day after the first (server decides).
       createClient()
         .rpc("daily_return")
