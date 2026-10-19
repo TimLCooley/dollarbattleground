@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { Team } from "./board";
 import { resolveTestEmail } from "@/lib/test-email";
 import { createClient } from "@/utils/supabase/client";
@@ -30,6 +30,22 @@ export function ClaimTile({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [suggestion, setSuggestion] = useState<string | null>(null);
+
+  // Already signed in (e.g. logged in on Commander first)? No second code —
+  // claim straight away under that account.
+  useEffect(() => {
+    let alive = true;
+    createClient()
+      .auth.getUser()
+      .then(({ data: { user } }) => {
+        if (alive && user && !user.is_anonymous && user.email) onConfirm(user.email, true);
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Step 1: validate the email, then send a 6-digit code to prove ownership.
   async function sendCode() {
