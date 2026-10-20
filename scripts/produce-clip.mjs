@@ -756,7 +756,18 @@ Respond ONLY JSON: {"headline":"<UPPERCASE invitation a stranger understands, <=
 // nextmove: "Where would you place the next Archer?" on YESTERDAY's map (never spoils today)
 // hard:     "I can't believe how hard this is" — a weak run on today's map + results card
 // tutorial: the how-to-play video framed for phones
-const CMD_KINDS = ["nextmove", "hard", "tutorial"];
+const CMD_KINDS = ["nextmove", "hard", "tutorial", "hype", "chain"];
+// "hype" clips: no info, just a push. Each is 2–3 big lines; rotated least-used
+// first and logged as video_spec.hype_v. Guesses are fine — we're testing.
+const HYPE_LINES = [
+  ["NEW GAME", "JUST LAUNCHED", "PLAY"],
+  ["If you like Wordle", "you'll like this", "TRY TODAY'S"],
+  ["If you like chess", "you'll like this", "PLAY FREE"],
+  ["Minesweeper fans", "this one's for you", "PLAY"],
+  ["Into the Breach fans?", "try this", "PLAY TODAY"],
+  ["One new puzzle", "every day", "PLAY TODAY'S"],
+  ["Sudoku people", "try this instead", "PLAY"],
+];
 const cmdDayNumber = () => {
   const [y, m, d] = new Date().toLocaleDateString("en-CA", { timeZone: "America/Denver" }).split("-").map(Number);
   return Math.round((Date.UTC(y, m - 1, d) - Date.UTC(2026, 9, 15)) / 86_400_000) + 1;
@@ -765,16 +776,29 @@ const CMD_WD = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday"
 const CMD_LV = ["Easy", "Gentle", "Medium", "Tricky", "Hard"];
 const CMD_DIF = [2, 0, 1, 2, 3, 4, 4];
 
-async function commanderClip({ kind = "nextmove", auto = false }) {
+async function commanderClip({ kind = "nextmove", auto = false, slot = null }) {
   if (!CMD_KINDS.includes(kind)) kind = "nextmove";
   const today = cmdDayNumber();
-  let want = kind === "nextmove" ? today - 1 : today;
+  const past = await fetch(`${SB}/rest/v1/agent_posts?agent=eq.commander&created_at=gte.${new Date(Date.now() - 21 * 86_400_000).toISOString()}&select=video_spec&order=created_at.desc`, { headers: sbh }).then((r) => r.json()).catch(() => []);
+  const specs = (Array.isArray(past) ? past : []).map((r) => r.video_spec ?? {});
+  const leastUsed = (opts, used) => opts.map((o) => [o, used.filter((u) => u === o).length]).sort((x, y) => x[1] - y[1])[0][0];
+  const getDay = async (d) => (await fetch(`${SB}/rest/v1/commander_days?day=eq.${d}&select=day,layout,solution,optimal`, { headers: sbh }).then((r) => r.json()))?.[0] ?? null;
+  // chain: answer the last chain clip's question, then ask a different day's
+  const lastAsked = kind === "chain" ? specs.find((v) => v.kind === "cmd_chain" && v.asked_day)?.asked_day ?? null : null;
+  // never show today's best: nextmove/chain use a past day, hype an older one
+  // nextmove asks (and answers) yesterday; chain asks an older day (never the
+  // same question as nextmove); hype plays an older day's best run
+  let want = kind === "nextmove" ? today - 1 : kind === "chain" ? today - 2 : kind === "hype" ? today - 4 : today;
+  if (kind === "chain" && lastAsked === want) want = today - 3;
+  if ((kind === "hype" || kind === "chain") && want < 1) want = 1;
   if (want < 1) { kind = "hard"; want = today; }
-  const [row] = kind === "tutorial" ? [null] : await fetch(`${SB}/rest/v1/commander_days?day=eq.${want}&select=day,layout,solution,optimal`, { headers: sbh }).then((r) => r.json());
+  const row = kind === "tutorial" ? null : await getDay(want);
+  const ans = lastAsked && lastAsked !== want ? await getDay(lastAsked) : null;
+  const hypeV = kind === "hype" ? leastUsed(HYPE_LINES.map((_, i) => i), specs.filter((v) => v.kind === "cmd_hype").map((v) => v.hype_v ?? 0)) : null;
   if (kind !== "tutorial" && !row) { console.log(`COMMANDER: no puzzle for day ${want}`); return false; }
   const wd = row?.layout?.weekday ?? 0;
   const troops = row ? Number(row.layout.troops.archer) + Number(row.layout.troops.soldier) : 0;
-  const seconds = kind === "tutorial" ? 58 : kind === "nextmove" ? 15 : Math.ceil(1.6 + (troops * 16) / 30 + 1.2 + 3.2 + 3);
+  const seconds = kind === "tutorial" ? 58 : kind === "nextmove" ? 15 : kind === "hype" ? Math.ceil(HYPE_LINES[hypeV].length * 2.1 + 0.6 + 3) : kind === "chain" ? Math.ceil((ans ? 6 : 0) + 8.5 + 3) : Math.ceil(1.6 + (troops * 16) / 30 + 1.2 + 3.2 + 3);
   const nextKind = row ? (row.solution.slice(1).reverse().find((p) => p.kind === "archer") ? "Archer" : "Soldier") : "Archer";
   // A/B testing: each clip kind rotates through caption variants and songs,
   // least-used first over the last 3 weeks; both are logged on the post
@@ -790,14 +814,19 @@ async function commanderClip({ kind = "nextmove", auto = false }) {
       `Today's CommanderBG puzzle broke my brain. Your turn: commanderbg.com`,
       `Thought this would be easy. It was not. A new strategy puzzle every day at commanderbg.com`,
     ],
+    hype: [
+      `New daily strategy puzzle. Free, in your browser: commanderbg.com`,
+      `Try today's map 👉 commanderbg.com`,
+    ],
+    chain: [
+      `A, B or C? Comment it 👇 Answer in the next video. commanderbg.com`,
+      `Where does the next ${nextKind} go? Answer next video 👀 Daily puzzle at commanderbg.com`,
+    ],
     tutorial: [
       `How to play CommanderBG — a daily strategy puzzle. Place your troops, take the most ground. A new map every day: commanderbg.com`,
       `Learn CommanderBG in under a minute, then try today's map: commanderbg.com`,
     ],
   };
-  const past = await fetch(`${SB}/rest/v1/agent_posts?agent=eq.commander&created_at=gte.${new Date(Date.now() - 21 * 86_400_000).toISOString()}&select=video_spec`, { headers: sbh }).then((r) => r.json()).catch(() => []);
-  const specs = (Array.isArray(past) ? past : []).map((r) => r.video_spec ?? {});
-  const leastUsed = (opts, used) => opts.map((o) => [o, used.filter((u) => u === o).length]).sort((x, y) => x[1] - y[1])[0][0];
   const captionV = leastUsed(CAPTIONS[kind].map((_, i) => i), specs.filter((v) => v.kind === `cmd_${kind}`).map((v) => v.caption_v ?? 0));
   const caption = CAPTIONS[kind][captionV];
   const songPrefer = await (async () => {
@@ -807,7 +836,9 @@ async function commanderClip({ kind = "nextmove", auto = false }) {
       return songs.length ? leastUsed(songs, specs.map((v) => v.song).filter(Boolean)) : null;
     } catch { return null; }
   })();
-  const props = { variant: kind, day: row?.day ?? today, dayLabel: row ? `${CMD_WD[wd]} · ${CMD_LV[CMD_DIF[wd]]}` : "", layout: row?.layout ?? null, solution: row?.solution ?? [], optimal: row?.optimal ?? 0, seconds };
+  const props = { variant: kind, day: row?.day ?? today, dayLabel: row ? `${CMD_WD[wd]} · ${CMD_LV[CMD_DIF[wd]]}` : "", layout: row?.layout ?? null, solution: row?.solution ?? [], optimal: row?.optimal ?? 0, seconds,
+    lines: kind === "hype" ? HYPE_LINES[hypeV] : undefined,
+    answer: kind === "chain" && ans ? { day: ans.day, layout: ans.layout, solution: ans.solution, optimal: ans.optimal } : null };
   console.log("COMMANDER CLIP:", kind, `day ${props.day}`, `${seconds}s`, `caption v${captionV}`, `song ${songPrefer ?? "random"}`);
   if (process.env.PLAN_ONLY) return false;
   props.audioSrc = await musicBed(seconds, "bed", -24, songPrefer);
@@ -825,8 +856,8 @@ async function commanderClip({ kind = "nextmove", auto = false }) {
   await fetch(`${SB}/rest/v1/agent_posts`, { method: "POST", headers: { ...sbh, "Content-Type": "application/json", Prefer: "return=minimal" }, body: JSON.stringify({
     agent: "commander", faction: f, status: "queued", format: "video", angle: "recruit", network: f, x_account: f, video_kind: "dispatch", media_url: mediaUrl, copy: caption,
     reason: `${auto ? "" : "MANUAL TEST — posts only if you press Post now · "}[theme:cmd_${kind}] Commander clip (${kind}, no HeyGen) — day ${props.day}`,
-    scheduled_for: auto ? new Date(Date.now() + reviewMin * 60_000).toISOString() : null,
-    video_spec: { kind: `cmd_${kind}`, commander: true, day: props.day, topic: `commander · ${kind}`, rendered_at: new Date().toISOString(), placeholder: false, free: true, music: !!props.audioSrc, song: props.audioSrc ? lastSong : null, caption_v: captionV },
+    scheduled_for: auto ? new Date(Math.max(Date.now() + reviewMin * 60_000, slot ? new Date(slot).getTime() : 0)).toISOString() : null,
+    video_spec: { kind: `cmd_${kind}`, commander: true, day: props.day, topic: `commander · ${kind}`, rendered_at: new Date().toISOString(), placeholder: false, free: true, music: !!props.audioSrc, song: props.audioSrc ? lastSong : null, caption_v: captionV, ...(kind === "hype" ? { hype_v: hypeV } : {}), ...(kind === "chain" ? { asked_day: props.day, answered_day: ans?.day ?? null } : {}) },
   }) });
   console.log(`QUEUED commander ${kind} clip${auto ? "" : " (manual test)"}`);
   return true;
@@ -973,23 +1004,32 @@ if (mode === "due") {
     try { if (await produce({ faction, kind, target: p })) made++; } catch (e) { console.log(`placeholder #${p.id} failed:`, e?.message ?? e); }
   }
   if (list.length) console.log(`\nDone — ${made}/${list.length} placeholder(s) rendered.`);
-  // COMMANDER clips (2026-10-16): two a day — the first after 15:00 UTC, the
-  // second after 21:00 UTC. Kind = least used this week; the tutorial at most
-  // every 4 days. The old map free clips are retired.
+  // COMMANDER clips (2026-10-19, Tim: volume, find what sticks): 7 a day at
+  // 7, 9, 11am, 1, 3, 5, 7pm Mountain. GitHub's cron only fires every few
+  // hours, so each run renders every slot in the next 6 hours and schedules it
+  // for its time. Kind = least used this week; the tutorial at most every 4 days.
   try {
-    const dayStartMT = new Date(`${new Date().toLocaleDateString("en-CA", { timeZone: "America/Denver" })}T00:00:00-06:00`).toISOString();
+    const CMD_SLOTS_MT = [7, 9, 11, 13, 15, 17, 19];
+    const dateMT = new Date().toLocaleDateString("en-CA", { timeZone: "America/Denver" });
+    const dayStartMT = new Date(`${dateMT}T00:00:00-06:00`).toISOString();
+    const slots = CMD_SLOTS_MT.map((h) => new Date(`${dateMT}T${String(h).padStart(2, "0")}:00:00-06:00`).getTime());
+    const horizon = Date.now() + 6 * 3600_000;
+    const want = slots.filter((t) => t <= horizon).length;
     const todays = await fetch(`${SB}/rest/v1/agent_posts?agent=eq.commander&status=in.(queued,posted)&or=(scheduled_for.gte.${dayStartMT},posted_at.gte.${dayStartMT})&select=id`, { headers: sbh }).then((r) => r.json());
-    const have = Array.isArray(todays) ? todays.length : 0;
-    const hour = new Date().getUTCHours();
-    if (have < (hour >= 21 ? 2 : hour >= 15 ? 1 : 0)) {
+    let have = Array.isArray(todays) ? todays.length : 0;
+    // missed slots (the cron ran late) collapse into one catch-up clip, not a burst
+    const missed = slots.slice(have).filter((t) => t < Date.now()).length;
+    if (missed > 1) have += missed - 1;
+    console.log(`commander clips: ${have} today, ${want} due by +6h`);
+    for (let n = have; n < want && n < slots.length; n++) {
       const week = new Date(Date.now() - 7 * 86_400_000).toISOString();
       const recent = await fetch(`${SB}/rest/v1/agent_posts?agent=eq.commander&created_at=gte.${week}&select=video_spec,created_at`, { headers: sbh }).then((r) => r.json());
       const used = (recent ?? []).map((r) => r.video_spec?.kind);
       const tutRecent = (recent ?? []).some((r) => r.video_spec?.kind === "cmd_tutorial" && Date.now() - new Date(r.created_at).getTime() < 4 * 86_400_000);
       const pool = CMD_KINDS.filter((k) => k !== "tutorial" || !tutRecent);
       const kind = pool.map((k) => [k, used.filter((u) => u === `cmd_${k}`).length]).sort((x, y) => x[1] - y[1])[0][0];
-      await commanderClip({ kind, auto: true });
-    } else console.log(`commander clips: ${have} today`);
+      try { await commanderClip({ kind, auto: true, slot: new Date(slots[n]).toISOString() }); } catch (e) { console.log(`commander ${kind} clip failed:`, e?.message ?? e); }
+    }
   } catch (e) { console.log("commander clip failed:", e?.message ?? e); }
   // (retired 2026-10-16) the old map free clip — kept behind a flag
   if (process.env.MAP_FREE_CLIPS) try {
