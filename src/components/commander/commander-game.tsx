@@ -17,8 +17,11 @@ import {
   reach,
   simulate,
   trail,
+  armyKinds,
+  countOf,
   type Kind,
   type Layout,
+  type Troop,
   type Placement,
 } from "@/lib/commander/engine";
 import { LoginOtp } from "@/components/login-otp";
@@ -41,12 +44,11 @@ type Result = {
 };
 type DayResponse = { day: number; today: number; layout: Layout; side: Side | null; signedIn: boolean; isAdmin?: boolean; result: Result | null };
 
-type Troop = "archer" | "soldier";
-const TROOPS: Troop[] = ["archer", "soldier"];
-const NAME: Record<Troop, string> = { archer: "Archer", soldier: "Soldier" };
+const NAME: Record<Troop, string> = { archer: "Archer", soldier: "Soldier", scout: "Scout" };
 const BLURB: Record<Troop, string> = {
   archer: "3 left + 3 right · over walls & water, trees stop it",
   soldier: "2 up + 2 down · through trees, wades water, walls stop it",
+  scout: "2 on each diagonal · hops water, walls & trees stop it",
 };
 // medal tiers read as stars; a perfect score takes the castle
 const STARS: Record<string, string> = { perfect: "🏰", gold: "⭐⭐⭐", silver: "⭐⭐", bronze: "⭐" };
@@ -71,7 +73,7 @@ export function CommanderGame({ day: askedDay, unsubscribed = false }: { day?: n
   const [error, setError] = useState<string | null>(null);
   const [guestSide, setGuestSide] = useState<Side | null>(null);
   const [placements, setPlacements] = useState<Placement[]>([]);
-  const [selected, setSelected] = useState<Troop>("archer");
+  const [picked, setSelected] = useState<Troop>("archer");
   const [best, setBest] = useState<{ score: number; placements: Placement[] } | null>(null);
   const [demoOpen, setDemoOpen] = useState(false);
   const [demoAuto, setDemoAuto] = useState(true);
@@ -83,7 +85,14 @@ export function CommanderGame({ day: askedDay, unsubscribed = false }: { day?: n
   const [confirming, setConfirming] = useState(false);
   const [posting, setPosting] = useState(false);
   const [needLogin, setNeedLogin] = useState(false);
-  const [signIn, setSignIn] = useState(false); // "Already enlisted? Log in" — e.g. on a new computer
+  const [signIn, setSignIn] = useState(false);
+  const [scoutSeen, setScoutSeen] = useState(() => {
+    try {
+      return typeof window === "undefined" || localStorage.getItem("bg_seen_scout") === "1";
+    } catch {
+      return true;
+    }
+  }); // "Already enlisted? Log in" — e.g. on a new computer
   const [loginOpen, setLoginOpen] = useState(false);
   const [enlistOpen, setEnlistOpen] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -160,10 +169,13 @@ export function CommanderGame({ day: askedDay, unsubscribed = false }: { day?: n
   const locked = !!result;
   const shown = showOptimal && result ? result.solution : placements;
   const sim = useMemo(() => (L ? simulate(L, shown) : null), [L, shown]);
+  // today's two troop types (Archer + Soldier, or the Scout with one of them)
+  const TROOPS: Troop[] = L ? armyKinds(L) : ["archer", "soldier"];
+  const selected: Troop = TROOPS.includes(picked) ? picked : TROOPS[0];
   const left = useMemo(() => {
-    const out: Record<Troop, number> = { archer: 0, soldier: 0 };
+    const out: Record<Troop, number> = { archer: 0, soldier: 0, scout: 0 };
     if (!L) return out;
-    for (const k of TROOPS) out[k] = L.troops[k] - placements.filter((p) => p.kind === k).length;
+    for (const k of armyKinds(L)) out[k] = countOf(L, k) - placements.filter((p) => p.kind === k).length;
     return out;
   }, [L, placements]);
   // only the troop the player picked — no switching behind their back
@@ -188,7 +200,7 @@ export function CommanderGame({ day: askedDay, unsubscribed = false }: { day?: n
     return p ? new Set(reach(L, p.i, p.kind)) : null;
   }, [L, focus, shown]);
 
-  const total = L ? L.troops.soldier + L.troops.archer : 0;
+  const total = L ? armyKinds(L).reduce((n, k) => n + countOf(L, k), 0) : 0;
 
   function place(next: Placement[]) {
     setPlacements(next);
@@ -524,19 +536,56 @@ export function CommanderGame({ day: askedDay, unsubscribed = false }: { day?: n
           </span>
           <span><b>Soldier</b> — takes 2 squares up and 2 down. Marches through trees (and takes them), wades through water (costs a step); walls stop them.</span>
         </div>
+        <div className="cm-how-row">
+          <span className="cm-unit cm-how-unit">
+            <span className={"cm-troop " + side}><TroopIcon kind="scout" /></span>
+            <Notches kind="scout" />
+          </span>
+          <span><b>Scout</b> <i className="cm-new">NEW</i> — takes 2 squares along each diagonal (an X). Hops over water; walls and trees stop it. Some days bring Scouts instead of Archers or Soldiers.</span>
+        </div>
         <div className="cm-how-terrain">
-          <span><i className="cm-sw wall" /> Wall — stops Soldiers</span>
-          <span><i className="cm-sw water" /> Water — Soldiers wade</span>
-          <span><i className="cm-sw tree"><span className="cm-tree-mark" /></i> Tree — stops arrows</span>
+          <span><i className="cm-sw wall" /> Wall — stops Soldiers &amp; Scouts</span>
+          <span><i className="cm-sw water" /> Water — Soldiers wade, Scouts hop</span>
+          <span><i className="cm-sw tree"><span className="cm-tree-mark" /></i> Tree — stops arrows &amp; Scouts</span>
         </div>
         <ul>
-          <li>Archers and Soldiers can only stand on ground you hold — including ground you just took. Order matters.</li>
-          <li>Faint ‹ › ˄ ˅ marks on your squares show which way each was taken.</li>
+          <li>Troops can only stand on ground you hold — including ground you just took. Order matters.</li>
+          <li>Faint ‹ › ˄ ˅ ↖ ↘ marks on your squares show which way each was taken.</li>
           <li>Practice as much as you like — your best layout is saved (★). Only Attack counts.</li>
           <li>A new map every day, the same for everyone. Monday is the easiest, Friday and Saturday the hardest.</li>
           <li>One shot. Score 90% of the best possible for a free 1×1 on the main map; hit perfect for a 2×2.</li>
         </ul>
       </details>
+
+      {!demoOpen && !scoutSeen && !locked && countOf(L, "scout") > 0 && (
+        <div className="ob-overlay" role="dialog" aria-label="New troop: the Scout">
+          <div className="ob-card cm-newtroop">
+            <div className="ob-kicker">◆ NEW TROOP ◆</div>
+            <h2 className="ob-title">THE SCOUT</h2>
+            <span className="cm-unit cm-newtroop-unit">
+              <span className={"cm-troop " + side}><TroopIcon kind="scout" /></span>
+              <Notches kind="scout" />
+            </span>
+            <p className="ob-body">
+              Takes <b>2 squares along each diagonal</b> — an X. It hops over water; walls and trees stop it. Today it fights alongside your{" "}
+              {countOf(L, "archer") > 0 ? "Archers" : "Soldiers"}.
+            </p>
+            <button
+              className="ob-btn"
+              onClick={() => {
+                setScoutSeen(true);
+                try {
+                  localStorage.setItem("bg_seen_scout", "1");
+                } catch {
+                  /* ignore */
+                }
+              }}
+            >
+              GOT IT →
+            </button>
+          </div>
+        </div>
+      )}
 
       {demoOpen && (
         <div className="ob-overlay" role="dialog" aria-label="How to play video" onClick={() => setDemoOpen(false)}>

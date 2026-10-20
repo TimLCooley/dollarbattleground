@@ -1,5 +1,6 @@
 // Commander pieces: a little person (tunic in the team color via currentColor),
-// with reach notches on the outside edges of the tile (Archer ‹ ›, Soldier ˄ ˅).
+// with reach notches on the outside edges of the tile (Archer ‹ ›, Soldier ˄ ˅,
+// Scout in the four corners).
 import type { Kind } from "@/lib/commander/engine";
 
 const SKIN = "#e8b98a";
@@ -26,7 +27,7 @@ function Person({ helmet = false }: { helmet?: boolean }) {
 /** Reach markers on the outside edges of the tile: Archer ‹ ›, Soldier ˄ ˅. */
 export function Notches({ kind }: { kind: Kind }) {
   if (kind === "commander") return null;
-  const dirs = kind === "archer" ? ["l", "r"] : ["u", "d"];
+  const dirs = kind === "archer" ? ["l", "r"] : kind === "scout" ? ["ul", "ur", "dl", "dr"] : ["u", "d"];
   return (
     <>
       {dirs.map((d) => (
@@ -43,7 +44,7 @@ export function TroopIcon({ kind }: { kind: Kind }) {
       width="100%"
       height="100%"
       role="img"
-      aria-label={kind === "archer" ? "Archer" : kind === "soldier" ? "Soldier" : "Commander"}
+      aria-label={kind === "archer" ? "Archer" : kind === "soldier" ? "Soldier" : kind === "scout" ? "Scout" : "Commander"}
     >
       {kind === "archer" && (
         <>
@@ -61,6 +62,17 @@ export function TroopIcon({ kind }: { kind: Kind }) {
           <line x1="13.9" y1="3.6" x2="13.9" y2="11.4" stroke={STEEL} strokeWidth="1" />
           <line x1="12.8" y1="11" x2="15" y2="11" stroke={WOOD} strokeWidth="0.9" />
           <path d="M4.6 9.2 h3 v2.6 q-1.5 1.8 -3 0 z" fill={STEEL} stroke={DARK} strokeWidth="0.3" />
+        </>
+      )}
+      {kind === "scout" && (
+        <>
+          <Person />
+          {/* feathered cap + spyglass raised to the eye */}
+          <path d="M7.6 4.6 h4.8 l-0.4 -1.2 h-4 z" fill="#4f7a3a" />
+          <path d="M12 3.6 q2.2 -1.6 3 -0.4 q-1.4 0.2 -3 1.2 z" fill="#f2c14e" />
+          <line x1="12.3" y1="9.4" x2="12.9" y2="6.9" stroke={SKIN} strokeWidth="1.1" />
+          <rect x="11.2" y="5.4" width="4.6" height="1.4" fill={WOOD} />
+          <rect x="15.6" y="5.1" width="1.6" height="2" fill={STEEL} />
         </>
       )}
       {kind === "commander" && (

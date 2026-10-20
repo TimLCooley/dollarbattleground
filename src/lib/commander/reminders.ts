@@ -1,7 +1,7 @@
 import "server-only";
 import type { Db } from "@/lib/app-config";
 import { sendEmail, isEmailConfigured } from "@/lib/email";
-import { DIFFICULTY, DIFFICULTY_NAME, WEEKDAY, dayNumber } from "./engine";
+import { DIFFICULTY, DIFFICULTY_NAME, TROOP_NAME, WEEKDAY, armyKinds, countOf, dayNumber } from "./engine";
 import { getDay } from "./server";
 
 const SITE = "https://commanderbg.com";
@@ -20,7 +20,7 @@ export async function sendCommanderReminders(db: Db): Promise<number> {
   const d = await getDay(db, today);
   const level = DIFFICULTY_NAME[DIFFICULTY[d.layout.weekday]];
   const weekday = WEEKDAY[d.layout.weekday];
-  const army = `${d.layout.troops.archer} Archers and ${d.layout.troops.soldier} Soldiers`;
+  const army = armyKinds(d.layout).map((k) => `${countOf(d.layout, k)} ${TROOP_NAME[k]}s`).join(" and ");
   let sent = 0;
   for (const r of rows as { id: number; email: string; token: string }[]) {
     const unsub = `${SITE}/api/commander/remind?unsub=${r.token}`;
