@@ -1065,14 +1065,36 @@ export function BoardView({
   }
 
   return (
-    <div className={"cartridge" + (lockedSide ? ` ${lockedSide}-cmd` : "")}>
+    <div className={"cartridge flat" + (lockedSide ? ` ${lockedSide}-cmd` : "")}>
+      {/* gold, land grab and drops now speak through the Field Radio; the other-game card leads the page, same as on Commander */}
+      <Link className="go-commander" href="/">
+        <span className="go-commander-new">NEW GAME</span>
+        <span className="go-commander-art" aria-hidden>
+          <span className={"cm-troop " + side}>
+            <TroopIcon kind="archer" />
+          </span>
+          <span className={"cm-troop " + side}>
+            <TroopIcon kind="soldier" />
+          </span>
+        </span>
+        <span className="go-commander-txt">
+          <span className="go-commander-k">
+            <CommanderLogo side={side} className="go-commander-logo" />
+          </span>
+          <span className="go-commander-t">A daily strategy puzzle — new map every day</span>
+        </span>
+        <span className="go-commander-play">PLAY ▶</span>
+      </Link>
       <header className="bg-header">
-        <HeaderMenu />
-        <picture>
-          <source srcSet={`/battleground-logo-${side}.webp`} type="image/webp" />
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img className="wordmark-logo" src={`/battleground-logo-${side}.png`} alt="Battleground" />
-        </picture>
+        <div className="bg-head-row">
+          <span />
+          <picture>
+            <source srcSet={`/battleground-logo-${side}.webp`} type="image/webp" />
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img className="wordmark-logo" src={`/battleground-logo-${side}.png`} alt="Battleground" />
+          </picture>
+          <HeaderMenu />
+        </div>
         <div className={"roundline rl-" + side}>
           <Link href="/report" className="rl-ranklink" title="Field report">
             {insignia && insignia.kind !== "none" && (
@@ -1136,38 +1158,20 @@ export function BoardView({
         </div>
       )}
 
-      {/* gold, land grab and drops now speak through the Field Radio; this spot goes to Commander */}
-      <Link className="go-commander" href="/">
-        <span className="go-commander-new">NEW GAME</span>
-        <span className="go-commander-art" aria-hidden>
-          <span className={"cm-troop " + side}>
-            <TroopIcon kind="archer" />
-          </span>
-          <span className={"cm-troop " + side}>
-            <TroopIcon kind="soldier" />
-          </span>
-        </span>
-        <span className="go-commander-txt">
-          <span className="go-commander-k">
-            <CommanderLogo side={side} className="go-commander-logo" />
-          </span>
-          <span className="go-commander-t">A daily strategy puzzle — new map every day</span>
-        </span>
-        <span className="go-commander-play">PLAY ▶</span>
-      </Link>
       <div className="board-wrap">
         <div
           ref={boardRef}
           className="board"
           data-side={side}
-          data-skin="plate"
+          data-skin="pixel"
           aria-label="15 by 15 battleground"
           onMouseLeave={() => setHoverIndex(null)}
         >
           {shownCells.map((c, i) => {
             const cls =
               "cell" +
-              (c ? " " + c : tufts[i] ? " tuft" : "") +
+              (c ? " " + c : "") +
+              (tufts[i] ? " tuft" : "") +
               (owned.has(i) ? " mine" : "") +
               (popping.has(i) ? " pop" : "") +
               (flipping.has(i) ? " flip" : "") +
