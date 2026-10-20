@@ -9,9 +9,13 @@ import { Ripple, TreeSprite, TroopIcon, Tuft, WALL_BRICK, hasTuft } from "../com
 //  - "hard": "I can't believe how hard this is" — a weak run on today's map
 //    and a results card (e.g. 14 / 35). Never shows today's best layout.
 //  - "tutorial": the how-to-play video, framed for phones.
+//  - "hype": no info, just a push — two or three big lines ("NEW GAME" /
+//    "JUST LAUNCHED" / "PLAY") over a past day's best run playing itself.
+//  - "chain": a cliffhanger series — answers the last chain clip's question
+//    (if there was one), asks a new one, then "answer in the next video".
 
 export type CommanderClipProps = {
-  variant: "nextmove" | "hard" | "tutorial";
+  variant: "nextmove" | "hard" | "tutorial" | "hype" | "chain";
   day: number;
   dayLabel: string; // "Friday · Hard"
   layout: Layout | null;
@@ -20,6 +24,8 @@ export type CommanderClipProps = {
   seconds: number;
   audioSrc?: string | null;
   audioVolume?: number;
+  lines?: string[]; // hype: the big lines, shown one after another
+  answer?: { day: number; layout: Layout; solution: Placement[]; optimal: number } | null; // chain: the last question
 };
 
 export const DEFAULT_COMMANDER_CLIP: CommanderClipProps = { variant: "tutorial", day: 1, dayLabel: "", layout: null, solution: [], optimal: 0, seconds: 58 };
@@ -247,6 +253,95 @@ export const CommanderClip = (p: CommanderClipProps) => {
     );
   };
 
+  if (p.variant === "hype") {
+    const lines = p.lines?.length ? p.lines : ["NEW GAME", "JUST LAUNCHED", "PLAY"];
+    const per = s(2.1);
+    const endAt = lines.length * per + s(0.6);
+    const run = p.solution;
+    const at = run.map((_, k) => s(0.4) + k * 14);
+    const cur = Math.min(lines.length - 1, Math.floor(frame / per));
+    const k = spring({ frame: frame - cur * per, fps: FPS, config: { damping: 10, stiffness: 170 } });
+    return (
+      <AbsoluteFill style={{ background: bg, color: "#f6efdb" }}>
+        {bed}
+        <div style={{ position: "absolute", top: 460, left: 40, opacity: 0.55 }}>
+          <Board L={L} moves={run} at={at} frame={frame} />
+        </div>
+        {frame < endAt && (
+          <AbsoluteFill style={{ display: "grid", placeItems: "center", padding: "0 70px" }}>
+            <div style={{ transform: `scale(${k})`, textAlign: "center", fontFamily: FONT, fontSize: lines[cur].length > 14 ? 120 : 170, lineHeight: 1.05, color: cur === lines.length - 1 ? GOLD : "#fff", textShadow: "0 10px 0 rgba(0,0,0,0.45), 0 0 40px rgba(0,0,0,0.5)" }}>
+              {lines[cur]}
+            </div>
+          </AbsoluteFill>
+        )}
+        {frame >= endAt && <AbsoluteFill style={{ background: "rgba(10,46,26,0.96)", opacity: interpolate(frame, [endAt, endAt + s(0.4)], [0, 1]) }}><Footer frame={frame} from={endAt} /></AbsoluteFill>}
+      </AbsoluteFill>
+    );
+  }
+
+  if (p.variant === "chain") {
+    // part 1 (optional): the answer to the last clip's question
+    const A = p.answer ?? null;
+    const aq = A ? quiz(A.layout, A.solution) : null;
+    const A_END = aq ? s(6) : 0;
+    const A_REVEAL = s(1.8);
+    // part 2: the new question, no answer — that's the next video
+    const q = quiz(L, p.solution);
+    const Kind = q.next.kind === "archer" ? "Archer" : "Soldier";
+    const f2 = frame - A_END;
+    const Q_END = A_END + s(8.5);
+    const count = f2 >= s(3.2) && f2 < s(6.5) ? 3 - Math.floor((f2 - s(3.2)) / s(1.1)) : null;
+    const t2 = spring({ frame: f2, fps: FPS, config: { damping: 14, stiffness: 140 } });
+    if (aq && A && frame < A_END) {
+      const ans = aq.options.find((o) => o.correct)!.label;
+      const t1 = spring({ frame, fps: FPS, config: { damping: 14, stiffness: 140 } });
+      return (
+        <AbsoluteFill style={{ background: bg, color: "#f6efdb" }}>
+          {bed}
+          <div style={{ position: "absolute", top: 140, left: 60, right: 60, textAlign: "center", transform: `scale(${t1})` }}>
+            <div style={{ fontFamily: FONT, fontSize: 84, lineHeight: 1.08 }}>Last video&apos;s answer…</div>
+            <div style={{ fontFamily: BODY, fontWeight: 700, fontSize: 40, color: GOLD, marginTop: 18 }}>CommanderBG #{A.day}</div>
+          </div>
+          <div style={{ position: "absolute", top: 520, left: 40 }}>
+            <Board L={A.layout} moves={[...aq.before, aq.next]} at={[...aq.before.map(() => -1), A_REVEAL]} frame={frame} options={aq.options.map((o) => ({ ...o, revealAt: A_REVEAL }))} />
+          </div>
+          {frame >= A_REVEAL + 6 && (
+            <div style={{ position: "absolute", top: 1550, left: 60, right: 60, textAlign: "center", fontFamily: BODY, fontWeight: 700, fontSize: 50, lineHeight: 1.2 }}>
+              <span style={{ fontFamily: FONT, color: GOLD, fontSize: 90 }}>{ans}!</span> It takes {aq.gainNext} more squares.
+            </div>
+          )}
+        </AbsoluteFill>
+      );
+    }
+    return (
+      <AbsoluteFill style={{ background: bg, color: "#f6efdb" }}>
+        {bed}
+        <div style={{ position: "absolute", top: 140, left: 60, right: 60, textAlign: "center", transform: `scale(${t2})` }}>
+          <div style={{ fontFamily: FONT, fontSize: 84, lineHeight: 1.08 }}>{aq ? "Next question:" : "Quick question:"} where does the next {Kind} go?</div>
+          <div style={{ fontFamily: BODY, fontWeight: 700, fontSize: 40, color: GOLD, marginTop: 18 }}>CommanderBG #{p.day} · {p.dayLabel}</div>
+        </div>
+        <div style={{ position: "absolute", top: 560, left: 40 }}>
+          <Board L={L} moves={q.before} at={q.before.map(() => -1)} frame={f2} options={f2 >= s(1) ? q.options.map((o) => ({ ...o, revealAt: Infinity })) : undefined} />
+        </div>
+        {count !== null && count > 0 && (
+          <div style={{ position: "absolute", top: 1600, width: "100%", textAlign: "center", fontFamily: FONT, fontSize: 130, color: GOLD }}>{count}</div>
+        )}
+        {f2 >= s(1) && f2 < s(3.2) && (
+          <div style={{ position: "absolute", top: 1610, width: "100%", textAlign: "center", fontFamily: BODY, fontWeight: 700, fontSize: 50 }}>A, B or C? Comment it 👇</div>
+        )}
+        {f2 >= s(6.5) && frame < Q_END && (
+          <AbsoluteFill style={{ display: "grid", placeItems: "center", background: "rgba(10,46,26,0.82)" }}>
+            <div style={{ textAlign: "center", transform: `scale(${spring({ frame: f2 - s(6.5), fps: FPS, config: { damping: 10, stiffness: 170 } })})` }}>
+              <div style={{ fontFamily: FONT, fontSize: 110, lineHeight: 1.1, color: GOLD }}>Answer in the next video 👀</div>
+              <div style={{ fontFamily: BODY, fontWeight: 700, fontSize: 52, marginTop: 30 }}>Follow so you don&apos;t miss it</div>
+            </div>
+          </AbsoluteFill>
+        )}
+        {frame >= Q_END && <AbsoluteFill style={{ background: "rgba(10,46,26,0.96)", opacity: interpolate(frame, [Q_END, Q_END + s(0.4)], [0, 1]) }}><Footer frame={frame} from={Q_END} /></AbsoluteFill>}
+      </AbsoluteFill>
+    );
+  }
+
   if (p.variant === "nextmove") {
     const q = quiz(L, p.solution);
     const Kind = q.next.kind === "archer" ? "Archer" : "Soldier";
@@ -313,6 +408,8 @@ export const CommanderClip = (p: CommanderClipProps) => {
 export function commanderClipSeconds(p: Pick<CommanderClipProps, "variant" | "layout">): number {
   if (p.variant === "tutorial" || !p.layout) return 58;
   if (p.variant === "nextmove") return 15;
+  if (p.variant === "hype") return 0; // the producer sets it from the line count
+  if (p.variant === "chain") return 0; // the producer sets it (with or without the answer part)
   const n = weakRun(p.layout).length;
   return Math.ceil(1.6 + (n * 16) / FPS + 1.2 + 3.2 + 3);
 }
