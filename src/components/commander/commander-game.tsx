@@ -68,7 +68,11 @@ function storedSide(): Side | null {
   }
 }
 
-export function CommanderGame({ day: askedDay, unsubscribed = false }: { day?: number; unsubscribed?: boolean } = {}) {
+type FriendPath = { day: number; locked: boolean; mine?: boolean; score?: number; placements?: Placement[] };
+type ShareMode = "score" | "path";
+type ShareVia = "native" | "copy" | "x" | "facebook" | "whatsapp" | "reddit";
+
+export function CommanderGame({ day: askedDay, unsubscribed = false, pathId }: { day?: number; unsubscribed?: boolean; pathId?: string } = {}) {
   const [data, setData] = useState<DayResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [guestSide, setGuestSide] = useState<Side | null>(null);
@@ -96,6 +100,10 @@ export function CommanderGame({ day: askedDay, unsubscribed = false }: { day?: n
   const [loginOpen, setLoginOpen] = useState(false);
   const [enlistOpen, setEnlistOpen] = useState(false);
   const [copied, setCopied] = useState(false);
+  // "Share my path": a friend's layout from a ?p= link (locked until you've played that day)
+  const [friend, setFriend] = useState<FriendPath | null>(null);
+  const [showFriend, setShowFriend] = useState(false);
+  const [myPathId, setMyPathId] = useState<string | null>(null);
 
   async function load() {
     try {
@@ -167,7 +175,8 @@ export function CommanderGame({ day: askedDay, unsubscribed = false }: { day?: n
   const side: Side | null = data?.side ?? guestSide ?? (data?.isAdmin ? "blue" : null);
   const L = data?.layout ?? null;
   const locked = !!result;
-  const shown = showOptimal && result ? result.solution : placements;
+  const shown =
+    showOptimal && result ? result.solution : showFriend && result && friend?.placements ? friend.placements : placements;
   const sim = useMemo(() => (L ? simulate(L, shown) : null), [L, shown]);
   // today's two troop types (Archer + Soldier, or the Scout with one of them)
   const TROOPS: Troop[] = L ? armyKinds(L) : ["archer", "soldier"];
@@ -299,6 +308,29 @@ export function CommanderGame({ day: askedDay, unsubscribed = false }: { day?: n
     }
   }
 
+  // a friend's shared path: check on load and again once you've attacked
+  useEffect(() => {
+    if (!pathId) return;
+    let alive = true;
+    fetch(`/api/commander/path?id=${pathId}`, { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d: FriendPath | null) => {
+        if (alive && d && !d.mine) setFriend(d);
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, [pathId, result]);
+  // your own path link is made ahead of time, so the phone share sheet opens instantly
+  useEffect(() => {
+    if (!result || !data?.signedIn || myPathId) return;
+    fetch("/api/commander/path", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ day: data.day }) })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d: { id?: string } | null) => d?.id && setMyPathId(d.id))
+      .catch(() => {});
+  }, [result, data?.signedIn, data?.day, myPathId]);
+
   // Share (Tim, 2026-10-18): simple and spoiler-free — what your troops took,
   // your medal, and a link that opens the same puzzle. Never the best score.
   function shareLink() {
@@ -318,10 +350,18 @@ export function CommanderGame({ day: askedDay, unsubscribed = false }: { day?: n
     return lines.join("\n");
   }
 
-  async function share(via: "native" | "copy" | "x" | "facebook" | "whatsapp" | "reddit") {
-    const text = shareText();
-    const link = shareLink();
-    track("commander_share", { via });
+  function pathLink() {
+    return `https://commanderbg.com/?day=${data?.day ?? 1}&p=${myPathId ?? ""}&ref=share`;
+  }
+  function pathText() {
+    return [`Here's my battle plan for CommanderBG #${data?.day ?? 1} 🗺️`, `Play it first — it unlocks after you attack, then compare 👉 ${pathLink()}`].join("\n");
+  }
+
+  async function share(via: ShareVia, mode: ShareMode = "score") {
+    if (mode === "path" && !myPathId) return;
+    const text = mode === "path" ? pathText() : shareText();
+    const link = mode === "path" ? pathLink() : shareLink();
+    track("commander_share", { via, mode });
     const enc = encodeURIComponent;
     try {
       if (via === "native" && navigator.share) await navigator.share({ text });
@@ -419,6 +459,14 @@ export function CommanderGame({ day: askedDay, unsubscribed = false }: { day?: n
         </p>
       )}
 
+      {friend?.locked && !result && (
+        <div className="cm-banner">🔒 A friend shared their battle plan for #{friend.day} — it unlocks after you attack.</div>
+      )}
+      {showFriend && result && friend?.placements && (
+        <div className="cm-banner">
+          FRIEND&apos;S PATH · {friend.score} squares · <button className="cm-link" onClick={() => setShowFriend(false)}>show mine</button>
+        </div>
+      )}
       {showOptimal && result && (
         <div className="cm-banner">BEST LAYOUT · {result.optimal} squares · <button className="cm-link" onClick={() => setShowOptimal(false)}>show mine</button></div>
       )}
@@ -505,7 +553,26 @@ export function CommanderGame({ day: askedDay, unsubscribed = false }: { day?: n
       ) : (
         <div className="cm-after">
           <button className="ob-btn" onClick={() => setShowResult(true)}>SEE RESULTS</button>
-          <button className="ob-skip" onClick={() => setShowOptimal((v) => !v)}>{showOptimal ? "show my layout" : "view best layout"}</button>
+          {friend?.placements && (
+            <button
+              className="ob-btn cm-dark"
+              onClick={() => {
+                setShowOptimal(false);
+                setShowFriend((v) => !v);
+              }}
+            >
+              {showFriend ? "SHOW MY LAYOUT" : `COMPARE: FRIEND'S PATH (${friend.score})`}
+            </button>
+          )}
+          <button
+            className="ob-skip"
+            onClick={() => {
+              setShowFriend(false);
+              setShowOptimal((v) => !v);
+            }}
+          >
+            {showOptimal ? "show my layout" : "view best layout"}
+          </button>
         </div>
       )}
 
@@ -677,9 +744,11 @@ export function CommanderGame({ day: askedDay, unsubscribed = false }: { day?: n
           result={result}
           enlisted={!!data.side}
           copied={copied}
+          canSharePath={!!myPathId}
           onShare={share}
           onClose={() => setShowResult(false)}
           onOptimal={() => {
+            setShowFriend(false);
             setShowOptimal(true);
             setShowResult(false);
           }}
@@ -849,6 +918,7 @@ export function ResultsModal({
   result,
   enlisted = true,
   copied,
+  canSharePath,
   onShare,
   onClose,
   onOptimal,
@@ -857,11 +927,13 @@ export function ResultsModal({
   result: Result;
   enlisted?: boolean;
   copied: boolean;
-  onShare: (via: "native" | "copy" | "x" | "facebook" | "whatsapp" | "reddit") => void;
+  canSharePath: boolean;
+  onShare: (via: ShareVia, mode: ShareMode) => void;
   onClose: () => void;
   onOptimal: () => void;
 }) {
-  const [sharing, setSharing] = useState(false);
+  // which share is open on desktop (phones go straight to the share sheet)
+  const [sharing, setSharing] = useState<ShareMode | null>(null);
   const t = result.thresholds;
   const lo = Math.min(t.bronze - 5, ...result.histogram.map((h) => h.score), result.score);
   const hi = result.optimal;
@@ -950,18 +1022,29 @@ export function ResultsModal({
           </Link>
         )}
         <div className="cm-res-btns">
-          <button
-            className="ob-btn"
-            onClick={() => {
-              const phone = typeof navigator !== "undefined" && !!navigator.share && /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent);
-              if (phone) onShare("native");
-              else setSharing((v) => !v);
-            }}
-          >
-            {copied ? "COPIED!" : "SHARE"}
-          </button>
+          {(["score", "path"] as const)
+            .filter((m) => m === "score" || canSharePath)
+            .map((m) => (
+              <button
+                key={m}
+                className={"ob-btn" + (m === "path" ? " cm-dark" : "")}
+                title={m === "score" ? "Your score and stars — no hints" : "Your exact layout — friends see it only after they attack"}
+                onClick={() => {
+                  const phone = typeof navigator !== "undefined" && !!navigator.share && /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent);
+                  if (phone) onShare("native", m);
+                  else setSharing((v) => (v === m ? null : m));
+                }}
+              >
+                {copied && sharing === m ? "COPIED!" : m === "score" ? "SHARE SCORE" : "SHARE PATH"}
+              </button>
+            ))}
           {result.score < result.optimal && <button className="ob-btn cm-dark" onClick={onOptimal}>VIEW BEST</button>}
         </div>
+        {sharing && (
+          <p className="cm-share-note">
+            {sharing === "score" ? "Your score and stars — no hints." : "Your exact layout. Friends can only open it after they attack."}
+          </p>
+        )}
         {sharing && (
           <div className="cm-share-row" role="group" aria-label="Share your result">
             {(
@@ -973,7 +1056,7 @@ export function ResultsModal({
                 ["copy", copied ? "Copied!" : "Copy"],
               ] as const
             ).map(([via, label]) => (
-              <button key={via} className="cm-chip" onClick={() => onShare(via)}>
+              <button key={via} className="cm-chip" onClick={() => onShare(via, sharing)}>
                 {label}
               </button>
             ))}

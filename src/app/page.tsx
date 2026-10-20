@@ -14,13 +14,13 @@ export const metadata: Metadata = {
 };
 
 // Home is Commander (Tim, 2026-10-16); the Red vs Blue map lives at /battleground.
-export default async function Home({ searchParams }: { searchParams: Promise<{ day?: string; unsubscribed?: string }> }) {
+export default async function Home({ searchParams }: { searchParams: Promise<{ day?: string; unsubscribed?: string; p?: string }> }) {
   const sp = await searchParams;
   const day = sp.day && /^\d+$/.test(sp.day) ? Number(sp.day) : undefined;
   // keyed by day so flipping between days starts each board fresh
   return (
     <>
-      <CommanderGame key={day ?? "today"} day={day} unsubscribed={sp.unsubscribed === "1"} />
+      <CommanderGame key={day ?? "today"} day={day} unsubscribed={sp.unsubscribed === "1"} pathId={sp.p && /^[A-Za-z0-9_-]{4,20}$/.test(sp.p) ? sp.p : undefined} />
       <AboutCommander />
     </>
   );

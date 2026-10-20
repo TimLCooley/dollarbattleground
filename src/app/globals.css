@@ -3988,3 +3988,4 @@ a.cc-pill-x:hover { color: #f2c14e; text-decoration: underline; }
 .board[data-skin="pixel"] .cell { box-shadow: var(--shadow-pix); }
 .board[data-skin="pixel"] .cell.red.tuft::before,
 .board[data-skin="pixel"] .cell.blue.tuft::before { content: ""; position: absolute; left: 18%; bottom: 22%; width: 2px; height: 4px; background: rgba(255, 255, 255, 0.34); box-shadow: 4px 0 rgba(255, 255, 255, 0.34), 10px 0 rgba(255, 255, 255, 0.34), 14px 0 rgba(255, 255, 255, 0.34); pointer-events: none; }
+.cm-share-note { margin: 2px 0 0; text-align: center; font-size: 14px; opacity: 0.8; }
