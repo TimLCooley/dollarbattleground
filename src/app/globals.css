@@ -3973,3 +3973,18 @@ a.cc-pill-x:hover { color: #f2c14e; text-decoration: underline; }
 .seo-about dd { margin: 2px 0 0; }
 .seo-about a { color: var(--gold); }
 .cm-share-row { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; width: 100%; }
+
+/* Battleground dressed like Commander (2026-10-20): no riveted panel, the
+   other-game card on top, logo centred with the menu on the right, and flat
+   pixel tiles with a light grass tuft (same as the Commander board). */
+.cartridge.flat { background: none; border: 0; box-shadow: none; padding: 14px 0 40px; max-width: 560px; }
+.cartridge.flat .go-commander { margin: 0 auto 4px; max-width: none; }
+.bg-head-row { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; width: 100%; }
+.bg-head-row picture { display: flex; justify-content: center; }
+.bg-head-row .wordmark-logo { max-width: 100%; }
+.bg-head-row .hmenu { position: relative; top: auto; right: auto; justify-self: end; }
+.bg-head-row .hmenu-btn { width: 40px; height: 40px; background: rgba(0, 0, 0, 0.18); border: 2px solid rgba(255, 255, 255, 0.18); border-radius: 8px; }
+.cartridge.flat .board { max-width: none; border: 4px solid #0c3c21; box-shadow: 0 0 0 3px var(--ground); }
+.board[data-skin="pixel"] .cell { box-shadow: var(--shadow-pix); }
+.board[data-skin="pixel"] .cell.red.tuft::before,
+.board[data-skin="pixel"] .cell.blue.tuft::before { content: ""; position: absolute; left: 18%; bottom: 22%; width: 2px; height: 4px; background: rgba(255, 255, 255, 0.34); box-shadow: 4px 0 rgba(255, 255, 255, 0.34), 10px 0 rgba(255, 255, 255, 0.34), 14px 0 rgba(255, 255, 255, 0.34); pointer-events: none; }
