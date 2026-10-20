@@ -1,5 +1,5 @@
 import { AbsoluteFill, Audio, Img, OffthreadVideo, interpolate, spring, staticFile, useCurrentFrame, useVideoConfig } from "remotion";
-import { CELLS, SIZE, TREE, WALL, WATER, deployable, ownable, reach, simulate, trail, type Layout, type Placement } from "../lib/commander/engine";
+import { CELLS, SIZE, TREE, WALL, WATER, TROOP_NAME, armyKinds, deployable, ownable, reach, simulate, trail, type Layout, type Placement, type Troop } from "../lib/commander/engine";
 import { Ripple, TreeSprite, TroopIcon, Tuft, WALL_BRICK, hasTuft } from "../components/commander/icons";
 
 // Free social clips for Commander (vertical, no HeyGen), built from a real day's
@@ -44,7 +44,12 @@ const chevron: Record<string, string> = {
   r: "82,50 54,24 54,36 68,50 54,64 54,76",
   u: "50,18 76,46 64,46 50,32 36,46 24,46",
   d: "50,82 76,54 64,54 50,68 36,54 24,54",
+  ul: "50,18 76,46 64,46 50,32 36,46 24,46",
+  ur: "50,18 76,46 64,46 50,32 36,46 24,46",
+  dl: "50,18 76,46 64,46 50,32 36,46 24,46",
+  dr: "50,18 76,46 64,46 50,32 36,46 24,46",
 };
+const turn: Record<string, number> = { ul: -45, ur: 45, dl: -135, dr: 135 };
 
 /** When each placement lands and how its squares flip (square by square along its reach). */
 function timeline(L: Layout, moves: Placement[], at: number[], step = 5) {
@@ -117,7 +122,7 @@ function Board({
             )}
             {mine && !troop && mark && ownable(L, i) && (
               <svg viewBox="0 0 100 100" style={{ position: "absolute", inset: "22%", width: "56%", height: "56%" }}>
-                <polygon points={chevron[mark]} fill="rgba(255,255,255,0.6)" />
+                <polygon points={chevron[mark]} fill="rgba(255,255,255,0.6)" transform={turn[mark] ? `rotate(${turn[mark]} 50 50)` : undefined} />
               </svg>
             )}
             {opt && !troop && (
@@ -173,9 +178,10 @@ function Footer({ frame, from }: { frame: number; from: number }) {
 
 /** The next-move quiz: a point in the best layout, the real next move, and two tempting decoys. */
 function quiz(L: Layout, solution: Placement[]) {
-  // the last Archer in the best layout that has some ground behind it (else any later move)
+  // the last Archer (or Scout) in the best layout that has some ground behind it (else any later move)
   let k = -1;
   for (let j = solution.length - 1; j >= 1; j--) if (solution[j].kind === "archer") { k = j; break; }
+  if (k < 0) for (let j = solution.length - 1; j >= 1; j--) if (solution[j].kind === "scout") { k = j; break; }
   if (k < 0) k = Math.max(1, solution.length - 1);
   const before = solution.slice(0, k);
   const next = solution[k];
@@ -195,12 +201,12 @@ function quiz(L: Layout, solution: Placement[]) {
 /** A weak but honest run: each troop where it takes the least new ground. */
 function weakRun(L: Layout): Placement[] {
   const pl: Placement[] = [];
-  const left = { ...L.troops };
+  const left: Record<Troop, number> = { archer: L.troops.archer, soldier: L.troops.soldier, scout: L.troops.scout ?? 0 };
   for (;;) {
     const fin = simulate(L, pl).final;
     let pick: Placement | null = null;
     let least = Infinity;
-    for (const kind of ["archer", "soldier"] as const) {
+    for (const kind of armyKinds(L)) {
       if (left[kind] <= 0) continue;
       for (const i of deployable(L, fin, pl, kind)) {
         const g = reach(L, i, kind).filter((t) => !fin[t]).length;
@@ -212,7 +218,7 @@ function weakRun(L: Layout): Placement[] {
     }
     if (!pick) break;
     pl.push(pick);
-    left[pick.kind as "archer" | "soldier"]--;
+    left[pick.kind as Troop]--;
   }
   return pl;
 }
@@ -287,7 +293,7 @@ export const CommanderClip = (p: CommanderClipProps) => {
     const A_REVEAL = s(1.8);
     // part 2: the new question, no answer — that's the next video
     const q = quiz(L, p.solution);
-    const Kind = q.next.kind === "archer" ? "Archer" : "Soldier";
+    const Kind = TROOP_NAME[q.next.kind as Troop];
     const f2 = frame - A_END;
     const Q_END = A_END + s(8.5);
     const count = f2 >= s(3.2) && f2 < s(6.5) ? 3 - Math.floor((f2 - s(3.2)) / s(1.1)) : null;
@@ -344,7 +350,7 @@ export const CommanderClip = (p: CommanderClipProps) => {
 
   if (p.variant === "nextmove") {
     const q = quiz(L, p.solution);
-    const Kind = q.next.kind === "archer" ? "Archer" : "Soldier";
+    const Kind = TROOP_NAME[q.next.kind as Troop];
     const T_REVEAL = s(9.4);
     const at = [...q.before.map(() => -1), T_REVEAL];
     const moves = [...q.before, q.next];

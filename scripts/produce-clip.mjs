@@ -797,9 +797,12 @@ async function commanderClip({ kind = "nextmove", auto = false, slot = null }) {
   const hypeV = kind === "hype" ? leastUsed(HYPE_LINES.map((_, i) => i), specs.filter((v) => v.kind === "cmd_hype").map((v) => v.hype_v ?? 0)) : null;
   if (kind !== "tutorial" && !row) { console.log(`COMMANDER: no puzzle for day ${want}`); return false; }
   const wd = row?.layout?.weekday ?? 0;
-  const troops = row ? Number(row.layout.troops.archer) + Number(row.layout.troops.soldier) : 0;
+  const troops = row ? Number(row.layout.troops.archer) + Number(row.layout.troops.soldier) + Number(row.layout.troops.scout ?? 0) : 0;
   const seconds = kind === "tutorial" ? 58 : kind === "nextmove" ? 15 : kind === "hype" ? Math.ceil(HYPE_LINES[hypeV].length * 2.1 + 0.6 + 3) : kind === "chain" ? Math.ceil((ans ? 6 : 0) + 8.5 + 3) : Math.ceil(1.6 + (troops * 16) / 30 + 1.2 + 3.2 + 3);
-  const nextKind = row ? (row.solution.slice(1).reverse().find((p) => p.kind === "archer") ? "Archer" : "Soldier") : "Archer";
+  // matches quiz() in CommanderClip: the last Archer, else the last Scout, else the last move
+  const rest = row ? row.solution.slice(1).reverse() : [];
+  const qk = rest.find((p) => p.kind === "archer")?.kind ?? rest.find((p) => p.kind === "scout")?.kind ?? row?.solution.at(-1)?.kind ?? "archer";
+  const nextKind = { archer: "Archer", soldier: "Soldier", scout: "Scout" }[qk] ?? "Archer";
   // A/B testing: each clip kind rotates through caption variants and songs,
   // least-used first over the last 3 weeks; both are logged on the post
   // (video_spec.caption_v / .song) so views can be compared per variant.

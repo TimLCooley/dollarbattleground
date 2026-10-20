@@ -2,17 +2,16 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { CELLS, SIZE, TREE, WALL, WATER, deployable, ownable, prune, simulate, solve, trail, type Kind, type Placement } from "@/lib/commander/engine";
+import { CELLS, SIZE, TREE, WALL, WATER, deployable, ownable, prune, simulate, solve, trail, type Kind, type Placement, type Troop } from "@/lib/commander/engine";
 import { DEMO_LAYOUT } from "@/lib/commander/demo-map";
 import { CommanderLogo } from "./logo";
 import { Notches, Ripple, TreeSprite, TroopIcon, Tuft, hasTuft, sway, wallClass } from "./icons";
 
-// The interactive tutorial (/commander/tutorial): five short steps on the same
+// The interactive tutorial (/commander/tutorial): six short steps on the same
 // map as the how-to-play video. Each step hands you a few troops and a goal;
 // you move on once you reach it — like enclose.horse's tutorial.
 
-type Troop = "archer" | "soldier";
-type Step = { title: string; text: string; archer: number; soldier: number; goal: number; answer?: boolean };
+type Step = { title: string; text: string; archer: number; soldier: number; scout?: number; goal: number; answer?: boolean };
 
 const STEPS: Step[] = [
   {
@@ -28,6 +27,14 @@ const STEPS: Step[] = [
     archer: 0,
     soldier: 1,
     goal: 10,
+  },
+  {
+    title: "Meet the Scout",
+    text: "New troop! Scouts take 2 squares along each diagonal — an X. They hop over water; walls and trees stop them. Some days bring Scouts instead of Archers or Soldiers.",
+    archer: 0,
+    soldier: 0,
+    scout: 1,
+    goal: 14,
   },
   {
     title: "Order matters",
@@ -54,7 +61,7 @@ const STEPS: Step[] = [
   },
 ];
 
-const NAME: Record<Troop, string> = { archer: "Archer", soldier: "Soldier" };
+const NAME: Record<Troop, string> = { archer: "Archer", soldier: "Soldier", scout: "Scout" };
 
 function storedSide(): "red" | "blue" {
   try {
@@ -73,16 +80,18 @@ export function CommanderTutorial() {
   const [side] = useState<"red" | "blue">(() => (typeof window === "undefined" ? "blue" : storedSide()));
 
   const S = STEPS[step];
-  const L = useMemo(() => ({ ...DEMO_LAYOUT, troops: { archer: S.archer, soldier: S.soldier } }), [S]);
+  const L = useMemo(() => ({ ...DEMO_LAYOUT, troops: { archer: S.archer, soldier: S.soldier, scout: S.scout ?? 0 } }), [S]);
   const sim = useMemo(() => simulate(L, placements), [L, placements]);
-  const left = { archer: S.archer - placements.filter((p) => p.kind === "archer").length, soldier: S.soldier - placements.filter((p) => p.kind === "soldier").length };
-  const kinds = (["archer", "soldier"] as Troop[]).filter((k) => S[k] > 0);
-  const kind: Troop = S[selected] > 0 ? selected : kinds[0];
+  const have = (k: Troop) => (k === "scout" ? S.scout ?? 0 : S[k]);
+  const left: Record<Troop, number> = { archer: 0, soldier: 0, scout: 0 };
+  for (const k of ["archer", "soldier", "scout"] as Troop[]) left[k] = have(k) - placements.filter((p) => p.kind === k).length;
+  const kinds = (["archer", "soldier", "scout"] as Troop[]).filter((k) => have(k) > 0);
+  const kind: Troop = have(selected) > 0 ? selected : kinds[0];
   const won = sim.score >= S.goal;
 
   // out of this troop? a tap moves the last one of that kind (same as the daily game)
   const moving = useMemo(() => {
-    if (placements.filter((p) => p.kind === kind).length < L.troops[kind]) return null;
+    if (placements.filter((p) => p.kind === kind).length < have(kind)) return null;
     let last = -1;
     placements.forEach((p, k) => p.kind === kind && (last = k));
     if (last < 0) return null;
@@ -113,7 +122,7 @@ export function CommanderTutorial() {
     setAnswer(false);
     setStep(n);
     setPlacements([]);
-    setSelected(STEPS[n].archer > 0 ? "archer" : "soldier");
+    setSelected(STEPS[n].archer > 0 ? "archer" : STEPS[n].soldier > 0 ? "soldier" : "scout");
   }
 
   const at = new Map<number, Kind>(placements.map((p) => [p.i, p.kind]));
@@ -231,7 +240,7 @@ export function CommanderTutorial() {
             )}
           </div>
           <p className="cm-hint">
-            {left[kind] <= 0 && placements.length < S.archer + S.soldier
+            {left[kind] <= 0 && placements.length < S.archer + S.soldier + (S.scout ?? 0)
               ? `All ${NAME[kind]}s are out — tap a glowing square to move your last ${NAME[kind]} there.`
               : "Tap a glowing square to deploy. Tap a troop to pick it back up."}
           </p>

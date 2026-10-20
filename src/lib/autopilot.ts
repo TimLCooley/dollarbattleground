@@ -530,15 +530,15 @@ export async function runAutopilot(db: Db, opts: { force?: boolean } = {}): Prom
     notes.push(`gold: ${e instanceof Error ? e.message : "failed"}`);
   }
 
-  // Commander: build + exactly solve puzzles a few days ahead, so the first
+  // Commander: build + exactly solve today and the next 10 days, so the first
   // player of the day never waits on the solver.
   try {
     const { dayNumber } = await import("@/lib/commander/engine");
-    const ahead = [1, 2, 3].map((k) => dayNumber() + k);
+    const ahead = Array.from({ length: 11 }, (_, k) => dayNumber() + k);
     const { data: have } = await db.from("commander_days").select("day").in("day", ahead);
     const missing = ahead.find((d) => !(have ?? []).some((h: { day: number }) => h.day === d));
     if (missing) {
-      // one per tick keeps the tick short; three days of runway covers a slow day
+      // one per tick keeps the tick short; today + 10 days of runway (Tim: never be without a board)
       const { getDay } = await import("@/lib/commander/server");
       const d = await getDay(db, missing);
       notes.push(`commander #${missing} built (optimal ${d.optimal})`);

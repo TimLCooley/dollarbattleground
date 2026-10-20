@@ -11,7 +11,10 @@
 // - Soldier: 2 up + 2 down. Walks through trees (and takes them), wades
 //   through water (uses a step, takes nothing); walls stop it.
 // - Score = squares you turned to your color.
-// - The troop count changes every day (2–5 Archers, 2–5 Soldiers).
+// - Scout (2026-10-20): 2 squares along each diagonal (an X). Walls and trees
+//   stop it; it hops water (takes nothing there, keeps going).
+// - Each day uses TWO troop types: Archer + Soldier, or the Scout with one of
+//   them (Scout days start at #8). Counts change every day.
 
 export const SIZE = 11;
 export const CELLS = SIZE * SIZE;
@@ -21,15 +24,23 @@ export const WALL = 1;
 export const TREE = 2;
 export const WATER = 3;
 
-export type Kind = "commander" | "archer" | "soldier";
-export const KINDS: Kind[] = ["commander", "archer", "soldier"];
+export type Kind = "commander" | "archer" | "soldier" | "scout";
+export type Troop = Exclude<Kind, "commander">;
+export const KINDS: Kind[] = ["commander", "archer", "soldier", "scout"];
+export const TROOPS: Troop[] = ["archer", "soldier", "scout"];
+export type Army = { archer: number; soldier: number; scout?: number };
+/** How many of a troop the day hands out (0 when it isn't in today's army). */
+export const countOf = (L: { troops: Army }, k: Troop) => L.troops[k] ?? 0;
+/** The day's two troop types, in tray order. */
+export const armyKinds = (L: { troops: Army }) => TROOPS.filter((k) => countOf(L, k) > 0);
+export const TROOP_NAME: Record<Troop, string> = { archer: "Archer", soldier: "Soldier", scout: "Scout" };
 
 export type Layout = {
   day: number;
   weekday: number; // 0 = Sunday … 6 = Saturday (America/Denver)
   terrain: number[]; // GRASS | WALL | TREE | WATER
   commander: number; // where the puzzle puts the Commander
-  troops: { archer: number; soldier: number };
+  troops: Army;
 };
 
 export type Placement = { i: number; kind: Kind };
@@ -122,13 +133,33 @@ export function generate(day: number, attempt = 0): Layout {
   // a different army every day
   const archer = 2 + pick(4);
   const soldier = 2 + pick(4);
+  // Scout days: the Scout replaces one of the two (same seed otherwise)
+  const sp = scoutPartner(day);
+  const scout = sp ? 2 + pick(3) : 0;
   // the Commander's spot — on land
   let commander = idx(pick(SIZE), pick(SIZE));
   for (let g = 0; g < 200 && terrain[commander] !== GRASS; g++) commander = idx(pick(SIZE), pick(SIZE));
-  return { day, weekday, terrain, commander, troops: { archer, soldier } };
+  const troops: Army = sp === "archer" ? { archer, soldier: 0, scout } : sp === "soldier" ? { archer: 0, soldier, scout } : { archer, soldier };
+  return { day, weekday, terrain, commander, troops };
+}
+
+/** Scout days (from #8): which troop the Scout pairs with, or null for a classic day. */
+export function scoutPartner(day: number): "archer" | "soldier" | null {
+  if (day < 8) return null;
+  const k = (day - 8) % 5;
+  if (k !== 0 && k !== 3) return null; // #8, #11, #13, #16, #18, #21, …
+  return day % 2 === 0 ? "archer" : "soldier";
 }
 
 // ---------- reach ----------
+
+type Dir = "l" | "r" | "u" | "d" | "ul" | "ur" | "dl" | "dr";
+const DIRS: Record<Troop, [number, number, Dir][]> = {
+  archer: [[-1, 0, "l"], [1, 0, "r"]],
+  soldier: [[0, -1, "u"], [0, 1, "d"]],
+  scout: [[-1, -1, "ul"], [1, -1, "ur"], [-1, 1, "dl"], [1, 1, "dr"]],
+};
+const RANGE: Record<Troop, number> = { archer: 3, soldier: 2, scout: 2 };
 
 /** Tiles a troop takes from `i`, including the tile it stands on. */
 export function reach(L: Layout, i: number, kind: Kind): number[] {
@@ -140,8 +171,8 @@ export function reach(L: Layout, i: number, kind: Kind): number[] {
     return out;
   }
   if (ownable(L, i)) out.push(i);
-  const dirs = kind === "archer" ? [[1, 0], [-1, 0]] : [[0, 1], [0, -1]];
-  const range = kind === "archer" ? 3 : 2;
+  const dirs = DIRS[kind].map(([dx, dy]) => [dx, dy]);
+  const range = RANGE[kind];
   for (const [dx, dy] of dirs) {
     for (let k = 1; k <= range; k++) {
       const x = x0 + dx * k;
@@ -151,6 +182,9 @@ export function reach(L: Layout, i: number, kind: Kind): number[] {
       if (kind === "archer") {
         if (t === TREE) break; // the shot hits the tree
         if (t === WALL || t === WATER) continue; // flies over
+      } else if (kind === "scout") {
+        if (t === WALL || t === TREE) break; // blocked
+        if (t === WATER) continue; // hops it
       } else {
         if (t === WALL) break; // soldiers can't climb walls
         if (t === WATER) continue; // they wade through — costs the step, takes nothing
@@ -162,13 +196,13 @@ export function reach(L: Layout, i: number, kind: Kind): number[] {
 }
 
 /** Which way each taken square was reached from a troop at `i` (for the trail markers). */
-export function trail(L: Layout, i: number, kind: Kind): { t: number; dir: "l" | "r" | "u" | "d" }[] {
+export function trail(L: Layout, i: number, kind: Kind): { t: number; dir: Dir }[] {
   if (kind === "commander") return [];
   const [x0, y0] = xy(i);
-  const out: { t: number; dir: "l" | "r" | "u" | "d" }[] = [];
+  const out: { t: number; dir: Dir }[] = [];
   const reached = new Set(reach(L, i, kind));
-  const dirs: [number, number, "l" | "r" | "u" | "d"][] = kind === "archer" ? [[-1, 0, "l"], [1, 0, "r"]] : [[0, -1, "u"], [0, 1, "d"]];
-  const range = kind === "archer" ? 3 : 2;
+  const dirs = DIRS[kind];
+  const range = RANGE[kind];
   for (const [dx, dy, dir] of dirs)
     for (let k = 1; k <= range; k++) {
       const x = x0 + dx * k;
@@ -235,12 +269,12 @@ export function prune(L: Layout, placements: Placement[]): Placement[] {
 }
 
 export function validate(L: Layout, placements: Placement[]): string | null {
-  const count = { archer: 0, soldier: 0 };
+  const count: Record<Troop, number> = { archer: 0, soldier: 0, scout: 0 };
   for (const p of placements) {
-    if ((p.kind !== "archer" && p.kind !== "soldier") || !Number.isInteger(p.i)) return "unknown troop";
-    count[p.kind]++;
+    if (!TROOPS.includes(p.kind as Troop) || !Number.isInteger(p.i)) return "unknown troop";
+    count[p.kind as Troop]++;
   }
-  if (count.archer > L.troops.archer || count.soldier > L.troops.soldier) return "too many troops";
+  if (TROOPS.some((k) => count[k] > countOf(L, k))) return "too many troops";
   if (simulate(L, placements).invalidAt >= 0) return "troops deploy only on ground you hold";
   return null;
 }
@@ -251,24 +285,27 @@ export function validate(L: Layout, placements: Placement[]): string | null {
 export function solve(L: Layout): { score: number; placements: Placement[]; checked: number } {
   const R = new Map<string, number[]>();
   for (let i = 0; i < CELLS; i++) for (const k of KINDS) R.set(`${i}:${k}`, reach(L, i, k));
-  const maxGain = { archer: 6, soldier: 4 };
+  const maxGain: Record<Troop, number> = { archer: 6, soldier: 4, scout: 8 };
+  const kinds = armyKinds(L);
   let best = { score: 0, placements: [] as Placement[] };
   let checked = 0;
   const seen = new Set<string>();
 
-  const dfs = (final: Uint8Array, score: number, pl: Placement[], left: { archer: number; soldier: number }) => {
+  const dfs = (final: Uint8Array, score: number, pl: Placement[], left: Record<Troop, number>) => {
     checked++;
     if (score > best.score) best = { score, placements: pl.slice() };
-    if (score + left.archer * maxGain.archer + left.soldier * maxGain.soldier <= best.score) return;
+    let bound = score;
+    for (const k of kinds) bound += left[k] * maxGain[k];
+    if (bound <= best.score) return;
     const occ = new Set(pl.map((p) => p.i));
     occ.add(L.commander);
-    let key = `${left.archer}${left.soldier}`;
+    let key = kinds.map((k) => left[k]).join(",") + ":";
     for (let i = 0; i < CELLS; i++) key += final[i] ? (occ.has(i) ? "2" : "1") : "0";
     if (seen.has(key)) return;
     seen.add(key);
     for (let i = 0; i < CELLS; i++) {
       if (!final[i] || occ.has(i)) continue;
-      for (const kind of ["archer", "soldier"] as const) {
+      for (const kind of kinds) {
         if (left[kind] <= 0) continue;
         const tiles = R.get(`${i}:${kind}`)!;
         let add = 0;
@@ -288,7 +325,7 @@ export function solve(L: Layout): { score: number; placements: Placement[]; chec
   const final = startGround(L);
   let start = 0;
   for (let i = 0; i < CELLS; i++) start += final[i];
-  dfs(final, start, [], { archer: L.troops.archer, soldier: L.troops.soldier });
+  dfs(final, start, [], { archer: countOf(L, "archer"), soldier: countOf(L, "soldier"), scout: countOf(L, "scout") });
   return { ...best, checked };
 }
 
@@ -296,11 +333,11 @@ export function solve(L: Layout): { score: number; placements: Placement[]; chec
 export function greedy(L: Layout): { score: number; placements: Placement[] } {
   const pl: Placement[] = [];
   let sim = simulate(L, pl);
-  const left = { archer: L.troops.archer, soldier: L.troops.soldier };
+  const left: Record<Troop, number> = { archer: countOf(L, "archer"), soldier: countOf(L, "soldier"), scout: countOf(L, "scout") };
   for (;;) {
     let move: Placement | null = null;
     let most = 0;
-    for (const kind of ["archer", "soldier"] as const) {
+    for (const kind of armyKinds(L)) {
       if (left[kind] <= 0) continue;
       for (const i of deployable(L, sim.final, pl, kind)) {
         let add = 0;
@@ -313,7 +350,7 @@ export function greedy(L: Layout): { score: number; placements: Placement[] } {
     }
     if (!move) break;
     pl.push(move);
-    left[move.kind as "archer" | "soldier"]--;
+    left[move.kind as Troop]--;
     sim = simulate(L, pl);
   }
   return { score: sim.score, placements: pl };
