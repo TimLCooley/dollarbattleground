@@ -649,12 +649,14 @@ const mode = process.argv[2];
 // One of Tim's songs as a bed: a random section, loudness-normalized (quiet is
 // the whole point — "they can't be too loud"), faded in and out, written to
 // public/_wr/<name>.mp3 for Remotion. Returns the staticFile path or null.
-async function musicBed(seconds, name = "bed", lufs = -24) {
+let lastSong = null; // which song the last music bed used (logged on the post for A/B)
+async function musicBed(seconds, name = "bed", lufs = -24, prefer = null) {
   try {
     const list = await fetch(`${SB}/storage/v1/object/list/cast`, { method: "POST", headers: { ...sbh, "Content-Type": "application/json" }, body: JSON.stringify({ prefix: "music/", limit: 50 }) }).then((r) => r.json());
     const songs = (Array.isArray(list) ? list : []).map((f) => f.name).filter((n) => /\.(mp3|m4a|wav)$/i.test(n));
     if (!songs.length) return null;
-    const pick = songs[Math.floor(Math.random() * songs.length)];
+    const pick = prefer && songs.includes(prefer) ? prefer : songs[Math.floor(Math.random() * songs.length)];
+    lastSong = pick;
     const bytes = await fetch(`${SB}/storage/v1/object/cast/music/${pick}`, { headers: sbh }).then((r) => r.arrayBuffer());
     await mkdir("public/_wr", { recursive: true });
     await writeFile("/tmp/song-src.mp3", Buffer.from(bytes));
@@ -774,15 +776,41 @@ async function commanderClip({ kind = "nextmove", auto = false }) {
   const troops = row ? Number(row.layout.troops.archer) + Number(row.layout.troops.soldier) : 0;
   const seconds = kind === "tutorial" ? 58 : kind === "nextmove" ? 15 : Math.ceil(1.6 + (troops * 16) / 30 + 1.2 + 3.2 + 3);
   const nextKind = row ? (row.solution.slice(1).reverse().find((p) => p.kind === "archer") ? "Archer" : "Soldier") : "Archer";
-  const caption = {
-    nextmove: `Where would you place the next ${nextKind}? A, B or C? Yesterday's CommanderBG puzzle — a new map every day at commanderbg.com`,
-    hard: `I can't believe how hard today's CommanderBG puzzle is. Can you beat my score? commanderbg.com`,
-    tutorial: `How to play CommanderBG — a daily strategy puzzle. Place your troops, take the most ground. A new map every day: commanderbg.com`,
-  }[kind];
+  // A/B testing: each clip kind rotates through caption variants and songs,
+  // least-used first over the last 3 weeks; both are logged on the post
+  // (video_spec.caption_v / .song) so views can be compared per variant.
+  const CAPTIONS = {
+    nextmove: [
+      `Where would you place the next ${nextKind}? A, B or C? Yesterday's CommanderBG puzzle — a new map every day at commanderbg.com`,
+      `A, B or C? 👇 Where does the next ${nextKind} go? Answer at the end. Daily puzzle at commanderbg.com`,
+      `Most people pick wrong here. Where would YOU put the next ${nextKind}? commanderbg.com`,
+    ],
+    hard: [
+      `I can't believe how hard today's CommanderBG puzzle is. Can you beat my score? commanderbg.com`,
+      `Today's CommanderBG puzzle broke my brain. Your turn: commanderbg.com`,
+      `Thought this would be easy. It was not. A new strategy puzzle every day at commanderbg.com`,
+    ],
+    tutorial: [
+      `How to play CommanderBG — a daily strategy puzzle. Place your troops, take the most ground. A new map every day: commanderbg.com`,
+      `Learn CommanderBG in under a minute, then try today's map: commanderbg.com`,
+    ],
+  };
+  const past = await fetch(`${SB}/rest/v1/agent_posts?agent=eq.commander&created_at=gte.${new Date(Date.now() - 21 * 86_400_000).toISOString()}&select=video_spec`, { headers: sbh }).then((r) => r.json()).catch(() => []);
+  const specs = (Array.isArray(past) ? past : []).map((r) => r.video_spec ?? {});
+  const leastUsed = (opts, used) => opts.map((o) => [o, used.filter((u) => u === o).length]).sort((x, y) => x[1] - y[1])[0][0];
+  const captionV = leastUsed(CAPTIONS[kind].map((_, i) => i), specs.filter((v) => v.kind === `cmd_${kind}`).map((v) => v.caption_v ?? 0));
+  const caption = CAPTIONS[kind][captionV];
+  const songPrefer = await (async () => {
+    try {
+      const l = await fetch(`${SB}/storage/v1/object/list/cast`, { method: "POST", headers: { ...sbh, "Content-Type": "application/json" }, body: JSON.stringify({ prefix: "music/", limit: 50 }) }).then((r) => r.json());
+      const songs = (Array.isArray(l) ? l : []).map((x) => x.name).filter((n) => /\.(mp3|m4a|wav)$/i.test(n));
+      return songs.length ? leastUsed(songs, specs.map((v) => v.song).filter(Boolean)) : null;
+    } catch { return null; }
+  })();
   const props = { variant: kind, day: row?.day ?? today, dayLabel: row ? `${CMD_WD[wd]} · ${CMD_LV[CMD_DIF[wd]]}` : "", layout: row?.layout ?? null, solution: row?.solution ?? [], optimal: row?.optimal ?? 0, seconds };
-  console.log("COMMANDER CLIP:", kind, `day ${props.day}`, `${seconds}s`);
+  console.log("COMMANDER CLIP:", kind, `day ${props.day}`, `${seconds}s`, `caption v${captionV}`, `song ${songPrefer ?? "random"}`);
   if (process.env.PLAN_ONLY) return false;
-  props.audioSrc = await musicBed(seconds, "bed", -24);
+  props.audioSrc = await musicBed(seconds, "bed", -24, songPrefer);
   props.audioVolume = 0.5;
   await writeFile("/tmp/cmd-props.json", JSON.stringify(props));
   execSync("npx remotion render src/remotion/index.ts CommanderClip /tmp/cmd.mp4 --props=/tmp/cmd-props.json --concurrency=1", { stdio: "inherit" });
@@ -798,7 +826,7 @@ async function commanderClip({ kind = "nextmove", auto = false }) {
     agent: "commander", faction: f, status: "queued", format: "video", angle: "recruit", network: f, x_account: f, video_kind: "dispatch", media_url: mediaUrl, copy: caption,
     reason: `${auto ? "" : "MANUAL TEST — posts only if you press Post now · "}[theme:cmd_${kind}] Commander clip (${kind}, no HeyGen) — day ${props.day}`,
     scheduled_for: auto ? new Date(Date.now() + reviewMin * 60_000).toISOString() : null,
-    video_spec: { kind: `cmd_${kind}`, commander: true, day: props.day, topic: `commander · ${kind}`, rendered_at: new Date().toISOString(), placeholder: false, free: true, music: !!props.audioSrc },
+    video_spec: { kind: `cmd_${kind}`, commander: true, day: props.day, topic: `commander · ${kind}`, rendered_at: new Date().toISOString(), placeholder: false, free: true, music: !!props.audioSrc, song: props.audioSrc ? lastSong : null, caption_v: captionV },
   }) });
   console.log(`QUEUED commander ${kind} clip${auto ? "" : " (manual test)"}`);
   return true;
@@ -979,9 +1007,9 @@ if (mode === "due") {
       await dispatchClip({ side, kind, auto: true });
     }
   } catch (e) { console.log("free clip failed:", e?.message ?? e); }
-  // The founder's daily clip: once a day, after 16:00 UTC (10am Mountain),
-  // when today's doesn't exist yet. Reviewed on /admin/agents like the rest.
-  if (new Date().getUTCHours() >= 16) {
+  // (retired 2026-10-19, Tim: game clips only) the founder's daily on-camera
+  // clip — kept behind a flag. Once a day after 16:00 UTC when set.
+  if (process.env.FOUNDER_CLIPS && new Date().getUTCHours() >= 16) {
     process.env.AUTO = "1"; // the daily clip is real: it gets a slot
     try { await produce({ faction: "founder", kind: "founder" }); } catch (e) { console.log("founder clip failed:", e?.message ?? e); }
   }
