@@ -1,6 +1,7 @@
 import { AbsoluteFill, Audio, Img, OffthreadVideo, interpolate, spring, staticFile, useCurrentFrame, useVideoConfig } from "remotion";
 import { CELLS, SIZE, TREE, WALL, WATER, TROOP_NAME, armyKinds, deployable, ownable, reach, simulate, trail, type Layout, type Placement, type Troop } from "../lib/commander/engine";
 import { Ripple, TreeSprite, TroopIcon, Tuft, WALL_BRICK, hasTuft } from "../components/commander/icons";
+import { BODY_FONT, HEAD_FONT } from "./fonts";
 
 // Free social clips for Commander (vertical, no HeyGen), built from a real day's
 // puzzle with the real engine:
@@ -34,8 +35,8 @@ const FPS = 30;
 const ME = "#356fd0";
 const ENEMY = "#d23b3b";
 const GOLD = "#f2c14e";
-const FONT = "'Arial Black', Arial, Helvetica, sans-serif";
-const BODY = "Arial, Helvetica, sans-serif";
+const FONT = HEAD_FONT;
+const BODY = BODY_FONT;
 const s = (sec: number) => Math.round(sec * FPS);
 const phase = (frame: number, i: number, period: number): "a" | "b" =>
   Math.floor((frame / FPS + ((i * 37) % 23) / 10) / (period / 2)) % 2 === 0 ? "a" : "b";
