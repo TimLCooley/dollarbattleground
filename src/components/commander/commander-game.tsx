@@ -344,16 +344,12 @@ export function CommanderGame({ day: askedDay, unsubscribed = false, pathId }: {
   function shareLink() {
     return `https://commanderbg.com/d/${data?.day ?? 1}`;
   }
+  // Share score (Tim, 2026-10-21): the board number, your stars, the link —
+  // no score, so it never hints at the best possible.
   function shareText() {
-    if (!data || !result || !L) return "";
-    // your color vs. the ground still held by the other side
-    let land = 0;
-    for (let i = 0; i < CELLS; i++) if (ownable(L, i)) land++;
-    const mine = side === "red" ? "🟥 Red" : "🟦 Blue";
-    const theirs = side === "red" ? "🟦 Blue" : "🟥 Red";
-    const lines = [`I scored ${result.score} points in CommanderBG`];
-    if (result.medal) lines.push(`Rank: ${STARS[result.medal]}`);
-    lines.push(`${mine} - ${result.score}`, `${theirs} - ${land - result.score}`);
+    if (!data || !result) return "";
+    const lines = [`CommanderBG #${data.day}`];
+    if (result.medal) lines.push(`My Rank: ${STARS[result.medal]}`);
     lines.push(`Play 👉 ${shareLink().replace("https://", "")}`);
     return lines.join("\n");
   }
