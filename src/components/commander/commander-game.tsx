@@ -371,8 +371,7 @@ export function CommanderGame({ day: askedDay, unsubscribed = false, pathId }: {
   }
 
   // Share (Tim, 2026-10-21): one tap copies, then paste it anywhere. Score =
-  // the spoiler-free text; path = the board picture (plus the caption and link
-  // for apps that paste text).
+  // the spoiler-free text; path = the board picture only (no text with it).
   async function share(mode: ShareMode) {
     if (mode === "path" && !myPathId) return;
     const text = mode === "path" ? pathText() : shareText();
@@ -383,14 +382,8 @@ export function CommanderGame({ day: askedDay, unsubscribed = false, pathId }: {
     };
     try {
       if (mode === "path" && pathImg && typeof ClipboardItem !== "undefined") {
-        try {
-          await navigator.clipboard.write([new ClipboardItem({ "image/png": pathImg, "text/plain": new Blob([text], { type: "text/plain" }) })]);
-          return done();
-        } catch {
-          // some browsers take one kind per copy — the picture alone
-          await navigator.clipboard.write([new ClipboardItem({ "image/png": pathImg })]);
-          return done();
-        }
+        await navigator.clipboard.write([new ClipboardItem({ "image/png": pathImg })]);
+        return done();
       }
       await navigator.clipboard.writeText(text);
       done();
