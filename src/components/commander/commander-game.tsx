@@ -19,7 +19,6 @@ import {
   trail,
   armyKinds,
   countOf,
-  boardEmoji,
   type Kind,
   type Layout,
   type Troop,
@@ -71,7 +70,7 @@ function storedSide(): Side | null {
 
 type FriendPath = { day: number; locked: boolean; mine?: boolean; score?: number; placements?: Placement[] };
 type ShareMode = "score" | "path";
-type ShareVia = "native" | "copy" | "x" | "facebook" | "whatsapp" | "reddit";
+type ShareVia = "native" | "copy" | "x" | "facebook" | "whatsapp" | "reddit" | "image" | "download";
 
 export function CommanderGame({ day: askedDay, unsubscribed = false, pathId }: { day?: number; unsubscribed?: boolean; pathId?: string } = {}) {
   const [data, setData] = useState<DayResponse | null>(null);
@@ -105,6 +104,7 @@ export function CommanderGame({ day: askedDay, unsubscribed = false, pathId }: {
   const [friend, setFriend] = useState<FriendPath | null>(null);
   const [showFriend, setShowFriend] = useState(false);
   const [myPathId, setMyPathId] = useState<string | null>(null);
+  const [pathImg, setPathImg] = useState<File | null>(null); // the square board picture, fetched ahead so sharing stays instant
 
   async function load() {
     try {
@@ -332,6 +332,14 @@ export function CommanderGame({ day: askedDay, unsubscribed = false, pathId }: {
       .catch(() => {});
   }, [result, data?.signedIn, data?.day, myPathId]);
 
+  useEffect(() => {
+    if (!myPathId || pathImg) return;
+    fetch(`/s/${myPathId}/board`)
+      .then((r) => (r.ok ? r.blob() : null))
+      .then((b) => b && setPathImg(new File([b], `commanderbg-${data?.day ?? ""}.png`, { type: "image/png" })))
+      .catch(() => {});
+  }, [myPathId, pathImg, data?.day]);
+
   // Share (Tim, 2026-10-18): simple and spoiler-free — what your troops took,
   // your medal, and a link that opens the same puzzle. Never the best score.
   function shareLink() {
@@ -354,13 +362,13 @@ export function CommanderGame({ day: askedDay, unsubscribed = false, pathId }: {
   function pathLink() {
     return `https://commanderbg.com/s/${myPathId ?? ""}`;
   }
-  // Share path (Tim, 2026-10-21): your whole board as a little emoji map —
-  // your squares, theirs, terrain and where each troop stood. Share score stays
-  // spoiler-free; this one is the full plan.
+  // Share path (Tim, 2026-10-21): a picture of your whole board (attached on
+  // phones) with a short caption and the link. Where a picture can't go along
+  // (X, web share links), the link preview shows the same board.
   function pathText() {
-    if (!data || !result || !L) return "";
+    if (!data || !result) return "";
     const stars = result.medal ? " " + STARS[result.medal] : "";
-    return [`CommanderBG #${data.day}${stars}`, ...boardEmoji(L, result.placements, side === "red" ? "red" : "blue"), `Play it 👉 ${pathLink().replace("https://", "")}`].join("\n");
+    return [`CommanderBG #${data.day}${stars}`, `Play it 👉 ${pathLink().replace("https://", "")}`].join("\n");
   }
 
   async function share(via: ShareVia, mode: ShareMode = "score") {
@@ -370,7 +378,21 @@ export function CommanderGame({ day: askedDay, unsubscribed = false, pathId }: {
     track("commander_share", { via, mode });
     const enc = encodeURIComponent;
     try {
-      if (via === "native" && navigator.share) await navigator.share({ text });
+      if (via === "native" && navigator.share) {
+        const files = mode === "path" && pathImg ? [pathImg] : null;
+        if (files && navigator.canShare?.({ files, text })) await navigator.share({ files, text });
+        else await navigator.share({ text });
+      } else if (via === "image" && pathImg) {
+        await navigator.clipboard.write([new ClipboardItem({ "image/png": pathImg })]);
+        setCopied(true);
+        window.setTimeout(() => setCopied(false), 2000);
+      } else if (via === "download" && pathImg) {
+        const a = document.createElement("a");
+        a.href = URL.createObjectURL(pathImg);
+        a.download = pathImg.name;
+        a.click();
+        window.setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+      }
       else if (via === "x") window.open(`https://x.com/intent/post?text=${enc(text)}`, "_blank", "noopener");
       else if (via === "facebook") window.open(`https://www.facebook.com/sharer/sharer.php?u=${enc(link)}`, "_blank", "noopener");
       else if (via === "whatsapp") window.open(`https://wa.me/?text=${enc(text)}`, "_blank", "noopener");
@@ -1048,18 +1070,24 @@ export function ResultsModal({
         </div>
         {sharing && (
           <p className="cm-share-note">
-            {sharing === "score" ? "Your score and stars — no hints." : "Your exact layout. Friends can only open it after they attack."}
+            {sharing === "score" ? "Your score and stars — no hints." : "A picture of your whole board, with the link to play."}
           </p>
         )}
         {sharing && (
           <div className="cm-share-row" role="group" aria-label="Share your result">
             {(
               [
+                ...(sharing === "path"
+                  ? ([
+                      ["image", copied ? "Copied!" : "Copy image"],
+                      ["download", "Download"],
+                    ] as const)
+                  : []),
                 ["x", "X"],
                 ["facebook", "Facebook"],
                 ["whatsapp", "WhatsApp"],
                 ["reddit", "Reddit"],
-                ["copy", copied ? "Copied!" : "Copy"],
+                ["copy", sharing === "path" ? "Copy link" : copied ? "Copied!" : "Copy"],
               ] as const
             ).map(([via, label]) => (
               <button key={via} className="cm-chip" onClick={() => onShare(via, sharing)}>
