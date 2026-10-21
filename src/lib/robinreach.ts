@@ -62,13 +62,25 @@ export async function crosspostToTikTok(
   post: { id: number; faction: "red" | "blue"; copy: string; media_url: string; commander?: boolean },
 ): Promise<{ ok: boolean; postId?: number; error?: string }> {
   const cfg = await getCrosspost(db);
-  return publishViaRobinReach(db, {
+  // X allows Tim 5 posts a day: once 5 clips have gone to X in the last 24
+  // hours, this clip skips X (TikTok, Instagram and YouTube still get it).
+  const since = new Date(Date.now() - 24 * 3600_000).toISOString();
+  const { count } = await db.from("agent_posts").select("id", { count: "exact", head: true }).gte("x_at", since);
+  const xRoom = (count ?? 0) < X_PER_DAY;
+  const profileIds = xRoom ? cfg.team_profile_ids : cfg.team_profile_ids.filter((id) => id !== X_PROFILE_ID);
+  const r = await publishViaRobinReach(db, {
     ...post,
-    profileIds: cfg.team_profile_ids,
+    profileIds,
     labels: post.commander ? ["commander"] : ["battleground", post.faction],
     ...tiktokCaption(post.faction, post.copy, post.commander),
   });
+  if (r.ok && profileIds.includes(X_PROFILE_ID)) await db.from("agent_posts").update({ x_at: new Date().toISOString() }).eq("id", post.id);
+  return r;
 }
+
+// Tim's X account on RobinReach, and its daily posting limit.
+const X_PROFILE_ID = 15815;
+const X_PER_DAY = 5;
 
 // The founder's own clip: the caption is already written for TikTok.
 export async function publishFounderClip(
