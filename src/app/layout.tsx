@@ -1,21 +1,24 @@
 import type { Metadata, Viewport } from "next";
-import { Silkscreen, Schoolbell } from "next/font/google";
+import { Russo_One, Chakra_Petch } from "next/font/google";
 import "./globals.css";
 import { AdminReturn } from "@/components/admin-return";
 import { VersionWatch } from "@/components/version-watch";
 import { MetaPixel } from "@/components/meta-pixel";
 import { FaviconSwitcher } from "@/components/favicon-switcher";
 
-const silkscreen = Silkscreen({
+// Fonts (Tim, 2026-10-21, pairing #5): Russo One for headers, buttons and
+// labels (--font-pixel, the old pixel slot); Chakra Petch for everything else
+// (--font-hand, the old handwriting slot).
+const russo = Russo_One({
   variable: "--font-pixel",
   subsets: ["latin"],
-  weight: ["400", "700"],
+  weight: "400",
 });
 
-const schoolbell = Schoolbell({
+const chakra = Chakra_Petch({
   variable: "--font-hand",
   subsets: ["latin"],
-  weight: "400",
+  weight: ["400", "500", "600", "700"],
 });
 
 const SITE_DESCRIPTION =
@@ -54,7 +57,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${silkscreen.variable} ${schoolbell.variable} antialiased`}
+      className={`${russo.variable} ${chakra.variable} antialiased`}
     >
       <body>
         <FaviconSwitcher />
