@@ -17,8 +17,10 @@ import {
   reach,
   simulate,
   trail,
+  TROOP_EMOJI,
   armyKinds,
   countOf,
+  moveRows,
   type Kind,
   type Layout,
   type Troop,
@@ -334,7 +336,7 @@ export function CommanderGame({ day: askedDay, unsubscribed = false, pathId }: {
   // Share (Tim, 2026-10-18): simple and spoiler-free — what your troops took,
   // your medal, and a link that opens the same puzzle. Never the best score.
   function shareLink() {
-    return `https://commanderbg.com/?day=${data?.day ?? 1}&ref=share`;
+    return `https://commanderbg.com/d/${data?.day ?? 1}`;
   }
   function shareText() {
     if (!data || !result || !L) return "";
@@ -346,15 +348,21 @@ export function CommanderGame({ day: askedDay, unsubscribed = false, pathId }: {
     const lines = [`I scored ${result.score} points in CommanderBG`];
     if (result.medal) lines.push(`Rank: ${STARS[result.medal]}`);
     lines.push(`${mine} - ${result.score}`, `${theirs} - ${land - result.score}`);
-    lines.push(`Play 👉 ${shareLink()}`);
+    lines.push(`Play 👉 ${shareLink().replace("https://", "")}`);
     return lines.join("\n");
   }
 
   function pathLink() {
-    return `https://commanderbg.com/?day=${data?.day ?? 1}&p=${myPathId ?? ""}&ref=share`;
+    return `https://commanderbg.com/s/${myPathId ?? ""}`;
   }
+  // Wordle-style: one row per move — the troop, then a square for every square
+  // it took. Shows how you played, never where.
   function pathText() {
-    return [`Here's my battle plan for CommanderBG #${data?.day ?? 1} 🗺️`, `Play it first — it unlocks after you attack, then compare 👉 ${pathLink()}`].join("\n");
+    if (!data || !result || !L) return "";
+    const sq = side === "red" ? "🟥" : "🟦";
+    const rows = moveRows(L, result.placements).map((r) => TROOP_EMOJI[r.kind] + sq.repeat(r.took));
+    const stars = result.medal ? " " + STARS[result.medal] : "";
+    return [`CommanderBG #${data.day}${stars}`, ...rows, `My plan unlocks after you attack 👉 ${pathLink().replace("https://", "")}`].join("\n");
   }
 
   async function share(via: ShareVia, mode: ShareMode = "score") {
