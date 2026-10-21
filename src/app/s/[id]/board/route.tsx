@@ -3,7 +3,7 @@ import { sharedPath } from "@/lib/commander/share";
 import { BoardArt, STARS, boardPx } from "@/lib/commander/board-card";
 
 // The square "Share path" picture (Tim, 2026-10-21): the board alone, with a
-// thin CommanderBG strip, sized to drop into a text thread like Wordle's grid.
+// thin CommanderBG strip and "Play at commanderbg.com" (a picture can't carry a link).
 
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -13,6 +13,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   const board = boardPx(tile);
   const pad = 20;
   const strip = 56;
+  const foot = 44; // the picture has no link, so it says where to play
   return new ImageResponse(
     (
       <div
@@ -33,8 +34,9 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
           <div style={{ display: "flex", fontSize: 30, fontWeight: 800 }}>{`#${p.day} ${p.medal ? STARS[p.medal] : ""}`}</div>
         </div>
         <BoardArt layout={p.layout} placements={p.placements} side={p.side} tile={tile} />
+        <div style={{ display: "flex", height: foot, alignItems: "flex-end", fontSize: 26, fontWeight: 800 }}>Play at commanderbg.com</div>
       </div>
     ),
-    { width: board + pad * 2, height: board + pad * 2 + strip, headers: { "Cache-Control": "public, max-age=3600" } },
+    { width: board + pad * 2, height: board + pad * 2 + strip + foot, headers: { "Cache-Control": "public, max-age=3600" } },
   );
 }

@@ -70,7 +70,6 @@ function storedSide(): Side | null {
 
 type FriendPath = { day: number; locked: boolean; mine?: boolean; score?: number; placements?: Placement[] };
 type ShareMode = "score" | "path";
-type ShareVia = "native" | "copy" | "x" | "facebook" | "whatsapp" | "reddit" | "image" | "download";
 
 export function CommanderGame({ day: askedDay, unsubscribed = false, pathId }: { day?: number; unsubscribed?: boolean; pathId?: string } = {}) {
   const [data, setData] = useState<DayResponse | null>(null);
@@ -99,7 +98,7 @@ export function CommanderGame({ day: askedDay, unsubscribed = false, pathId }: {
   }); // "Already enlisted? Log in" — e.g. on a new computer
   const [loginOpen, setLoginOpen] = useState(false);
   const [enlistOpen, setEnlistOpen] = useState(false);
-  const [copied, setCopied] = useState(false);
+  const [copied, setCopied] = useState<ShareMode | null>(null);
   // "Share my path": a friend's layout from a ?p= link (locked until you've played that day)
   const [friend, setFriend] = useState<FriendPath | null>(null);
   const [showFriend, setShowFriend] = useState(false);
@@ -334,7 +333,7 @@ export function CommanderGame({ day: askedDay, unsubscribed = false, pathId }: {
 
   useEffect(() => {
     if (!myPathId || pathImg) return;
-    fetch(`/s/${myPathId}/board`)
+    fetch(`/s/${myPathId}/board?v=2`)
       .then((r) => (r.ok ? r.blob() : null))
       .then((b) => b && setPathImg(new File([b], `commanderbg-${data?.day ?? ""}.png`, { type: "image/png" })))
       .catch(() => {});
@@ -371,39 +370,32 @@ export function CommanderGame({ day: askedDay, unsubscribed = false, pathId }: {
     return [`CommanderBG #${data.day}${stars}`, `Play it 👉 ${pathLink().replace("https://", "")}`].join("\n");
   }
 
-  async function share(via: ShareVia, mode: ShareMode = "score") {
+  // Share (Tim, 2026-10-21): one tap copies, then paste it anywhere. Score =
+  // the spoiler-free text; path = the board picture (plus the caption and link
+  // for apps that paste text).
+  async function share(mode: ShareMode) {
     if (mode === "path" && !myPathId) return;
     const text = mode === "path" ? pathText() : shareText();
-    const link = mode === "path" ? pathLink() : shareLink();
-    track("commander_share", { via, mode });
-    const enc = encodeURIComponent;
+    track("commander_share", { via: "copy", mode });
+    const done = () => {
+      setCopied(mode);
+      window.setTimeout(() => setCopied(null), 2500);
+    };
     try {
-      if (via === "native" && navigator.share) {
-        const files = mode === "path" && pathImg ? [pathImg] : null;
-        if (files && navigator.canShare?.({ files, text })) await navigator.share({ files, text });
-        else await navigator.share({ text });
-      } else if (via === "image" && pathImg) {
-        await navigator.clipboard.write([new ClipboardItem({ "image/png": pathImg })]);
-        setCopied(true);
-        window.setTimeout(() => setCopied(false), 2000);
-      } else if (via === "download" && pathImg) {
-        const a = document.createElement("a");
-        a.href = URL.createObjectURL(pathImg);
-        a.download = pathImg.name;
-        a.click();
-        window.setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+      if (mode === "path" && pathImg && typeof ClipboardItem !== "undefined") {
+        try {
+          await navigator.clipboard.write([new ClipboardItem({ "image/png": pathImg, "text/plain": new Blob([text], { type: "text/plain" }) })]);
+          return done();
+        } catch {
+          // some browsers take one kind per copy — the picture alone
+          await navigator.clipboard.write([new ClipboardItem({ "image/png": pathImg })]);
+          return done();
+        }
       }
-      else if (via === "x") window.open(`https://x.com/intent/post?text=${enc(text)}`, "_blank", "noopener");
-      else if (via === "facebook") window.open(`https://www.facebook.com/sharer/sharer.php?u=${enc(link)}`, "_blank", "noopener");
-      else if (via === "whatsapp") window.open(`https://wa.me/?text=${enc(text)}`, "_blank", "noopener");
-      else if (via === "reddit") window.open(`https://www.reddit.com/submit?url=${enc(link)}&title=${enc(text.split("\n")[0])}`, "_blank", "noopener");
-      else {
-        await navigator.clipboard.writeText(text);
-        setCopied(true);
-        window.setTimeout(() => setCopied(false), 2000);
-      }
+      await navigator.clipboard.writeText(text);
+      done();
     } catch {
-      /* cancelled */
+      /* clipboard blocked */
     }
   }
 
@@ -954,14 +946,12 @@ export function ResultsModal({
   day: number;
   result: Result;
   enlisted?: boolean;
-  copied: boolean;
+  copied: ShareMode | null;
   canSharePath: boolean;
-  onShare: (via: ShareVia, mode: ShareMode) => void;
+  onShare: (mode: ShareMode) => void;
   onClose: () => void;
   onOptimal: () => void;
 }) {
-  // which share is open on desktop (phones go straight to the share sheet)
-  const [sharing, setSharing] = useState<ShareMode | null>(null);
   const t = result.thresholds;
   const lo = Math.min(t.bronze - 5, ...result.histogram.map((h) => h.score), result.score);
   const hi = result.optimal;
@@ -1056,46 +1046,15 @@ export function ResultsModal({
               <button
                 key={m}
                 className={"ob-btn" + (m === "path" ? " cm-dark" : "")}
-                title={m === "score" ? "Your score and stars — no hints" : "Your exact layout — friends see it only after they attack"}
-                onClick={() => {
-                  const phone = typeof navigator !== "undefined" && !!navigator.share && /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent);
-                  if (phone) onShare("native", m);
-                  else setSharing((v) => (v === m ? null : m));
-                }}
+                title={m === "score" ? "Copies your score and stars — no hints" : "Copies a picture of your board"}
+                onClick={() => onShare(m)}
               >
-                {copied && sharing === m ? "COPIED!" : m === "score" ? "SHARE SCORE" : "SHARE PATH"}
+                {copied === m ? "COPIED ✓" : m === "score" ? "SHARE SCORE" : "SHARE PATH"}
               </button>
             ))}
           {result.score < result.optimal && <button className="ob-btn cm-dark" onClick={onOptimal}>VIEW BEST</button>}
         </div>
-        {sharing && (
-          <p className="cm-share-note">
-            {sharing === "score" ? "Your score and stars — no hints." : "A picture of your whole board, with the link to play."}
-          </p>
-        )}
-        {sharing && (
-          <div className="cm-share-row" role="group" aria-label="Share your result">
-            {(
-              [
-                ...(sharing === "path"
-                  ? ([
-                      ["image", copied ? "Copied!" : "Copy image"],
-                      ["download", "Download"],
-                    ] as const)
-                  : []),
-                ["x", "X"],
-                ["facebook", "Facebook"],
-                ["whatsapp", "WhatsApp"],
-                ["reddit", "Reddit"],
-                ["copy", sharing === "path" ? "Copy link" : copied ? "Copied!" : "Copy"],
-              ] as const
-            ).map(([via, label]) => (
-              <button key={via} className="cm-chip" onClick={() => onShare(via, sharing)}>
-                {label}
-              </button>
-            ))}
-          </div>
-        )}
+        {copied && <p className="cm-share-note">Copied — paste it anywhere.</p>}
         <Link className="ob-skip" href="/battleground">‹ back to the main map</Link>
       </div>
     </div>
