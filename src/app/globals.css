@@ -56,7 +56,7 @@ body {
 body {
   background-color: var(--ground);
   color: var(--cream);
-  font-family: var(--font-hand), ui-rounded, system-ui, sans-serif;
+  font-family: var(--font-hand), system-ui, sans-serif;
   min-height: 100vh;
   display: flex;
   flex-direction: column;
@@ -3989,3 +3989,9 @@ a.cc-pill-x:hover { color: #f2c14e; text-decoration: underline; }
 .board[data-skin="pixel"] .cell.red.tuft::before,
 .board[data-skin="pixel"] .cell.blue.tuft::before { content: ""; position: absolute; left: 18%; bottom: 22%; width: 2px; height: 4px; background: rgba(255, 255, 255, 0.34); box-shadow: 4px 0 rgba(255, 255, 255, 0.34), 10px 0 rgba(255, 255, 255, 0.34), 14px 0 rgba(255, 255, 255, 0.34); pointer-events: none; }
 .cm-share-note { margin: 2px 0 0; text-align: center; font-size: 14px; opacity: 0.8; }
+
+/* Fonts (2026-10-21): form controls take the page font instead of the browser
+   default (that was the Times New Roman), and Russo One — a single heavy weight —
+   is never faux-bolded. */
+button, input, select, textarea { font-family: inherit; }
+html { font-synthesis-weight: none; }
