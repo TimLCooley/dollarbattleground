@@ -1,0 +1,40 @@
+import { ImageResponse } from "next/og";
+import { sharedPath } from "@/lib/commander/share";
+import { BoardArt, STARS, boardPx } from "@/lib/commander/board-card";
+
+// The square "Share path" picture (Tim, 2026-10-21): the board alone, with a
+// thin CommanderBG strip, sized to drop into a text thread like Wordle's grid.
+
+export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  const p = await sharedPath(id);
+  if (!p) return new Response("not found", { status: 404 });
+  const tile = 44;
+  const board = boardPx(tile);
+  const pad = 20;
+  const strip = 56;
+  return new ImageResponse(
+    (
+      <div
+        style={{
+          width: "100%",
+          height: "100%",
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          padding: pad,
+          background: "#0a2e1a",
+          color: "#f6efdb",
+          fontFamily: "sans-serif",
+        }}
+      >
+        <div style={{ display: "flex", width: board, height: strip, alignItems: "center", justifyContent: "space-between" }}>
+          <div style={{ display: "flex", fontSize: 34, fontWeight: 900, color: "#f2c14e" }}>CommanderBG</div>
+          <div style={{ display: "flex", fontSize: 30, fontWeight: 800 }}>{`#${p.day} ${p.medal ? STARS[p.medal] : ""}`}</div>
+        </div>
+        <BoardArt layout={p.layout} placements={p.placements} side={p.side} tile={tile} />
+      </div>
+    ),
+    { width: board + pad * 2, height: board + pad * 2 + strip, headers: { "Cache-Control": "public, max-age=3600" } },
+  );
+}
