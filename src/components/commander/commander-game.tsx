@@ -366,8 +366,10 @@ export function CommanderGame({ day: askedDay, unsubscribed = false, pathId }: {
     return [`CommanderBG #${data.day}${stars}`, `Play it 👉 ${pathLink().replace("https://", "")}`].join("\n");
   }
 
-  // Share (Tim, 2026-10-21): one tap copies, then paste it anywhere. Score =
-  // the spoiler-free text; path = the board picture only (no text with it).
+  // Share (Tim, 2026-10-21): one tap. Score copies the spoiler-free text. Path
+  // opens the share sheet on phones (picture + caption + tappable link in one
+  // message); on computers it copies the picture, with the caption alongside
+  // for apps that paste text.
   async function share(mode: ShareMode) {
     if (mode === "path" && !myPathId) return;
     const text = mode === "path" ? pathText() : shareText();
@@ -377,8 +379,18 @@ export function CommanderGame({ day: askedDay, unsubscribed = false, pathId }: {
       window.setTimeout(() => setCopied(null), 2500);
     };
     try {
+      const phone = !!navigator.share && /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent);
+      if (mode === "path" && phone && pathImg && navigator.canShare?.({ files: [pathImg], text })) {
+        await navigator.share({ files: [pathImg], text });
+        return;
+      }
       if (mode === "path" && pathImg && typeof ClipboardItem !== "undefined") {
-        await navigator.clipboard.write([new ClipboardItem({ "image/png": pathImg })]);
+        try {
+          await navigator.clipboard.write([new ClipboardItem({ "image/png": pathImg, "text/plain": new Blob([text], { type: "text/plain" }) })]);
+        } catch {
+          // some browsers take one kind per copy — the picture alone
+          await navigator.clipboard.write([new ClipboardItem({ "image/png": pathImg })]);
+        }
         return done();
       }
       await navigator.clipboard.writeText(text);
