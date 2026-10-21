@@ -4,6 +4,7 @@ import { createClient } from "@/utils/supabase/server";
 import { requireAdmin } from "@/lib/admin-auth";
 import { dayNumber, thresholds } from "@/lib/commander/engine";
 import { getDay, histogram } from "@/lib/commander/server";
+import { commanderRank, type CmdRank } from "@/lib/commander/rank";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 120;
@@ -23,13 +24,20 @@ export async function GET(req: Request) {
   const user = u.user && !u.user.is_anonymous ? u.user : null;
   let side: string | null = null;
   let mine = null;
+  let rank: CmdRank | null = null;
   if (user) {
-    const [, { data: fc }, { data: sc }] = await Promise.all([
+    const [, { data: fc }, { data: sc }, { data: all }] = await Promise.all([
       // last seen, for the admin list
       db.from("player_seen").upsert({ user_id: user.id, seen_at: new Date().toISOString() }).then(() => ({ data: null })),
       db.from("free_claims").select("side").eq("user_id", user.id).maybeSingle(),
       db.from("commander_scores").select("score,medal,reward,placements").eq("day", day).eq("user_id", user.id).maybeSingle(),
+      db.from("commander_scores").select("day,medal,created_at").eq("user_id", user.id),
     ]);
+    // ranks count the days you played that day's own puzzle (past days don't)
+    const plays = ((all ?? []) as { day: number; medal: string | null; created_at: string }[])
+      .filter((p) => dayNumber(new Date(p.created_at)) === p.day)
+      .map((p) => ({ day: p.day, perfect: p.medal === "perfect" }));
+    rank = commanderRank(plays, today);
     side = fc?.side ?? null;
     mine = sc;
   }
@@ -39,6 +47,7 @@ export async function GET(req: Request) {
     layout: d.layout,
     side,
     signedIn: !!user,
+    rank,
     isAdmin,
     result: mine
       ? { ...mine, optimal: d.optimal, solution: d.solution, thresholds: thresholds(d.optimal), histogram: await histogram(db, day) }
