@@ -11,7 +11,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { id } = await params;
   const p = await sharedPath(id);
   const title = p ? `CommanderBG #${p.day} — a friend's battle plan` : "CommanderBG — a daily strategy puzzle";
-  const description = "Play the puzzle first — their plan unlocks after you attack. Then compare.";
+  const description = "See how they played it — then try to beat it. A new strategy puzzle every day.";
   return {
     title,
     description,

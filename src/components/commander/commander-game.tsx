@@ -17,10 +17,9 @@ import {
   reach,
   simulate,
   trail,
-  TROOP_EMOJI,
   armyKinds,
   countOf,
-  moveRows,
+  boardEmoji,
   type Kind,
   type Layout,
   type Troop,
@@ -355,14 +354,13 @@ export function CommanderGame({ day: askedDay, unsubscribed = false, pathId }: {
   function pathLink() {
     return `https://commanderbg.com/s/${myPathId ?? ""}`;
   }
-  // Wordle-style: one row per move — the troop, then a square for every square
-  // it took. Shows how you played, never where.
+  // Share path (Tim, 2026-10-21): your whole board as a little emoji map —
+  // your squares, theirs, terrain and where each troop stood. Share score stays
+  // spoiler-free; this one is the full plan.
   function pathText() {
     if (!data || !result || !L) return "";
-    const sq = side === "red" ? "🟥" : "🟦";
-    const rows = moveRows(L, result.placements).map((r) => TROOP_EMOJI[r.kind] + sq.repeat(r.took));
     const stars = result.medal ? " " + STARS[result.medal] : "";
-    return [`CommanderBG #${data.day}${stars}`, ...rows, `My plan unlocks after you attack 👉 ${pathLink().replace("https://", "")}`].join("\n");
+    return [`CommanderBG #${data.day}${stars}`, ...boardEmoji(L, result.placements, side === "red" ? "red" : "blue"), `Play it 👉 ${pathLink().replace("https://", "")}`].join("\n");
   }
 
   async function share(via: ShareVia, mode: ShareMode = "score") {

@@ -406,3 +406,24 @@ export function moveRows(L: Layout, placements: Placement[]): { kind: Troop; too
   return rows;
 }
 export const TROOP_EMOJI: Record<Troop, string> = { archer: "🏹", soldier: "🗡️", scout: "🔭" };
+
+/** The final board as emoji, one line per row: your squares, theirs, terrain and troops (for "Share my path"). */
+export function boardEmoji(L: Layout, placements: Placement[], side: "red" | "blue"): string[] {
+  const mine = side === "red" ? "🟥" : "🟦";
+  const theirs = side === "red" ? "🟦" : "🟥";
+  const fin = simulate(L, placements).final;
+  const at = new Map<number, Kind>(placements.map((p) => [p.i, p.kind]));
+  at.set(L.commander, "commander");
+  const lines: string[] = [];
+  for (let y = 0; y < SIZE; y++) {
+    let line = "";
+    for (let x = 0; x < SIZE; x++) {
+      const i = idx(x, y);
+      const k = at.get(i);
+      const t = L.terrain[i];
+      line += k === "commander" ? "🚩" : k ? TROOP_EMOJI[k as Troop] : t === WALL ? "⬛" : t === WATER ? "🌊" : t === TREE ? "🌲" : fin[i] ? mine : theirs;
+    }
+    lines.push(line);
+  }
+  return lines;
+}
