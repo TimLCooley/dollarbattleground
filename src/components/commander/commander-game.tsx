@@ -30,6 +30,8 @@ import { track } from "@/lib/track";
 import { pixel } from "@/lib/pixel";
 import { CommanderLogo } from "./logo";
 import { Notches, Ripple, TreeSprite, TroopIcon, Tuft, hasTuft, sway, wallClass } from "./icons";
+import { Insignia } from "@/lib/ranks";
+import { CMD_RANKS, PERFECT_BONUS, STREAK_DAYS, type CmdRank } from "@/lib/commander/rank";
 
 type Side = "red" | "blue";
 type Result = {
@@ -42,7 +44,7 @@ type Result = {
   thresholds: { bronze: number; silver: number; gold: number; perfect: number };
   histogram: { score: number; players: number }[];
 };
-type DayResponse = { day: number; today: number; layout: Layout; side: Side | null; signedIn: boolean; isAdmin?: boolean; result: Result | null };
+type DayResponse = { day: number; today: number; layout: Layout; side: Side | null; signedIn: boolean; isAdmin?: boolean; result: Result | null; rank?: CmdRank | null };
 
 const NAME: Record<Troop, string> = { archer: "Archer", soldier: "Soldier", scout: "Scout" };
 const BLURB: Record<Troop, string> = {
@@ -79,6 +81,7 @@ export function CommanderGame({ day: askedDay, unsubscribed = false, pathId }: {
   const [picked, setSelected] = useState<Troop>("archer");
   const [best, setBest] = useState<{ score: number; placements: Placement[] } | null>(null);
   const [demoOpen, setDemoOpen] = useState(false);
+  const [rankOpen, setRankOpen] = useState(false);
   const [demoAuto, setDemoAuto] = useState(true);
   const [remindOpen, setRemindOpen] = useState(false);
   const [focus, setFocus] = useState<number | null>(null);
@@ -493,6 +496,13 @@ export function CommanderGame({ day: askedDay, unsubscribed = false, pathId }: {
       )}
 
       <div className="cm-scorebar">
+        <button className="cm-rank" onClick={() => setRankOpen(true)} title="Your rank — see how ranks work">
+          {data.rank && data.rank.rank.insignia.kind !== "none" ? <Insignia ins={data.rank.rank.insignia} size={26} /> : <span className="cm-rank-none" aria-hidden>☆</span>}
+          <span className="cm-rank-txt">
+            <span className="cm-rank-name">{data.rank ? data.rank.rank.name : "Recruit"}</span>
+            <span className="cm-rank-pts">{data.rank ? `${data.rank.points} pts${data.rank.streak >= 2 ? ` · 🔥${data.rank.streak}` : ""}` : "see ranks"}</span>
+          </span>
+        </button>
         <div className="cm-score" aria-live="polite">
           <span className="cm-score-n">{sim.score}</span>
           <span className="cm-score-l">squares taken</span>
@@ -674,6 +684,8 @@ export function CommanderGame({ day: askedDay, unsubscribed = false, pathId }: {
           </div>
         </div>
       )}
+
+      {rankOpen && <RankModal rank={data.rank ?? null} signedIn={!!data.signedIn} side={side} onClose={() => setRankOpen(false)} />}
 
       {demoOpen && (
         <div className="ob-overlay" role="dialog" aria-label="How to play video" onClick={() => setDemoOpen(false)}>
@@ -1057,6 +1069,59 @@ export function ResultsModal({
         </div>
         {copied && <p className="cm-share-note">Copied — paste it anywhere.</p>}
         <Link className="ob-skip" href="/battleground">‹ back to the main map</Link>
+      </div>
+    </div>
+  );
+}
+
+/** The rank ladder, fully open: every rank, what it takes, and how points are earned. */
+function RankModal({ rank, signedIn, side, onClose }: { rank: CmdRank | null; signedIn: boolean; side: Side; onClose: () => void }) {
+  const pts = rank?.points ?? 0;
+  const cur = rank?.rank.key ?? "recruit";
+  const pct = rank?.next ? Math.round(((pts - rank.rank.req) / (rank.next.req - rank.rank.req)) * 100) : 100;
+  return (
+    <div className="ob-overlay" role="dialog" aria-label="Ranks" onClick={onClose}>
+      <div className={"ob-card cm-ranks side-" + side} onClick={(e) => e.stopPropagation()}>
+        <button className="cm-x" onClick={onClose} aria-label="Close">×</button>
+        <div className="ob-kicker">◆ YOUR RANK ◆</div>
+        <div className="cm-ranks-me">
+          {rank && rank.rank.insignia.kind !== "none" ? <Insignia ins={rank.rank.insignia} size={64} /> : <span className="cm-rank-none big">☆</span>}
+          <div>
+            <div className="cm-ranks-name">{rank?.rank.name ?? "Recruit"}</div>
+            <div className="cm-ranks-pts">{pts} points{rank && rank.streak > 0 ? ` · 🔥 ${rank.streak}-day streak` : ""}</div>
+          </div>
+        </div>
+        {rank?.next ? (
+          <>
+            <div className="cm-ranks-bar"><i style={{ width: `${pct}%` }} /></div>
+            <p className="cm-ranks-next">
+              <b>{rank.toNext}</b> more point{rank.toNext === 1 ? "" : "s"} to <b>{rank.next.name}</b>
+            </p>
+          </>
+        ) : rank ? (
+          <p className="cm-ranks-next">Top of the enlisted ranks. Officer ranks are coming.</p>
+        ) : null}
+        {!signedIn && <p className="cm-ranks-next">Enlist (free) when you post a score to start earning rank.</p>}
+        {rank && rank.streak > 0 && (
+          <p className="cm-ranks-tip">
+            {rank.boosted ? "Your streak is boosted — each day you play is worth 2 points." : `Play ${STREAK_DAYS - rank.streak} more day${STREAK_DAYS - rank.streak === 1 ? "" : "s"} in a row to boost every day to 2 points.`}
+          </p>
+        )}
+        <div className="cm-ranks-rules">
+          <div><b>+1</b> for every day you play that day&apos;s map</div>
+          <div><b>+2</b> instead, once you&apos;ve played {STREAK_DAYS}+ days in a row</div>
+          <div><b>+{PERFECT_BONUS}</b> more for a perfect score 🏰</div>
+          <div className="cm-ranks-fine">Past days are for practice — they don&apos;t count toward rank.</div>
+        </div>
+        <ol className="cm-ladder">
+          {CMD_RANKS.map((r) => (
+            <li key={r.key} className={(r.key === cur ? "on " : "") + (pts >= r.req ? "got" : "")}>
+              <span className="cm-ladder-ins">{r.insignia.kind !== "none" ? <Insignia ins={r.insignia} size={24} /> : "☆"}</span>
+              <span className="cm-ladder-name">{r.name}</span>
+              <span className="cm-ladder-req">{r.req} pts</span>
+            </li>
+          ))}
+        </ol>
       </div>
     </div>
   );

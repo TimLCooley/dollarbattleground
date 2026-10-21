@@ -3995,3 +3995,30 @@ a.cc-pill-x:hover { color: #f2c14e; text-decoration: underline; }
    is never faux-bolded. */
 button, input, select, textarea { font-family: inherit; }
 html { font-synthesis-weight: none; }
+
+/* CommanderBG rank chip + ladder (2026-10-21) */
+.cm-rank { display: flex; align-items: center; gap: 8px; padding: 6px 10px 6px 8px; background: rgba(0, 0, 0, 0.18); border: 2px solid rgba(255, 255, 255, 0.18); border-radius: 8px; color: var(--cream); cursor: pointer; text-align: left; }
+.cm-rank:hover { border-color: var(--gold); }
+.cm-rank-txt { display: flex; flex-direction: column; line-height: 1.1; }
+.cm-rank-name { font-family: var(--font-pixel), sans-serif; font-size: 13px; color: var(--gold); white-space: nowrap; }
+.cm-rank-pts { font-size: 12px; opacity: 0.85; white-space: nowrap; }
+.cm-rank-none { font-size: 22px; color: var(--gold); line-height: 1; }
+.cm-rank-none.big { font-size: 56px; }
+.cm-ranks { position: relative; max-width: 420px; }
+.cm-ranks-me { display: flex; align-items: center; justify-content: center; gap: 14px; margin: 6px 0 10px; }
+.cm-ranks-name { font-family: var(--font-pixel), sans-serif; font-size: 24px; color: var(--gold); }
+.cm-ranks-pts { font-size: 15px; opacity: 0.9; }
+.cm-ranks-bar { height: 12px; background: rgba(0, 0, 0, 0.3); border: 2px solid rgba(255, 255, 255, 0.15); }
+.cm-ranks-bar i { display: block; height: 100%; background: var(--gold); }
+.cm-ranks-next { margin: 8px 0 0; text-align: center; font-size: 15px; }
+.cm-ranks-tip { margin: 6px 0 0; text-align: center; font-size: 14px; color: var(--gold); }
+.cm-ranks-rules { margin: 14px 0 10px; padding: 10px 12px; background: rgba(0, 0, 0, 0.18); font-size: 14px; display: grid; gap: 4px; }
+.cm-ranks-rules b { color: var(--gold); display: inline-block; min-width: 26px; }
+.cm-ranks-fine { opacity: 0.75; font-size: 13px; margin-top: 2px; }
+.cm-ladder { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; text-align: left; }
+.cm-ladder li { display: grid; grid-template-columns: 32px 1fr auto; align-items: center; gap: 8px; padding: 4px 8px; opacity: 0.55; }
+.cm-ladder li.got { opacity: 1; }
+.cm-ladder li.on { background: rgba(242, 193, 78, 0.18); outline: 2px solid var(--gold); }
+.cm-ladder-ins { display: grid; place-items: center; color: var(--gold); }
+.cm-ladder-name { font-size: 15px; }
+.cm-ladder-req { font-size: 13px; opacity: 0.85; }
