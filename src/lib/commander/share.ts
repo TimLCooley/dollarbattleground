@@ -2,8 +2,8 @@ import "server-only";
 import { createAdminClient } from "@/utils/supabase/admin";
 import { moveRows, type Layout, type Placement } from "./engine";
 
-// A shared path, for the short link (/s/<id>) and its preview image. Only the
-// move rows (which troop, how many squares) — never where they stood.
+// A shared path, for the short link (/s/<id>) and its preview image: the
+// sharer's whole board (Tim, 2026-10-21: "I actually want to see the board").
 export async function sharedPath(id: string) {
   if (!/^[A-Za-z0-9_-]{4,20}$/.test(id)) return null;
   const db = createAdminClient();
@@ -20,5 +20,7 @@ export async function sharedPath(id: string) {
     side: (claim?.side === "red" ? "red" : "blue") as "red" | "blue",
     medal: (score.medal ?? null) as string | null,
     rows: moveRows(day.layout as Layout, score.placements as Placement[]),
+    layout: day.layout as Layout,
+    placements: score.placements as Placement[],
   };
 }
