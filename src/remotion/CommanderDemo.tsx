@@ -2,6 +2,7 @@ import { AbsoluteFill, Img, interpolate, spring, staticFile, useCurrentFrame, us
 import { CELLS, SIZE, TREE, WALL, WATER, ownable, reach, simulate, trail, xy, type Placement } from "../lib/commander/engine";
 import { DEMO_LAYOUT } from "../lib/commander/demo-map";
 import { Ripple, TreeSprite, TroopIcon, Tuft, WALL_BRICK, hasTuft } from "../components/commander/icons";
+import { BODY_FONT, HEAD_FONT } from "./fonts";
 
 // How-to-play demo for /commander (website only): a square, silent loop that
 // plays a small hand-made map with the real engine. Each piece is introduced
@@ -121,10 +122,10 @@ export const CommanderDemo = () => {
   }
 
   return (
-    <AbsoluteFill style={{ background: "#155f33", fontFamily: "'Arial Black', Arial, Helvetica, sans-serif", color: "#f6efdb" }}>
+    <AbsoluteFill style={{ background: "#155f33", fontFamily: HEAD_FONT, color: "#f6efdb" }}>
       {/* score */}
       <div style={{ position: "absolute", top: 34, width: "100%", textAlign: "center", fontSize: 54, letterSpacing: 2 }}>
-        {score} <span style={{ fontSize: 30, fontFamily: "Arial, Helvetica, sans-serif", opacity: 0.85 }}>squares taken</span>
+        {score} <span style={{ fontSize: 30, fontFamily: BODY_FONT, opacity: 0.85 }}>squares taken</span>
       </div>
 
       {/* board */}
@@ -227,7 +228,7 @@ export const CommanderDemo = () => {
             display: "grid",
             placeItems: "center",
             textAlign: "center",
-            fontFamily: "Arial, Helvetica, sans-serif",
+            fontFamily: BODY_FONT,
             fontWeight: 700,
             fontSize: 34,
             lineHeight: 1.2,
@@ -262,7 +263,7 @@ export const CommanderDemo = () => {
             >
               <div style={{ fontSize: 72, letterSpacing: 6, color: "#f2c14e" }}>{c.title}</div>
               {c.kind && <Diagram kind={c.kind} frame={frame - c.from} />}
-              <div style={{ fontFamily: "Arial, Helvetica, sans-serif", fontWeight: 700, fontSize: 40, lineHeight: 1.3 }}>
+              <div style={{ fontFamily: BODY_FONT, fontWeight: 700, fontSize: 40, lineHeight: 1.3 }}>
                 {c.lines.map((l) => (
                   <div key={l}>{l}</div>
                 ))}
@@ -277,7 +278,7 @@ export const CommanderDemo = () => {
         <AbsoluteFill style={{ background: `rgba(10,46,26,${0.85 * intro})`, display: "grid", placeItems: "center", opacity: intro }}>
           <div style={{ textAlign: "center" }}>
             <Img src={staticFile("commander-logo-blue.png")} style={{ width: 860, height: "auto", display: "block", margin: "0 auto 18px" }} />
-            <div style={{ fontSize: 40, fontFamily: "Arial, Helvetica, sans-serif", fontWeight: 700, color: "#f2c14e" }}>how to play</div>
+            <div style={{ fontSize: 40, fontFamily: BODY_FONT, fontWeight: 700, color: "#f2c14e" }}>how to play</div>
           </div>
         </AbsoluteFill>
       )}
@@ -285,8 +286,8 @@ export const CommanderDemo = () => {
       {/* finish */}
       {end > 0 && (
         <AbsoluteFill style={{ background: `rgba(10,46,26,${0.88 * end})`, display: "grid", placeItems: "center", opacity: end }}>
-          <div style={{ textAlign: "center", fontFamily: "Arial, Helvetica, sans-serif", fontWeight: 700 }}>
-            <div style={{ fontFamily: "'Arial Black', Arial, sans-serif", fontSize: 120 }}>{FINAL}</div>
+          <div style={{ textAlign: "center", fontFamily: BODY_FONT, fontWeight: 700 }}>
+            <div style={{ fontFamily: HEAD_FONT, fontSize: 120 }}>{FINAL}</div>
             <div style={{ fontSize: 40, marginBottom: 34 }}>squares — nice run.</div>
             <div style={{ fontSize: 50, color: "#f2c14e" }}>Best possible: {BEST}.</div>
             <div style={{ fontSize: 50, color: "#f2c14e", marginBottom: 40 }}>Can you find it?</div>
