@@ -391,3 +391,18 @@ export const thresholds = (optimal: number) => ({
   gold: Math.ceil(optimal * 0.9),
   perfect: optimal,
 });
+
+// ---------- sharing ----------
+
+/** One row per move, in order: which troop and how many new squares it took. Never where. */
+export function moveRows(L: Layout, placements: Placement[]): { kind: Troop; took: number }[] {
+  const rows: { kind: Troop; took: number }[] = [];
+  let prev = simulate(L, []).score;
+  placements.forEach((p, k) => {
+    const now = simulate(L, placements.slice(0, k + 1)).score;
+    rows.push({ kind: p.kind as Troop, took: now - prev });
+    prev = now;
+  });
+  return rows;
+}
+export const TROOP_EMOJI: Record<Troop, string> = { archer: "🏹", soldier: "🗡️", scout: "🔭" };
