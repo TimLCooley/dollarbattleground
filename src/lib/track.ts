@@ -5,7 +5,7 @@ import { pixel } from "@/lib/pixel";
 
 // Funnel tracking: one event per browser session per step, so the scoreboard
 // can show where real people drop off. Fire-and-forget; never blocks the game.
-export type FunnelStep = "board_open" | "square_tap" | "side_pick" | "email_entered" | "code_verified" | "first_move" | "feedback_open" | "commander_open" | "commander_submit" | "commander_share";
+export type FunnelStep = "board_open" | "square_tap" | "side_pick" | "email_entered" | "code_verified" | "first_move" | "feedback_open" | "commander_open" | "commander_submit" | "commander_share" | "store_open" | "store_checkout" | "store_purchase";
 
 function sessionId(): string | null {
   try {
@@ -29,6 +29,8 @@ export function track(step: FunnelStep, meta?: Record<string, unknown>) {
   else if (step === "commander_share") pixel("CommanderShare", meta, true);
   else if (step === "code_verified") pixel("CompleteRegistration", { content_name: "enlisted" });
   else if (step === "first_move") pixel("BattlegroundFirstMove", meta, true);
+  else if (step === "store_checkout") pixel("InitiateCheckout", { content_name: String(meta?.item ?? "") });
+  else if (step === "store_purchase") pixel("Purchase", { content_name: String(meta?.item ?? ""), value: Number(meta?.value ?? 0), currency: "USD" });
   const sid = sessionId();
   if (!sid) return;
   createClient()

@@ -11,9 +11,9 @@ export const STARS: Record<string, string> = { perfect: "🏰", gold: "⭐⭐⭐
 /** Outer size of the board for a tile size (tiles + gaps + frame). */
 export const boardPx = (tile: number, gap = 4) => SIZE * (tile + gap) + gap + 12;
 
-export function BoardArt({ layout, placements, side, tile, gap = 4 }: { layout: Layout; placements: Placement[]; side: "red" | "blue"; tile: number; gap?: number }) {
-  const mine = side === "red" ? RED : BLUE;
-  const theirs = side === "red" ? BLUE : RED;
+export function BoardArt({ layout, placements, side, tile, gap = 4, colors }: { layout: Layout; placements: Placement[]; side: "red" | "blue"; tile: number; gap?: number; colors?: { me: string; them: string } }) {
+  const mine = colors?.me ?? (side === "red" ? RED : BLUE);
+  const theirs = colors?.them ?? (side === "red" ? BLUE : RED);
   const fin = simulate(layout, placements).final;
   const order = new Map(placements.map((q, k) => [q.i, { kind: q.kind as Troop, n: k + 1 }]));
   const size = boardPx(tile, gap);

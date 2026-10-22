@@ -44,7 +44,7 @@ type Result = {
   thresholds: { bronze: number; silver: number; gold: number; perfect: number };
   histogram: { score: number; players: number }[];
 };
-type DayResponse = { day: number; today: number; layout: Layout; side: Side | null; signedIn: boolean; isAdmin?: boolean; result: Result | null; rank?: CmdRank | null };
+type DayResponse = { day: number; today: number; layout: Layout; side: Side | null; signedIn: boolean; isAdmin?: boolean; result: Result | null; rank?: CmdRank | null; skin?: { id: string; me: string; them: string } | null };
 
 const NAME: Record<Troop, string> = { archer: "Archer", soldier: "Soldier", scout: "Scout" };
 const BLURB: Record<Troop, string> = {
@@ -461,7 +461,7 @@ export function CommanderGame({ day: askedDay, unsubscribed = false, pathId }: {
   for (const p of shown) for (const { t, dir } of trail(L, p.i, p.kind)) trails.set(t, dir);
 
   return (
-    <div className={"cm-wrap side-" + side}>
+    <div className={"cm-wrap side-" + side} style={skinStyle(data.skin)}>
       <Header day={data.day} today={data.today} layout={L} onNext={() => setRemindOpen(true)} side={side} signedIn={data.signedIn} onLogin={() => setSignIn(true)} />
       {signIn && (
         <div className="ob-overlay" role="dialog" aria-label="Log in" onClick={() => setSignIn(false)}>
@@ -833,7 +833,18 @@ function Header({ day, today, layout, onNext, side, signedIn, onLogin }: { day: 
   );
 }
 
-/** Top-right hamburger: Log in / Log out for now; more items later. */
+/** Your store skin's colors on the board (lighter "taking" and darker enemy shades derived). */
+function skinStyle(skin?: { me: string; them: string } | null): React.CSSProperties | undefined {
+  if (!skin) return undefined;
+  return {
+    ["--me" as string]: skin.me,
+    ["--me-l" as string]: `color-mix(in srgb, ${skin.me} 62%, white)`,
+    ["--them" as string]: skin.them,
+    ["--them-d" as string]: `color-mix(in srgb, ${skin.them} 78%, black)`,
+  } as React.CSSProperties;
+}
+
+/** Top-right hamburger: the store, and Log in / Log out. */
 function Menu({ signedIn, onLogin }: { signedIn: boolean; onLogin: () => void }) {
   const [open, setOpen] = useState(false);
   return (
@@ -847,6 +858,9 @@ function Menu({ signedIn, onLogin }: { signedIn: boolean; onLogin: () => void })
         <>
           <div className="cm-menu-scrim" onClick={() => setOpen(false)} />
           <div className="cm-menu-list" role="menu">
+            <Link href="/store" role="menuitem" className="cm-menu-link">
+              Store · skins
+            </Link>
             {signedIn ? (
               <form action="/auth/sign-out" method="post">
                 <button type="submit" role="menuitem">Log out</button>

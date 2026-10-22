@@ -2,6 +2,7 @@ import "server-only";
 import { after } from "next/server";
 import { getModeStripe } from "./stripe-mode";
 import { createAdminClient } from "@/utils/supabase/admin";
+import { fulfillStore } from "./store";
 import { sendPendingTakeovers } from "./dispatch";
 import {
   cellsFor,
@@ -32,6 +33,8 @@ export async function fulfillPayment(
   if (pi.status !== "succeeded") {
     return { ok: false, error: `payment not completed (${pi.status})` };
   }
+  // CommanderBG store purchases (skins) have their own grant
+  if (pi.metadata?.kind === "store") return fulfillStore(pi);
   if (pi.metadata?.fulfilled_at) {
     return { ok: true, already: true };
   }
