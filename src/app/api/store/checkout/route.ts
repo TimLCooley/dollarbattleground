@@ -4,7 +4,7 @@ import { isStripeConfigured } from "@/lib/stripe";
 import { getModeStripe } from "@/lib/stripe-mode";
 import { getOrCreateCustomer } from "@/lib/stripe-customer";
 import { ownedItems } from "@/lib/store";
-import { ALL_ACCESS, owns, priceOf, skinById } from "@/lib/commander/skins";
+import { ALL_ACCESS, onSale, owns, priceOf, skinById } from "@/lib/commander/skins";
 
 export const dynamic = "force-dynamic";
 
@@ -19,6 +19,8 @@ export async function POST(req: Request) {
   const { item } = (await req.json().catch(() => ({}))) as { item?: string };
   const price = item ? priceOf(item) : null;
   if (!item || price == null) return NextResponse.json({ error: "That item isn't for sale." }, { status: 400 });
+  const sk = skinById(item);
+  if (sk && !onSale(sk)) return NextResponse.json({ error: `${sk.name} isn't on sale right now — check back when it's in season.` }, { status: 400 });
   const owned = await ownedItems(user.id);
   if (item === ALL_ACCESS.id ? owned.includes(ALL_ACCESS.id) : owns(owned, item)) {
     return NextResponse.json({ error: "You already own this." }, { status: 400 });

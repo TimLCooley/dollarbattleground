@@ -10,10 +10,12 @@ export type Skin = {
   id: SkinId;
   name: string;
   blurb: string;
-  kind: "free" | "color" | "custom";
+  kind: "free" | "color" | "custom" | "season";
   price: number; // cents; 0 = free
   me: string;
   them: string;
+  art?: "thanksgiving"; // seasonal skins redraw the troops and terrain
+  sale?: { from: string; to: string }[]; // seasonal: on sale only in these windows (YYYY-MM-DD, Mountain time, inclusive)
 };
 
 export const SKINS: Skin[] = [
@@ -30,6 +32,18 @@ export const SKINS: Skin[] = [
   { id: "midnight", name: "Midnight", blurb: "Electric blue in the dark", kind: "color", price: 500, me: "#3d5afe", them: "#2a2a2e" },
   { id: "camo", name: "Camo", blurb: "Olive drab and khaki", kind: "color", price: 500, me: "#5f6e3a", them: "#a88f63" },
   { id: "custom", name: "Your Colors", blurb: "Pick any two colors", kind: "custom", price: 1000, me: "#356fd0", them: "#d23b3b" },
+  {
+    id: "thanksgiving",
+    name: "Thanksgiving",
+    blurb: "Turkey Commander, pumpkin Archers, corn-cob Soldiers, squirrel Scouts — fall trees, hay bales, falling leaves",
+    kind: "season",
+    price: 1000,
+    me: "#d9822b",
+    them: "#7d2a3a",
+    art: "thanksgiving",
+    // November; it comes back for 30-day windows later (add them here)
+    sale: [{ from: "2026-11-01", to: "2026-11-30" }],
+  },
 ];
 
 /** Every skin, forever — including skins that don't exist yet. */
@@ -37,6 +51,21 @@ export const ALL_ACCESS = { id: "all", name: "All Skins, Forever", price: 10000 
 
 export const skinById = (id: string | null | undefined) => SKINS.find((s) => s.id === id) ?? null;
 export const isHex = (c: unknown): c is string => typeof c === "string" && /^#[0-9a-f]{6}$/i.test(c);
+
+/** Today in Mountain time, YYYY-MM-DD. */
+const mtToday = (now = new Date()) => new Intl.DateTimeFormat("en-CA", { timeZone: "America/Denver" }).format(now);
+
+/** Seasonal skins sell only inside their windows; everything else always. */
+export function onSale(s: Skin, now = new Date()): boolean {
+  if (!s.sale) return true;
+  const d = mtToday(now);
+  return s.sale.some((w) => d >= w.from && d <= w.to);
+}
+/** The next time a seasonal skin goes on sale (for "on sale Nov 1"), or null. */
+export function nextSale(s: Skin, now = new Date()): string | null {
+  const d = mtToday(now);
+  return s.sale?.map((w) => w.from).filter((f) => f > d).sort()[0] ?? null;
+}
 
 /** What a store item costs, or null when it isn't for sale. */
 export function priceOf(item: string): number | null {

@@ -2,6 +2,10 @@
 // with reach notches on the outside edges of the tile (Archer ‹ ›, Soldier ˄ ˅,
 // Scout in the four corners).
 import type { Kind } from "@/lib/commander/engine";
+import { AUTUMN, ThanksgivingTroop } from "./art-thanksgiving";
+
+/** Seasonal art set from the store ("thanksgiving"), or undefined for the classic look. */
+export type Art = "thanksgiving" | undefined;
 
 const SKIN = "#e8b98a";
 const DARK = "#3a2a1c";
@@ -37,7 +41,7 @@ export function Notches({ kind }: { kind: Kind }) {
   );
 }
 
-export function TroopIcon({ kind }: { kind: Kind }) {
+export function TroopIcon({ kind, art }: { kind: Kind; art?: Art }) {
   return (
     <svg
       viewBox="0 0 20 20"
@@ -46,6 +50,14 @@ export function TroopIcon({ kind }: { kind: Kind }) {
       role="img"
       aria-label={kind === "archer" ? "Archer" : kind === "soldier" ? "Soldier" : kind === "scout" ? "Scout" : "Commander"}
     >
+      {art === "thanksgiving" ? <ThanksgivingTroop kind={kind} /> : <ClassicTroop kind={kind} />}
+    </svg>
+  );
+}
+
+function ClassicTroop({ kind }: { kind: Kind }) {
+  return (
+    <>
       {kind === "archer" && (
         <>
           <Person />
@@ -84,7 +96,7 @@ export function TroopIcon({ kind }: { kind: Kind }) {
           <path d="M8.2 4.1 l0.6 -1.4 l0.6 0.8 l0.6 -1 l0.6 1 l0.6 -0.8 l0.6 1.4 z" fill="#f2c14e" />
         </>
       )}
-    </svg>
+    </>
   );
 }
 
@@ -118,14 +130,16 @@ export function Tuft({ frame, style }: Frame = {}) {
 }
 
 /** Tree: the canopy rocks a pixel left and right; the trunk stays put. */
-export function TreeSprite({ frame, style }: Frame = {}) {
+export function TreeSprite({ frame, style, art }: Frame & { art?: Art } = {}) {
+  // fall colors for the Thanksgiving skin
+  const [light, mid, dark] = art === "thanksgiving" ? [AUTUMN.light, AUTUMN.mid, AUTUMN.dark] : ["#2b9149", "#1f7a3c", "#16592b"];
   const canopy = (dx: number) => (
     <>
-      <rect x={3 + dx} y="1" width="6" height="1" fill="#2b9149" />
-      <rect x={2 + dx} y="2" width="8" height="5" fill="#1f7a3c" />
-      <rect x={3 + dx} y="7" width="6" height="1" fill="#1f7a3c" />
-      <rect x={3 + dx} y="2" width="3" height="2" fill="#2b9149" />
-      <rect x={6 + dx} y="5" width="4" height="2" fill="#16592b" />
+      <rect x={3 + dx} y="1" width="6" height="1" fill={light} />
+      <rect x={2 + dx} y="2" width="8" height="5" fill={mid} />
+      <rect x={3 + dx} y="7" width="6" height="1" fill={mid} />
+      <rect x={3 + dx} y="2" width="3" height="2" fill={light} />
+      <rect x={6 + dx} y="5" width="4" height="2" fill={dark} />
     </>
   );
   return (

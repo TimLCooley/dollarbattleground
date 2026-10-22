@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createAdminClient } from "@/utils/supabase/admin";
 import { createClient } from "@/utils/supabase/server";
 import { ownedItems } from "@/lib/store";
+import { requireAdmin } from "@/lib/admin-auth";
 import { isHex, owns, skinById } from "@/lib/commander/skins";
 
 export const dynamic = "force-dynamic";
@@ -15,7 +16,8 @@ export async function POST(req: Request) {
   const user = u.user && !u.user.is_anonymous ? u.user : null;
   if (!user) return NextResponse.json({ error: "Log in to choose a skin." }, { status: 401 });
   const body = (await req.json().catch(() => ({}))) as { skin?: string; custom?: { me?: string; them?: string }; shuffle?: boolean; pool?: string[] };
-  const owned = await ownedItems(user.id);
+  // the admin can equip anything, to test skins before they go on sale
+  const owned = (await requireAdmin()) ? ["all"] : await ownedItems(user.id);
   const db = createAdminClient();
   const { data: prof } = await db.from("commander_profile").select("skin,skin_pool,shuffle").eq("user_id", user.id).maybeSingle();
   const row: Record<string, unknown> = { user_id: user.id, updated_at: new Date().toISOString() };

@@ -1,7 +1,7 @@
 import "server-only";
 import { createAdminClient } from "@/utils/supabase/admin";
 import { moveRows, type Layout, type Placement } from "./engine";
-import { skinColors } from "./skins";
+import { skinById, skinColors } from "./skins";
 
 // A shared path, for the short link (/s/<id>) and its preview image: the
 // sharer's whole board (Tim, 2026-10-21: "I actually want to see the board").
@@ -22,6 +22,7 @@ export async function sharedPath(id: string) {
     side: (claim?.side === "red" ? "red" : "blue") as "red" | "blue",
     // the sharer's store skin, so the picture looks like their board
     colors: skinColors(prof?.skin, prof?.custom_colors, claim?.side === "red" ? "red" : "blue"),
+    art: skinById(prof?.skin)?.art,
     medal: (score.medal ?? null) as string | null,
     rows: moveRows(day.layout as Layout, score.placements as Placement[]),
     layout: day.layout as Layout,

@@ -4105,3 +4105,16 @@ html { font-synthesis-weight: none; }
 @keyframes cm-load { 0%, 100% { background: #2c5a3a; } 50% { background: #3d7a50; } }
 .cm-loading-txt { text-align: center; margin: 0; font-size: 14px; opacity: 0.8; }
 @media (prefers-reduced-motion: reduce) { .cm-tile-loading { animation: none; } }
+
+/* ---- Thanksgiving skin (Nov 2026): hay-bale walls, falling leaves ---- */
+.art-thanksgiving .cm-tile.wall, .art-thanksgiving .cm-tile.wall.moss { background: #d9b25a url("data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20viewBox%3D'0%200%2040%2040'%20shape-rendering%3D'crispEdges'%3E%3Crect%20width%3D'40'%20height%3D'40'%20fill%3D'%23d9b25a'%2F%3E%3Cg%20fill%3D'%23e8c878'%3E%3Crect%20x%3D'2'%20y%3D'4'%20width%3D'14'%20height%3D'1'%2F%3E%3Crect%20x%3D'20'%20y%3D'9'%20width%3D'16'%20height%3D'1'%2F%3E%3Crect%20x%3D'4'%20y%3D'16'%20width%3D'12'%20height%3D'1'%2F%3E%3Crect%20x%3D'22'%20y%3D'22'%20width%3D'14'%20height%3D'1'%2F%3E%3Crect%20x%3D'3'%20y%3D'29'%20width%3D'15'%20height%3D'1'%2F%3E%3Crect%20x%3D'24'%20y%3D'34'%20width%3D'12'%20height%3D'1'%2F%3E%3C%2Fg%3E%3Cg%20fill%3D'%23b8913a'%3E%3Crect%20x%3D'6'%20y%3D'11'%20width%3D'13'%20height%3D'1'%2F%3E%3Crect%20x%3D'23'%20y%3D'15'%20width%3D'12'%20height%3D'1'%2F%3E%3Crect%20x%3D'2'%20y%3D'23'%20width%3D'14'%20height%3D'1'%2F%3E%3Crect%20x%3D'20'%20y%3D'30'%20width%3D'16'%20height%3D'1'%2F%3E%3C%2Fg%3E%3Cg%20fill%3D'%237a4a22'%3E%3Crect%20x%3D'9'%20y%3D'0'%20width%3D'2'%20height%3D'40'%2F%3E%3Crect%20x%3D'29'%20y%3D'0'%20width%3D'2'%20height%3D'40'%2F%3E%3C%2Fg%3E%3C%2Fsvg%3E") 0 0 / 100% 100%; box-shadow: inset 0 3px 0 rgba(255, 255, 255, 0.18), inset 0 -3px 0 rgba(0, 0, 0, 0.25); }
+.art-thanksgiving .cm-tile.wall.wr::after { background: #d9b25a; }
+.art-thanksgiving .cm-tile.wall.wd::before { background: #b8913a; }
+.art-thanksgiving .cm-sw.wall { background: #d9b25a; }
+.art-thanksgiving .cm-sw.tree .cm-tree-mark, .art-thanksgiving .cm-tile.tree .cm-tree-mark { background: #d9822b; box-shadow: inset -3px -3px 0 #a8481f; }
+.cm-leaves { position: fixed; inset: 0; pointer-events: none; overflow: hidden; z-index: 5; }
+.cm-leaf { position: absolute; top: -40px; display: block; animation: cm-leaf-fall linear infinite; opacity: 0.85; }
+.cm-leaf svg { width: 100%; height: 100%; display: block; animation: cm-leaf-sway ease-in-out infinite alternate; }
+@keyframes cm-leaf-fall { to { transform: translateY(calc(100vh + 80px)); } }
+@keyframes cm-leaf-sway { from { transform: translateX(-28px) rotate(-35deg); } to { transform: translateX(28px) rotate(40deg); } }
+@media (prefers-reduced-motion: reduce) { .cm-leaves { display: none; } }

@@ -29,7 +29,8 @@ import { EnlistInline } from "./enlist-inline";
 import { track } from "@/lib/track";
 import { pixel } from "@/lib/pixel";
 import { CommanderLogo } from "./logo";
-import { Notches, Ripple, TreeSprite, TroopIcon, Tuft, hasTuft, sway, wallClass } from "./icons";
+import { Notches, Ripple, TreeSprite, TroopIcon, Tuft, hasTuft, sway, wallClass, type Art } from "./icons";
+import { FallingLeaves } from "./falling-leaves";
 import { Insignia } from "@/lib/ranks";
 import { ENLISTED_RANKS, OFFICER_RANKS, PERFECT_BONUS, STREAK_DAYS, type CmdRank } from "@/lib/commander/rank";
 
@@ -44,7 +45,7 @@ type Result = {
   thresholds: { bronze: number; silver: number; gold: number; perfect: number };
   histogram: { score: number; players: number }[];
 };
-type DayResponse = { day: number; today: number; layout: Layout; side: Side | null; signedIn: boolean; isAdmin?: boolean; result: Result | null; rank?: CmdRank | null; skin?: { id: string; me: string; them: string } | null };
+type DayResponse = { day: number; today: number; layout: Layout; side: Side | null; signedIn: boolean; isAdmin?: boolean; result: Result | null; rank?: CmdRank | null; skin?: { id: string; me: string; them: string; art?: string } | null };
 
 const NAME: Record<Troop, string> = { archer: "Archer", soldier: "Soldier", scout: "Scout" };
 const BLURB: Record<Troop, string> = {
@@ -214,6 +215,8 @@ export function CommanderGame({ day: askedDay, unsubscribed = false, pathId }: {
     return p ? new Set(reach(L, p.i, p.kind)) : null;
   }, [L, focus, shown]);
 
+  // seasonal skins redraw the troops and terrain
+  const art = (data?.skin?.art ?? undefined) as Art;
   const total = L ? armyKinds(L).reduce((n, k) => n + countOf(L, k), 0) : 0;
 
   function place(next: Placement[]) {
@@ -463,7 +466,8 @@ export function CommanderGame({ day: askedDay, unsubscribed = false, pathId }: {
   for (const p of shown) for (const { t, dir } of trail(L, p.i, p.kind)) trails.set(t, dir);
 
   return (
-    <div className={"cm-wrap side-" + side} style={{ ...skinStyle(data.skin), ["--them-alpha" as string]: `${enemyAlpha}%` }}>
+    <div className={"cm-wrap side-" + side + (art ? " art-" + art : "")} style={{ ...skinStyle(data.skin), ["--them-alpha" as string]: `${enemyAlpha}%` }}>
+      {art === "thanksgiving" && <FallingLeaves />}
       <Header day={data.day} today={data.today} layout={L} onNext={() => setRemindOpen(true)} side={side} signedIn={data.signedIn} onLogin={() => setSignIn(true)} onSettings={() => setSettingsOpen(true)} />
       {signIn && (
         <div className="ob-overlay" role="dialog" aria-label="Log in" onClick={() => setSignIn(false)}>
@@ -542,13 +546,13 @@ export function CommanderGame({ day: askedDay, unsubscribed = false, pathId }: {
               onMouseEnter={() => kind && setFocus(i)}
               aria-label={`tile ${i % SIZE},${Math.floor(i / SIZE)}${kind ? " " + kind : ""}`}
             >
-              {t === TREE && <TreeSprite />}
+              {t === TREE && <TreeSprite art={art} />}
               {t === WATER && <Ripple />}
               {t !== TREE && ownable(L, i) && !kind && hasTuft(i) && <Tuft />}
               {!kind && trails.has(i) && <span className={"cm-trail " + trails.get(i)} aria-hidden />}
               {kind && (
                 <span className={"cm-troop " + side}>
-                  <TroopIcon kind={kind} />
+                  <TroopIcon kind={kind} art={art} />
                   {order?.has(i) && <span className="cm-plus">{order.get(i)}</span>}
                 </span>
               )}
@@ -563,7 +567,7 @@ export function CommanderGame({ day: askedDay, unsubscribed = false, pathId }: {
             {TROOPS.map((k) => (
               <button key={k} className={"cm-troop-btn" + (selected === k ? " on" : "") + (left[k] <= 0 ? " empty" : "")} onClick={() => setSelected(k)}>
                 <span className="cm-unit">
-                  <span className={"cm-troop " + side}><TroopIcon kind={k} /></span>
+                  <span className={"cm-troop " + side}><TroopIcon kind={k} art={art} /></span>
                   <Notches kind={k} />
                 </span>
                 <span className="cm-tb-name">{NAME[k]} ×{left[k]}</span>
@@ -618,27 +622,27 @@ export function CommanderGame({ day: askedDay, unsubscribed = false, pathId }: {
         <p className="cm-how-lead">The whole map starts as the enemy&apos;s. Turn as many squares to your color as you can.</p>
         <div className="cm-how-row">
           <span className="cm-unit cm-how-unit">
-            <span className={"cm-troop " + side}><TroopIcon kind="commander" /></span>
+            <span className={"cm-troop " + side}><TroopIcon kind="commander" art={art} /></span>
           </span>
           <span><b>Commander</b> — already on the field. Holds the 3×3 around it: that&apos;s where you start.</span>
         </div>
         <div className="cm-how-row">
           <span className="cm-unit cm-how-unit">
-            <span className={"cm-troop " + side}><TroopIcon kind="archer" /></span>
+            <span className={"cm-troop " + side}><TroopIcon kind="archer" art={art} /></span>
             <Notches kind="archer" />
           </span>
           <span><b>Archer</b> — takes 3 squares left and 3 right. Arrows fly over walls and water; a tree stops them.</span>
         </div>
         <div className="cm-how-row">
           <span className="cm-unit cm-how-unit">
-            <span className={"cm-troop " + side}><TroopIcon kind="soldier" /></span>
+            <span className={"cm-troop " + side}><TroopIcon kind="soldier" art={art} /></span>
             <Notches kind="soldier" />
           </span>
           <span><b>Soldier</b> — takes 2 squares up and 2 down. Marches through trees (and takes them), wades through water (costs a step); walls stop them.</span>
         </div>
         <div className="cm-how-row">
           <span className="cm-unit cm-how-unit">
-            <span className={"cm-troop " + side}><TroopIcon kind="scout" /></span>
+            <span className={"cm-troop " + side}><TroopIcon kind="scout" art={art} /></span>
             <Notches kind="scout" />
           </span>
           <span><b>Scout</b> <i className="cm-new">NEW</i> — takes 2 squares along each diagonal (an X). Hops over water; walls and trees stop it. Some days bring Scouts instead of Archers or Soldiers.</span>
@@ -663,7 +667,7 @@ export function CommanderGame({ day: askedDay, unsubscribed = false, pathId }: {
             <div className="ob-kicker">◆ NEW TROOP ◆</div>
             <h2 className="ob-title">THE SCOUT</h2>
             <span className="cm-unit cm-newtroop-unit">
-              <span className={"cm-troop " + side}><TroopIcon kind="scout" /></span>
+              <span className={"cm-troop " + side}><TroopIcon kind="scout" art={art} /></span>
               <Notches kind="scout" />
             </span>
             <p className="ob-body">

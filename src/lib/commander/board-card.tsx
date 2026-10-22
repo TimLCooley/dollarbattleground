@@ -11,7 +11,11 @@ export const STARS: Record<string, string> = { perfect: "🏰", gold: "⭐⭐⭐
 /** Outer size of the board for a tile size (tiles + gaps + frame). */
 export const boardPx = (tile: number, gap = 4) => SIZE * (tile + gap) + gap + 12;
 
-export function BoardArt({ layout, placements, side, tile, gap = 4, colors }: { layout: Layout; placements: Placement[]; side: "red" | "blue"; tile: number; gap?: number; colors?: { me: string; them: string } }) {
+// seasonal skins swap the pieces (share pictures use emoji)
+const THANKSGIVING: Record<string, string> = { commander: "🦃", archer: "🎃", soldier: "🌽", scout: "🐿️", tree: "🍁" };
+
+export function BoardArt({ layout, placements, side, tile, gap = 4, colors, art }: { layout: Layout; placements: Placement[]; side: "red" | "blue"; tile: number; gap?: number; colors?: { me: string; them: string }; art?: string }) {
+  const fall = art === "thanksgiving";
   const mine = colors?.me ?? (side === "red" ? RED : BLUE);
   const theirs = colors?.them ?? (side === "red" ? BLUE : RED);
   const fin = simulate(layout, placements).final;
@@ -22,7 +26,7 @@ export function BoardArt({ layout, placements, side, tile, gap = 4, colors }: { 
       {layout.terrain.map((t, i) => {
         const troop = order.get(i);
         const commander = i === layout.commander;
-        const bg = t === WALL ? "#70757d" : t === WATER ? "#2aa198" : fin[i] ? mine : theirs;
+        const bg = t === WALL ? (fall ? "#d9b25a" : "#70757d") : t === WATER ? "#2aa198" : fin[i] ? mine : theirs;
         return (
           <div
             key={i}
@@ -40,7 +44,9 @@ export function BoardArt({ layout, placements, side, tile, gap = 4, colors }: { 
               fontSize: Math.round(tile * 0.6),
             }}
           >
-            {commander ? "🚩" : troop ? TROOP_EMOJI[troop.kind] : t === TREE ? "🌲" : ""}
+            {fall
+              ? commander ? THANKSGIVING.commander : troop ? THANKSGIVING[troop.kind] : t === TREE ? THANKSGIVING.tree : ""
+              : commander ? "🚩" : troop ? TROOP_EMOJI[troop.kind] : t === TREE ? "🌲" : ""}
             {troop && (
               <div
                 style={{

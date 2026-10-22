@@ -4,10 +4,11 @@ import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { CELLS, SIZE, TREE, WALL, WATER, simulate, solve, type Kind } from "@/lib/commander/engine";
 import { DEMO_LAYOUT } from "@/lib/commander/demo-map";
-import { ALL_ACCESS, SKINS, isHex, owns, priceOf, skinColors, type Skin } from "@/lib/commander/skins";
+import { ALL_ACCESS, SKINS, isHex, nextSale, onSale, owns, priceOf, skinById, skinColors, type Skin } from "@/lib/commander/skins";
 import { LoginOtp } from "@/components/login-otp";
 import { CommanderLogo } from "./logo";
-import { TroopIcon } from "./icons";
+import { TreeSprite, TroopIcon, type Art } from "./icons";
+import { FallingLeaves } from "./falling-leaves";
 import { track } from "@/lib/track";
 
 // The CommanderBG store (Tim, 2026-10-21): skins you can try on before buying,
@@ -23,11 +24,9 @@ const TABS: [Tab, string][] = [
   ["specials", "Specials"],
 ];
 // seasonal skins on the way (characters + art) — shown so people know they're coming
-const SEASONAL_SOON = [
-  { id: "nov2026", name: "Thanksgiving", blurb: "Turkey Commander, pilgrim Archers, corn-cob Soldiers", when: "November" },
-  { id: "dec2026", name: "Holiday", blurb: "Santa Commander, elf Archers, snowman Soldiers", when: "December" },
-];
-type State = { signedIn: boolean; owned: string[]; skin: string | null; custom: { me: string; them: string } | null; side: "red" | "blue" | null; shuffle: boolean; pool: string[] };
+const SEASONAL_SOON = [{ id: "dec2026", name: "Holiday", blurb: "Santa Commander, elf Archers, snowman Soldiers", when: "December" }];
+const shortDate = (ymd: string) => new Date(ymd + "T12:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" });
+type State = { signedIn: boolean; owned: string[]; skin: string | null; custom: { me: string; them: string } | null; side: "red" | "blue" | null; shuffle: boolean; pool: string[]; admin?: boolean };
 const subscribeView = (cb: () => void) => {
   window.addEventListener("bg-store-view", cb);
   return () => window.removeEventListener("bg-store-view", cb);
@@ -156,7 +155,8 @@ export function CommanderStore({ paid }: { paid?: string }) {
       {note && <div className="cm-banner">{note}</div>}
       {error && <p className="ct-error">{error}</p>}
 
-      <MiniBoard me={colors.me} them={colors.them} />
+      {skinById(preview)?.art === "thanksgiving" && <FallingLeaves count={10} />}
+      <MiniBoard me={colors.me} them={colors.them} art={skinById(preview)?.art} />
       <p className="st-hint">Tap a skin to try it on.</p>
 
       <div className="st-bar">
@@ -202,6 +202,24 @@ export function CommanderStore({ paid }: { paid?: string }) {
 
       {tab === "seasonal" && (
         <div className={view === "list" ? "st-list" : "st-grid"}>
+          {SKINS.filter((x) => x.kind === "season").map((x) => (
+            <SkinCard
+              key={x.id}
+              s={x}
+              side={side}
+              custom={custom}
+              onCustom={setCustom}
+              previewing={preview === x.id}
+              using={st?.shuffle ? (st.pool ?? []).includes(x.id) : (st?.skin ?? "classic") === x.id}
+              shuffling={!!st?.shuffle}
+              mine={owns(owned, x.id) || !!st?.admin}
+              busy={busy === x.id}
+              onPreview={() => setPreview(x.id)}
+              onBuy={() => buy(x.id)}
+              onUse={(on) => (st?.shuffle ? togglePool(x.id, on) : use(on ? x.id : "classic"))}
+              onSaveCustom={() => {}}
+            />
+          ))}
           {SEASONAL_SOON.map((x) => (
             <div key={x.id} className="st-card soon">
               <div className="st-swatch soon" aria-hidden>
@@ -331,9 +349,13 @@ function SkinCard({
             {using ? "ON" : "OFF"}
           </button>
         ) : (
-          <button className="ob-btn st-buy" disabled={busy} onClick={onBuy}>
-            {busy ? "OPENING…" : s.price ? `BUY ${dollars(s.price)}` : "FREE"}
-          </button>
+          onSale(s) ? (
+            <button className="ob-btn st-buy" disabled={busy} onClick={onBuy}>
+              {busy ? "OPENING…" : s.price ? `BUY ${dollars(s.price)}` : "FREE"}
+            </button>
+          ) : (
+            <span className="st-owned">{nextSale(s) ? `ON SALE ${shortDate(nextSale(s)!).toUpperCase()}` : "COMING BACK"}</span>
+          )
         )}
       </div>
     </div>
@@ -341,7 +363,7 @@ function SkinCard({
 }
 
 /** The tutorial map's best layout, painted in the previewed colors. */
-function MiniBoard({ me, them }: { me: string; them: string }) {
+function MiniBoard({ me, them, art }: { me: string; them: string; art?: Art }) {
   const { fin, at } = useMemo(() => {
     const pl = solve(DEMO_LAYOUT).placements;
     const at = new Map<number, Kind>(pl.map((p) => [p.i, p.kind]));
@@ -353,10 +375,10 @@ function MiniBoard({ me, them }: { me: string; them: string }) {
       {Array.from({ length: CELLS }, (_, i) => {
         const t = DEMO_LAYOUT.terrain[i];
         const k = at.get(i);
-        const bg = t === WALL ? "#70757d" : t === WATER ? "#2aa198" : fin[i] ? me : them;
+        const bg = t === WALL ? (art === "thanksgiving" ? "#d9b25a" : "#70757d") : t === WATER ? "#2aa198" : fin[i] ? me : them;
         return (
           <div key={i} className="st-tile" style={{ background: k ? "#f6efdb" : bg, color: me, outline: k ? `2px solid ${me}` : undefined }}>
-            {k ? <TroopIcon kind={k} /> : t === TREE ? <span className="st-tree" /> : null}
+            {k ? <TroopIcon kind={k} art={art} /> : t === TREE ? <TreeSprite art={art} /> : null}
           </div>
         );
       })}
