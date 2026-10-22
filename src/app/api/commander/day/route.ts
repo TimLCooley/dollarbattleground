@@ -34,15 +34,18 @@ export async function GET(req: Request) {
       db.from("free_claims").select("side").eq("user_id", user.id).maybeSingle(),
       db.from("commander_scores").select("score,medal,reward,placements").eq("day", day).eq("user_id", user.id).maybeSingle(),
       db.from("commander_scores").select("day,medal,created_at").eq("user_id", user.id),
-      db.from("commander_profile").select("rank_floor,officer_since,skin,custom_colors").eq("user_id", user.id).maybeSingle(),
+      db.from("commander_profile").select("rank_floor,officer_since,skin,custom_colors,shuffle,skin_pool").eq("user_id", user.id).maybeSingle(),
     ]);
     // ranks count the days you played that day's own puzzle (past days don't)
     const plays = ((all ?? []) as { day: number; medal: string | null; created_at: string }[])
       .filter((p) => dayNumber(new Date(p.created_at)) === p.day)
       .map((p) => ({ day: p.day, perfect: p.medal === "perfect" }));
-    if (prof?.skin && prof.skin !== "classic") {
-      const c = skinColors(prof.skin, prof.custom_colors, fc?.side === "red" ? "red" : "blue");
-      skin = { id: prof.skin, ...c };
+    // shuffle: each load picks one of the skins switched on in the store
+    const pool = (prof?.skin_pool ?? []) as string[];
+    const chosen = prof?.shuffle && pool.length ? pool[Math.floor(Math.random() * pool.length)] : prof?.skin;
+    if (chosen && chosen !== "classic") {
+      const c = skinColors(chosen, prof?.custom_colors, fc?.side === "red" ? "red" : "blue");
+      skin = { id: chosen, ...c };
     }
     rank = commanderRank(plays, today, {
       floorKey: prof?.rank_floor ?? null,
