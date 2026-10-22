@@ -14,6 +14,19 @@ import { track } from "@/lib/track";
 // and use any time after. Buying goes through Stripe Checkout; the server
 // grants it (webhook + the return here). Any purchase commissions you as an officer.
 
+type Tab = "all" | "free" | "seasonal" | "colors" | "specials";
+const TABS: [Tab, string][] = [
+  ["all", "All Access"],
+  ["free", "Free"],
+  ["seasonal", "Seasonal"],
+  ["colors", "Colors"],
+  ["specials", "Specials"],
+];
+// seasonal skins on the way (characters + art) — shown so people know they're coming
+const SEASONAL_SOON = [
+  { id: "nov2026", name: "Thanksgiving", blurb: "Turkey Commander, pilgrim Archers, corn-cob Soldiers", when: "November" },
+  { id: "dec2026", name: "Holiday", blurb: "Santa Commander, elf Archers, snowman Soldiers", when: "December" },
+];
 type State = { signedIn: boolean; owned: string[]; skin: string | null; custom: { me: string; them: string } | null; side: "red" | "blue" | null };
 const dollars = (cents: number) => `$${(cents / 100).toFixed(0)}`;
 
@@ -25,6 +38,22 @@ export function CommanderStore({ paid }: { paid?: string }) {
   const [note, setNote] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [login, setLogin] = useState(false);
+  const [tab, setTab] = useState<Tab>("all");
+  const [view, setView] = useState<"tile" | "list">(() => {
+    try {
+      return typeof window !== "undefined" && localStorage.getItem("bg_store_view") === "list" ? "list" : "tile";
+    } catch {
+      return "tile";
+    }
+  });
+  function pickView(v: "tile" | "list") {
+    setView(v);
+    try {
+      localStorage.setItem("bg_store_view", v);
+    } catch {
+      /* ignore */
+    }
+  }
 
   async function load() {
     const d = (await fetch("/api/store", { cache: "no-store" }).then((r) => r.json())) as State;
@@ -109,38 +138,75 @@ export function CommanderStore({ paid }: { paid?: string }) {
       <MiniBoard me={colors.me} them={colors.them} />
       <p className="st-hint">Tap a skin to try it on.</p>
 
-      <div className={"st-all" + (allAccess ? " owned" : "")}>
-        <div>
-          <div className="st-all-name">{ALL_ACCESS.name}</div>
-          <div className="st-all-blurb">Every skin now — and every seasonal skin we ever release.</div>
+      <div className="st-bar">
+        <div className="st-tabs" role="tablist">
+          {TABS.map(([id, label]) => (
+            <button key={id} role="tab" aria-selected={tab === id} className={"st-tab" + (tab === id ? " on" : "")} onClick={() => setTab(id)}>
+              {label}
+            </button>
+          ))}
         </div>
-        {allAccess ? (
-          <span className="st-owned">OWNED</span>
-        ) : (
-          <button className="ob-btn" disabled={busy === ALL_ACCESS.id} onClick={() => buy(ALL_ACCESS.id)}>
-            {busy === ALL_ACCESS.id ? "OPENING…" : dollars(ALL_ACCESS.price)}
-          </button>
-        )}
+        <div className="st-view" role="group" aria-label="View">
+          <button className={view === "tile" ? "on" : ""} onClick={() => pickView("tile")} aria-label="Tile view" title="Tiles">▦</button>
+          <button className={view === "list" ? "on" : ""} onClick={() => pickView("list")} aria-label="List view" title="List">☰</button>
+        </div>
       </div>
 
-      <div className="st-grid">
-        {SKINS.map((s) => (
-          <SkinCard
-            key={s.id}
-            s={s}
-            side={side}
-            custom={custom}
-            onCustom={setCustom}
-            previewing={preview === s.id}
-            using={(st?.skin ?? "classic") === s.id}
-            mine={owns(owned, s.id)}
-            busy={busy === s.id}
-            onPreview={() => setPreview(s.id)}
-            onBuy={() => buy(s.id)}
-            onUse={() => use(s.id)}
-          />
-        ))}
-      </div>
+      {tab === "all" && (
+        <div className={"st-all" + (allAccess ? " owned" : "")}>
+          <div>
+            <div className="st-all-name">{ALL_ACCESS.name}</div>
+            <div className="st-all-blurb">Every skin in the store now — all 10 colors, Your Colors — and every seasonal skin we ever release.</div>
+          </div>
+          {allAccess ? (
+            <span className="st-owned">OWNED</span>
+          ) : (
+            <button className="ob-btn" disabled={busy === ALL_ACCESS.id} onClick={() => buy(ALL_ACCESS.id)}>
+              {busy === ALL_ACCESS.id ? "OPENING…" : dollars(ALL_ACCESS.price)}
+            </button>
+          )}
+        </div>
+      )}
+
+      {tab === "seasonal" && (
+        <div className={view === "list" ? "st-list" : "st-grid"}>
+          {SEASONAL_SOON.map((x) => (
+            <div key={x.id} className="st-card soon">
+              <div className="st-swatch soon" aria-hidden>
+                <i />
+              </div>
+              <div className="st-text">
+                <div className="st-name">{x.name}</div>
+                <div className="st-blurb">{x.blurb}</div>
+              </div>
+              <div className="st-act">
+                <span className="st-owned">{x.when.toUpperCase()}</span>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {(tab === "free" || tab === "colors" || tab === "specials") && (
+        <div className={view === "list" ? "st-list" : "st-grid"}>
+          {SKINS.filter((x) => (tab === "free" ? x.kind === "free" : tab === "colors" ? x.kind === "color" : x.kind === "custom")).map((x) => (
+            <SkinCard
+              key={x.id}
+              s={x}
+              side={side}
+              custom={custom}
+              onCustom={setCustom}
+              previewing={preview === x.id}
+              using={(st?.skin ?? "classic") === x.id}
+              mine={owns(owned, x.id)}
+              busy={busy === x.id}
+              onPreview={() => setPreview(x.id)}
+              onBuy={() => buy(x.id)}
+              onUse={(on) => use(on ? x.id : "classic")}
+            />
+          ))}
+        </div>
+      )}
 
       <p className="st-fine">
         Skins change your board in CommanderBG and the pictures you share. Purchases are one-time and stay with your account on every device. Seasonal skins arrive each month and come back for a limited time later.
@@ -186,7 +252,7 @@ function SkinCard({
   busy: boolean;
   onPreview: () => void;
   onBuy: () => void;
-  onUse: () => void;
+  onUse: (on: boolean) => void;
 }) {
   const c = s.id === "custom" ? custom : skinColors(s.id, null, side);
   return (
@@ -195,8 +261,10 @@ function SkinCard({
         <i style={{ background: c.me }} />
         <i style={{ background: c.them }} />
       </div>
-      <div className="st-name">{s.name}</div>
-      <div className="st-blurb">{s.blurb}</div>
+      <div className="st-text">
+        <div className="st-name">{s.name}</div>
+        <div className="st-blurb">{s.blurb}</div>
+      </div>
       {s.id === "custom" && (
         <div className="st-pick" onClick={(e) => e.stopPropagation()}>
           <label>
@@ -205,20 +273,29 @@ function SkinCard({
           <label>
             Enemy <input type="color" value={custom.them} onChange={(e) => (onCustom({ ...custom, them: e.target.value }), onPreview())} />
           </label>
+          {mine && using && (
+            <button className="cm-chip" disabled={busy} onClick={() => onUse(true)}>
+              Save
+            </button>
+          )}
         </div>
       )}
       <div className="st-act" onClick={(e) => e.stopPropagation()}>
         {mine ? (
-          using && s.id !== "custom" ? (
-            <span className="st-owned">USING</span>
-          ) : (
-            <button className="cm-chip" disabled={busy} onClick={onUse}>
-              {busy ? "…" : using ? "SAVE COLORS" : "USE"}
-            </button>
-          )
+          <button
+            role="switch"
+            aria-checked={using}
+            aria-label={(using ? "Turn off " : "Use ") + s.name}
+            className={"st-switch" + (using ? " on" : "")}
+            disabled={busy || (using && s.id === "classic")}
+            onClick={() => onUse(!using)}
+          >
+            <i />
+            <span>{using ? "ON" : "OFF"}</span>
+          </button>
         ) : (
           <button className="ob-btn st-buy" disabled={busy} onClick={onBuy}>
-            {busy ? "OPENING…" : s.price ? dollars(s.price) : "FREE"}
+            {busy ? "OPENING…" : s.price ? `BUY ${dollars(s.price)}` : "FREE"}
           </button>
         )}
       </div>
