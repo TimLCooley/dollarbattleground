@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import {
   CELLS,
@@ -82,6 +82,8 @@ export function CommanderGame({ day: askedDay, unsubscribed = false, pathId }: {
   const [best, setBest] = useState<{ score: number; placements: Placement[] } | null>(null);
   const [demoOpen, setDemoOpen] = useState(false);
   const [rankOpen, setRankOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const enemyAlpha = useSyncExternalStore(subscribeSettings, readEnemyAlpha, () => ENEMY_ALPHA_DEFAULT);
   const [demoAuto, setDemoAuto] = useState(true);
   const [remindOpen, setRemindOpen] = useState(false);
   const [focus, setFocus] = useState<number | null>(null);
@@ -461,8 +463,8 @@ export function CommanderGame({ day: askedDay, unsubscribed = false, pathId }: {
   for (const p of shown) for (const { t, dir } of trail(L, p.i, p.kind)) trails.set(t, dir);
 
   return (
-    <div className={"cm-wrap side-" + side} style={skinStyle(data.skin)}>
-      <Header day={data.day} today={data.today} layout={L} onNext={() => setRemindOpen(true)} side={side} signedIn={data.signedIn} onLogin={() => setSignIn(true)} />
+    <div className={"cm-wrap side-" + side} style={{ ...skinStyle(data.skin), ["--them-alpha" as string]: `${enemyAlpha}%` }}>
+      <Header day={data.day} today={data.today} layout={L} onNext={() => setRemindOpen(true)} side={side} signedIn={data.signedIn} onLogin={() => setSignIn(true)} onSettings={() => setSettingsOpen(true)} />
       {signIn && (
         <div className="ob-overlay" role="dialog" aria-label="Log in" onClick={() => setSignIn(false)}>
           <div className="ob-card" onClick={(e) => e.stopPropagation()}>
@@ -685,6 +687,7 @@ export function CommanderGame({ day: askedDay, unsubscribed = false, pathId }: {
         </div>
       )}
 
+      {settingsOpen && <SettingsModal enemyAlpha={enemyAlpha} onClose={() => setSettingsOpen(false)} />}
       {rankOpen && <RankModal rank={data.rank ?? null} signedIn={!!data.signedIn} side={side} onClose={() => setRankOpen(false)} />}
 
       {demoOpen && (
@@ -793,7 +796,7 @@ export function CommanderGame({ day: askedDay, unsubscribed = false, pathId }: {
 
 const dayHref = (n: number, today: number) => (n >= today ? "/" : `/?day=${n}`);
 
-function Header({ day, today, layout, onNext, side, signedIn, onLogin }: { day: number; today: number; layout?: Layout; onNext: () => void; side?: Side | null; signedIn?: boolean; onLogin?: () => void }) {
+function Header({ day, today, layout, onNext, side, signedIn, onLogin, onSettings }: { day: number; today: number; layout?: Layout; onNext: () => void; side?: Side | null; signedIn?: boolean; onLogin?: () => void; onSettings?: () => void }) {
   return (
     <>
       <Link className="go-battle" href="/battleground">
@@ -814,7 +817,7 @@ function Header({ day, today, layout, onNext, side, signedIn, onLogin }: { day: 
         <h1 className="cm-title">
           <CommanderLogo side={side} />
         </h1>
-        {onLogin ? <Menu signedIn={!!signedIn} onLogin={onLogin} /> : <span />}
+        {onLogin ? <Menu signedIn={!!signedIn} onLogin={onLogin} onSettings={onSettings} /> : <span />}
       </div>
       <div className="cm-daynav">
         {day > 1 ? <Link href={dayHref(day - 1, today)}>‹ Prev</Link> : <span />}
@@ -845,7 +848,7 @@ function skinStyle(skin?: { me: string; them: string } | null): React.CSSPropert
 }
 
 /** Top-right hamburger: the store, and Log in / Log out. */
-function Menu({ signedIn, onLogin }: { signedIn: boolean; onLogin: () => void }) {
+function Menu({ signedIn, onLogin, onSettings }: { signedIn: boolean; onLogin: () => void; onSettings?: () => void }) {
   const [open, setOpen] = useState(false);
   return (
     <div className="cm-menu">
@@ -861,6 +864,17 @@ function Menu({ signedIn, onLogin }: { signedIn: boolean; onLogin: () => void })
             <Link href="/store" role="menuitem" className="cm-menu-link">
               Store · skins
             </Link>
+            {onSettings && (
+              <button
+                role="menuitem"
+                onClick={() => {
+                  setOpen(false);
+                  onSettings();
+                }}
+              >
+                Settings
+              </button>
+            )}
             {signedIn ? (
               <form action="/auth/sign-out" method="post">
                 <button type="submit" role="menuitem">Log out</button>
@@ -1147,6 +1161,55 @@ function RankModal({ rank, signedIn, side, onClose }: { rank: CmdRank | null; si
             </li>
           ))}
         </ol>
+      </div>
+    </div>
+  );
+}
+
+// ---- Settings (Tim, 2026-10-22): kept in this browser ----
+const ENEMY_ALPHA_KEY = "bg_cm_enemy_alpha";
+const ENEMY_ALPHA_DEFAULT = 50; // % — how solid the enemy's color is
+function subscribeSettings(cb: () => void) {
+  window.addEventListener("bg-cm-settings", cb);
+  window.addEventListener("storage", cb);
+  return () => {
+    window.removeEventListener("bg-cm-settings", cb);
+    window.removeEventListener("storage", cb);
+  };
+}
+function readEnemyAlpha(): number {
+  try {
+    const v = Number(localStorage.getItem(ENEMY_ALPHA_KEY));
+    return localStorage.getItem(ENEMY_ALPHA_KEY) !== null && Number.isFinite(v) ? Math.max(0, Math.min(100, v)) : ENEMY_ALPHA_DEFAULT;
+  } catch {
+    return ENEMY_ALPHA_DEFAULT;
+  }
+}
+function saveEnemyAlpha(v: number) {
+  try {
+    localStorage.setItem(ENEMY_ALPHA_KEY, String(v));
+  } catch {
+    /* ignore */
+  }
+  window.dispatchEvent(new Event("bg-cm-settings"));
+}
+
+function SettingsModal({ enemyAlpha, onClose }: { enemyAlpha: number; onClose: () => void }) {
+  return (
+    <div className="ob-overlay cm-settings-overlay" role="dialog" aria-label="Settings" onClick={onClose}>
+      <div className="ob-card cm-settings" onClick={(e) => e.stopPropagation()}>
+        <button className="cm-x" onClick={onClose} aria-label="Close">×</button>
+        <div className="ob-kicker">◆ SETTINGS ◆</div>
+        <label className="cm-set-row">
+          <span className="cm-set-label">
+            Enemy color <b>{enemyAlpha}%</b>
+          </span>
+          <input type="range" min={0} max={100} step={5} value={enemyAlpha} onChange={(e) => saveEnemyAlpha(Number(e.target.value))} />
+          <span className="cm-set-fine">Lower makes the enemy&apos;s squares see-through, so your ground stands out.</span>
+        </label>
+        <button className="ob-skip" onClick={() => saveEnemyAlpha(ENEMY_ALPHA_DEFAULT)}>
+          reset to {ENEMY_ALPHA_DEFAULT}%
+        </button>
       </div>
     </div>
   );
