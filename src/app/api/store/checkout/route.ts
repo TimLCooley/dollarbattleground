@@ -37,7 +37,13 @@ export async function POST(req: Request) {
           price_data: {
             currency: "usd",
             unit_amount: price,
-            product_data: { name: `CommanderBG — ${name}`, description: item === ALL_ACCESS.id ? "Every skin, including future ones." : "A CommanderBG skin, yours forever." },
+            product_data: {
+              name: `CommanderBG — ${name}`,
+              description: item === ALL_ACCESS.id ? "Every skin, including future ones." : "A CommanderBG skin, yours forever.",
+              // Stripe Managed Payments (on for this account) handles sales tax
+              // and needs a digital-goods tax code: video game items, permanent rights
+              tax_code: "txcd_10201000",
+            },
           },
         },
       ],
