@@ -468,6 +468,7 @@ export function CommanderGame({ day: askedDay, unsubscribed = false, pathId }: {
   return (
     <div className={"cm-wrap side-" + side + (art ? " art-" + art : "")} style={{ ...skinStyle(data.skin), ["--them-alpha" as string]: `${enemyAlpha}%` }}>
       {art === "thanksgiving" && <FallingLeaves />}
+      {art === "holiday" && <FallingLeaves snow count={36} />}
       <Header day={data.day} today={data.today} layout={L} onNext={() => setRemindOpen(true)} side={side} signedIn={data.signedIn} onLogin={() => setSignIn(true)} onSettings={() => setSettingsOpen(true)} />
       {signIn && (
         <div className="ob-overlay" role="dialog" aria-label="Log in" onClick={() => setSignIn(false)}>

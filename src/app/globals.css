@@ -4118,3 +4118,12 @@ html { font-synthesis-weight: none; }
 @keyframes cm-leaf-fall { to { transform: translateY(calc(100vh + 80px)); } }
 @keyframes cm-leaf-sway { from { transform: translateX(-28px) rotate(-35deg); } to { transform: translateX(28px) rotate(40deg); } }
 @media (prefers-reduced-motion: reduce) { .cm-leaves { display: none; } }
+/* ---- Holiday skin (Dec 2026): frozen ponds, snow on the walls, falling snow ---- */
+.art-holiday .cm-tile.water { background: #a9d8ea; }
+.art-holiday .cm-tile.water .cm-ripple { fill: rgba(255, 255, 255, 0.75); }
+.art-holiday .cm-tile.wall { box-shadow: inset 0 6px 0 #f7f9fb, inset 0 -3px 0 rgba(0, 0, 0, 0.28); }
+.art-holiday .cm-sw.water { background: #a9d8ea; }
+.art-holiday .cm-tile.tree .cm-tree-mark, .art-holiday .cm-sw.tree .cm-tree-mark { background: #1f7a3c; box-shadow: inset 0 4px 0 #f7f9fb; }
+.cm-leaf.snow { opacity: 0.9; }
+.cm-leaf.snow svg { animation-name: cm-snow-sway; }
+@keyframes cm-snow-sway { from { transform: translateX(-12px); } to { transform: translateX(12px); } }
