@@ -406,7 +406,7 @@ export function CommanderGame({ day: askedDay, unsubscribed = false, pathId }: {
   }
 
   if (error && !data) return <div className="cm-wrap"><p className="cm-note">{error}</p></div>;
-  if (!data || !L || !sim) return <div className="cm-wrap"><p className="cm-note">Scouting today&apos;s battlefield…</p></div>;
+  if (!data || !L || !sim) return <LoadingBoard />;
 
   if (!side)
     return (
@@ -1211,6 +1211,29 @@ function SettingsModal({ enemyAlpha, onClose }: { enemyAlpha: number; onClose: (
           reset to {ENEMY_ALPHA_DEFAULT}%
         </button>
       </div>
+    </div>
+  );
+}
+
+/** While the day loads: the page's shape with a blank board that ripples, so nothing jumps when the map arrives. */
+function LoadingBoard() {
+  return (
+    <div className="cm-wrap" aria-busy="true">
+      <div className="cm-skel cm-skel-banner" />
+      <div className="cm-head">
+        <span />
+        <h1 className="cm-title">
+          <CommanderLogo side="blue" />
+        </h1>
+        <span />
+      </div>
+      <div className="cm-skel cm-skel-line" />
+      <div className="cm-board cm-board-loading" style={{ gridTemplateColumns: `repeat(${SIZE}, 1fr)` }} aria-label="Loading today's battlefield">
+        {Array.from({ length: CELLS }, (_, i) => (
+          <div key={i} className="cm-tile cm-tile-loading" style={{ animationDelay: `${((i % SIZE) + Math.floor(i / SIZE)) * 60}ms` }} />
+        ))}
+      </div>
+      <p className="cm-loading-txt">Scouting today&apos;s battlefield…</p>
     </div>
   );
 }

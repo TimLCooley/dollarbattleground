@@ -4096,3 +4096,12 @@ html { font-synthesis-weight: none; }
 .cm-set-label b { color: var(--gold); }
 .cm-set-row input[type="range"] { width: 100%; accent-color: var(--gold); }
 .cm-set-fine { font-size: 13px; opacity: 0.75; }
+
+/* loading board (2026-10-22): the page's shape while the day loads */
+.cm-skel { background: rgba(0, 0, 0, 0.18); border: 2px solid rgba(255, 255, 255, 0.08); }
+.cm-skel-banner { height: 72px; }
+.cm-skel-line { height: 18px; width: 60%; margin: 0 auto; border: 0; }
+.cm-tile-loading { background: #2c5a3a; animation: cm-load 1.6s ease-in-out infinite; }
+@keyframes cm-load { 0%, 100% { background: #2c5a3a; } 50% { background: #3d7a50; } }
+.cm-loading-txt { text-align: center; margin: 0; font-size: 14px; opacity: 0.8; }
+@media (prefers-reduced-motion: reduce) { .cm-tile-loading { animation: none; } }
