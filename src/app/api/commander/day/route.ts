@@ -5,7 +5,7 @@ import { requireAdmin } from "@/lib/admin-auth";
 import { dayNumber, thresholds } from "@/lib/commander/engine";
 import { getDay, histogram } from "@/lib/commander/server";
 import { commanderRank, type CmdRank } from "@/lib/commander/rank";
-import { skinColors } from "@/lib/commander/skins";
+import { skinById, skinColors } from "@/lib/commander/skins";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 120;
@@ -26,7 +26,7 @@ export async function GET(req: Request) {
   let side: string | null = null;
   let mine = null;
   let rank: CmdRank | null = null;
-  let skin: { id: string; me: string; them: string } | null = null;
+  let skin: { id: string; me: string; them: string; art?: string } | null = null;
   if (user) {
     const [, { data: fc }, { data: sc }, { data: all }, { data: prof }] = await Promise.all([
       // last seen, for the admin list
@@ -45,7 +45,7 @@ export async function GET(req: Request) {
     const chosen = prof?.shuffle && pool.length ? pool[Math.floor(Math.random() * pool.length)] : prof?.skin;
     if (chosen && chosen !== "classic") {
       const c = skinColors(chosen, prof?.custom_colors, fc?.side === "red" ? "red" : "blue");
-      skin = { id: chosen, ...c };
+      skin = { id: chosen, ...c, art: skinById(chosen)?.art };
     }
     rank = commanderRank(plays, today, {
       floorKey: prof?.rank_floor ?? null,

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createAdminClient } from "@/utils/supabase/admin";
 import { createClient } from "@/utils/supabase/server";
 import { ownedItems } from "@/lib/store";
+import { requireAdmin } from "@/lib/admin-auth";
 
 export const dynamic = "force-dynamic";
 
@@ -17,5 +18,5 @@ export async function GET() {
     db.from("commander_profile").select("skin,custom_colors,shuffle,skin_pool").eq("user_id", user.id).maybeSingle(),
     db.from("free_claims").select("side").eq("user_id", user.id).maybeSingle(),
   ]);
-  return NextResponse.json({ signedIn: true, owned, skin: prof?.skin ?? null, custom: prof?.custom_colors ?? null, side: claim?.side ?? null, shuffle: !!prof?.shuffle, pool: prof?.skin_pool ?? [] });
+  return NextResponse.json({ signedIn: true, owned, skin: prof?.skin ?? null, custom: prof?.custom_colors ?? null, side: claim?.side ?? null, shuffle: !!prof?.shuffle, pool: prof?.skin_pool ?? [], admin: !!(await requireAdmin()) });
 }
