@@ -324,12 +324,11 @@ function SkinCard({
             role="switch"
             aria-checked={using}
             aria-label={(using ? "Turn off " : "Use ") + s.name}
-            className={"st-switch" + (using ? " on" : "")}
+            className={"st-onoff" + (using ? " on" : "")}
             disabled={busy || (!shuffling && using && s.id === "classic")}
             onClick={() => onUse(!using)}
           >
-            <i />
-            <span>{using ? "ON" : "OFF"}</span>
+            {using ? "ON" : "OFF"}
           </button>
         ) : (
           <button className="ob-btn st-buy" disabled={busy} onClick={onBuy}>
