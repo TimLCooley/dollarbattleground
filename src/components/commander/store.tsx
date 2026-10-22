@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { CELLS, SIZE, TREE, WALL, WATER, simulate, solve, type Kind } from "@/lib/commander/engine";
 import { DEMO_LAYOUT } from "@/lib/commander/demo-map";
@@ -27,7 +27,18 @@ const SEASONAL_SOON = [
   { id: "nov2026", name: "Thanksgiving", blurb: "Turkey Commander, pilgrim Archers, corn-cob Soldiers", when: "November" },
   { id: "dec2026", name: "Holiday", blurb: "Santa Commander, elf Archers, snowman Soldiers", when: "December" },
 ];
-type State = { signedIn: boolean; owned: string[]; skin: string | null; custom: { me: string; them: string } | null; side: "red" | "blue" | null };
+type State = { signedIn: boolean; owned: string[]; skin: string | null; custom: { me: string; them: string } | null; side: "red" | "blue" | null; shuffle: boolean; pool: string[] };
+const subscribeView = (cb: () => void) => {
+  window.addEventListener("bg-store-view", cb);
+  return () => window.removeEventListener("bg-store-view", cb);
+};
+const readView = (): "tile" | "list" => {
+  try {
+    return localStorage.getItem("bg_store_view") === "list" ? "list" : "tile";
+  } catch {
+    return "tile";
+  }
+};
 const dollars = (cents: number) => `$${(cents / 100).toFixed(0)}`;
 
 export function CommanderStore({ paid }: { paid?: string }) {
@@ -39,20 +50,15 @@ export function CommanderStore({ paid }: { paid?: string }) {
   const [error, setError] = useState<string | null>(null);
   const [login, setLogin] = useState(false);
   const [tab, setTab] = useState<Tab>("all");
-  const [view, setView] = useState<"tile" | "list">(() => {
-    try {
-      return typeof window !== "undefined" && localStorage.getItem("bg_store_view") === "list" ? "list" : "tile";
-    } catch {
-      return "tile";
-    }
-  });
+  // tile/list, remembered per browser (the server always renders tiles)
+  const view = useSyncExternalStore(subscribeView, readView, () => "tile" as const);
   function pickView(v: "tile" | "list") {
-    setView(v);
     try {
       localStorage.setItem("bg_store_view", v);
     } catch {
       /* ignore */
     }
+    window.dispatchEvent(new Event("bg-store-view"));
   }
 
   async function load() {
@@ -103,17 +109,32 @@ export function CommanderStore({ paid }: { paid?: string }) {
     }
   }
 
-  async function use(skin: string, reload = true) {
-    setBusy(skin);
+  async function save(body: Record<string, unknown>, key: string, done?: string) {
+    if (!st?.signedIn) return setLogin(true);
+    setBusy(key);
     setError(null);
-    const r = await fetch("/api/store/skin", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ skin, custom: skin === "custom" ? custom : undefined }) });
+    const r = await fetch("/api/store/skin", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
     const d = (await r.json().catch(() => ({}))) as { error?: string };
     setBusy(null);
-    if (!r.ok) return setError(d.error ?? "Couldn't switch skins — try again.");
-    if (reload) {
-      await load();
-      setNote("Equipped — it's on your board now.");
-    }
+    if (!r.ok) return setError(d.error ?? "Couldn't save that — try again.");
+    await load();
+    if (done) setNote(done);
+  }
+  // one skin at a time: switching one on switches the rest off
+  function use(skin: string, reload = true) {
+    return reload ? save({ skin, custom: skin === "custom" ? custom : undefined }, skin, "Equipped — it's on your board now.") : save({ skin }, skin);
+  }
+  // shuffle: switch any number on; each game load picks one of them
+  function toggleShuffle() {
+    const on = !st?.shuffle;
+    void save({ shuffle: on }, "shuffle", on ? "Shuffle on — switch on the skins to mix. Each time you load the game, one of them is picked." : "Shuffle off — you'll play with one skin.");
+  }
+  function togglePool(id: string, on: boolean) {
+    const pool = new Set(st?.pool ?? []);
+    if (on) pool.add(id);
+    else pool.delete(id);
+    if (!pool.size) return setError("Keep at least one skin on while shuffling.");
+    void save({ pool: [...pool], custom: id === "custom" && on ? custom : undefined }, id);
   }
 
   const colors = preview === "custom" ? (isHex(custom.me) && isHex(custom.them) ? custom : skinColors(null, null, side)) : skinColors(preview, null, side);
@@ -139,6 +160,10 @@ export function CommanderStore({ paid }: { paid?: string }) {
       <p className="st-hint">Tap a skin to try it on.</p>
 
       <div className="st-bar">
+        <div className="st-view" role="group" aria-label="View">
+          <button className={view === "tile" ? "on" : ""} onClick={() => pickView("tile")} aria-label="Tile view" title="Tiles">▦</button>
+          <button className={view === "list" ? "on" : ""} onClick={() => pickView("list")} aria-label="List view" title="List">☰</button>
+        </div>
         <div className="st-tabs" role="tablist">
           {TABS.map(([id, label]) => (
             <button key={id} role="tab" aria-selected={tab === id} className={"st-tab" + (tab === id ? " on" : "")} onClick={() => setTab(id)}>
@@ -146,11 +171,18 @@ export function CommanderStore({ paid }: { paid?: string }) {
             </button>
           ))}
         </div>
-        <div className="st-view" role="group" aria-label="View">
-          <button className={view === "tile" ? "on" : ""} onClick={() => pickView("tile")} aria-label="Tile view" title="Tiles">▦</button>
-          <button className={view === "list" ? "on" : ""} onClick={() => pickView("list")} aria-label="List view" title="List">☰</button>
-        </div>
+        <button
+          className={"st-shuffle" + (st?.shuffle ? " on" : "")}
+          aria-pressed={!!st?.shuffle}
+          onClick={toggleShuffle}
+          disabled={busy === "shuffle"}
+          title={st?.shuffle ? "Shuffle is on — each load picks one of the skins you switched on" : "Shuffle between your skins"}
+          aria-label="Shuffle skins"
+        >
+          🔀
+        </button>
       </div>
+      {st?.shuffle && <p className="st-hint">🔀 Shuffle is on — switch on every skin you want in the mix.</p>}
 
       {tab === "all" && (
         <div className={"st-all" + (allAccess ? " owned" : "")}>
@@ -197,12 +229,14 @@ export function CommanderStore({ paid }: { paid?: string }) {
               custom={custom}
               onCustom={setCustom}
               previewing={preview === x.id}
-              using={(st?.skin ?? "classic") === x.id}
+              using={st?.shuffle ? (st.pool ?? []).includes(x.id) : (st?.skin ?? "classic") === x.id}
+              shuffling={!!st?.shuffle}
               mine={owns(owned, x.id)}
               busy={busy === x.id}
               onPreview={() => setPreview(x.id)}
               onBuy={() => buy(x.id)}
-              onUse={(on) => use(on ? x.id : "classic")}
+              onUse={(on) => (st?.shuffle ? togglePool(x.id, on) : use(on ? x.id : "classic"))}
+              onSaveCustom={() => save(st?.shuffle ? { custom } : { skin: "custom", custom }, "custom", "Colors saved.")}
             />
           ))}
         </div>
@@ -241,6 +275,8 @@ function SkinCard({
   onPreview,
   onBuy,
   onUse,
+  shuffling,
+  onSaveCustom,
 }: {
   s: Skin;
   side: "red" | "blue";
@@ -253,6 +289,8 @@ function SkinCard({
   onPreview: () => void;
   onBuy: () => void;
   onUse: (on: boolean) => void;
+  shuffling: boolean;
+  onSaveCustom: () => void;
 }) {
   const c = s.id === "custom" ? custom : skinColors(s.id, null, side);
   return (
@@ -274,7 +312,7 @@ function SkinCard({
             Enemy <input type="color" value={custom.them} onChange={(e) => (onCustom({ ...custom, them: e.target.value }), onPreview())} />
           </label>
           {mine && using && (
-            <button className="cm-chip" disabled={busy} onClick={() => onUse(true)}>
+            <button className="cm-chip" disabled={busy} onClick={onSaveCustom}>
               Save
             </button>
           )}
@@ -287,7 +325,7 @@ function SkinCard({
             aria-checked={using}
             aria-label={(using ? "Turn off " : "Use ") + s.name}
             className={"st-switch" + (using ? " on" : "")}
-            disabled={busy || (using && s.id === "classic")}
+            disabled={busy || (!shuffling && using && s.id === "classic")}
             onClick={() => onUse(!using)}
           >
             <i />
