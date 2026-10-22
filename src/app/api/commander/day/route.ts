@@ -26,18 +26,22 @@ export async function GET(req: Request) {
   let mine = null;
   let rank: CmdRank | null = null;
   if (user) {
-    const [, { data: fc }, { data: sc }, { data: all }] = await Promise.all([
+    const [, { data: fc }, { data: sc }, { data: all }, { data: prof }] = await Promise.all([
       // last seen, for the admin list
       db.from("player_seen").upsert({ user_id: user.id, seen_at: new Date().toISOString() }).then(() => ({ data: null })),
       db.from("free_claims").select("side").eq("user_id", user.id).maybeSingle(),
       db.from("commander_scores").select("score,medal,reward,placements").eq("day", day).eq("user_id", user.id).maybeSingle(),
       db.from("commander_scores").select("day,medal,created_at").eq("user_id", user.id),
+      db.from("commander_profile").select("rank_floor,officer_since").eq("user_id", user.id).maybeSingle(),
     ]);
     // ranks count the days you played that day's own puzzle (past days don't)
     const plays = ((all ?? []) as { day: number; medal: string | null; created_at: string }[])
       .filter((p) => dayNumber(new Date(p.created_at)) === p.day)
       .map((p) => ({ day: p.day, perfect: p.medal === "perfect" }));
-    rank = commanderRank(plays, today);
+    rank = commanderRank(plays, today, {
+      floorKey: prof?.rank_floor ?? null,
+      officerSinceDay: prof?.officer_since ? dayNumber(new Date(prof.officer_since)) : null,
+    });
     side = fc?.side ?? null;
     mine = sc;
   }

@@ -31,7 +31,7 @@ import { pixel } from "@/lib/pixel";
 import { CommanderLogo } from "./logo";
 import { Notches, Ripple, TreeSprite, TroopIcon, Tuft, hasTuft, sway, wallClass } from "./icons";
 import { Insignia } from "@/lib/ranks";
-import { CMD_RANKS, PERFECT_BONUS, STREAK_DAYS, type CmdRank } from "@/lib/commander/rank";
+import { ENLISTED_RANKS, OFFICER_RANKS, PERFECT_BONUS, STREAK_DAYS, type CmdRank } from "@/lib/commander/rank";
 
 type Side = "red" | "blue";
 type Result = {
@@ -1078,17 +1078,22 @@ export function ResultsModal({
 function RankModal({ rank, signedIn, side, onClose }: { rank: CmdRank | null; signedIn: boolean; side: Side; onClose: () => void }) {
   const pts = rank?.points ?? 0;
   const cur = rank?.rank.key ?? "recruit";
-  const pct = rank?.next ? Math.round(((pts - rank.rank.req) / (rank.next.req - rank.rank.req)) * 100) : 100;
+  const officer = rank?.track === "officer";
+  const steps = officer ? OFFICER_RANKS : ENLISTED_RANKS;
+  const pct = rank?.next ? Math.max(0, Math.min(100, Math.round(((pts - rank.rank.req) / (rank.next.req - rank.rank.req)) * 100))) : 100;
   return (
     <div className="ob-overlay" role="dialog" aria-label="Ranks" onClick={onClose}>
       <div className={"ob-card cm-ranks side-" + side} onClick={(e) => e.stopPropagation()}>
         <button className="cm-x" onClick={onClose} aria-label="Close">×</button>
-        <div className="ob-kicker">◆ YOUR RANK ◆</div>
+        <div className="ob-kicker">◆ YOUR RANK · {officer ? "OFFICER" : "ENLISTED"} ◆</div>
         <div className="cm-ranks-me">
           {rank && rank.rank.insignia.kind !== "none" ? <Insignia ins={rank.rank.insignia} size={64} /> : <span className="cm-rank-none big">☆</span>}
           <div>
             <div className="cm-ranks-name">{rank?.rank.name ?? "Recruit"}</div>
-            <div className="cm-ranks-pts">{pts} points{rank && rank.streak > 0 ? ` · 🔥 ${rank.streak}-day streak` : ""}</div>
+            <div className="cm-ranks-pts">
+              {pts} points{officer ? " as an officer" : ""}
+              {rank && rank.streak > 0 ? ` · 🔥 ${rank.streak}-day streak` : ""}
+            </div>
           </div>
         </div>
         {rank?.next ? (
@@ -1099,8 +1104,9 @@ function RankModal({ rank, signedIn, side, onClose }: { rank: CmdRank | null; si
             </p>
           </>
         ) : rank ? (
-          <p className="cm-ranks-next">Top of the enlisted ranks. Officer ranks are coming.</p>
+          <p className="cm-ranks-next">{officer ? "General — the top of the army." : "Top of the enlisted ranks."}</p>
         ) : null}
+        {rank?.floored && <p className="cm-ranks-fine">You keep the rank you earned before ranks were rescaled — points now climb on the new scale.</p>}
         {!signedIn && <p className="cm-ranks-next">Enlist (free) when you post a score to start earning rank.</p>}
         {rank && rank.streak > 0 && (
           <p className="cm-ranks-tip">
@@ -1112,9 +1118,14 @@ function RankModal({ rank, signedIn, side, onClose }: { rank: CmdRank | null; si
           <div><b>+2</b> instead, once you&apos;ve played {STREAK_DAYS}+ days in a row</div>
           <div><b>+{PERFECT_BONUS}</b> more for a perfect score 🏰</div>
           <div className="cm-ranks-fine">Past days are for practice — they don&apos;t count toward rank.</div>
+          <div className="cm-ranks-fine">
+            {officer
+              ? "Officers climb from 2nd Lieutenant on the points earned since their first purchase."
+              : "Buy anything in the store and you're commissioned as an officer — starting at 2nd Lieutenant, climbing to General."}
+          </div>
         </div>
         <ol className="cm-ladder">
-          {CMD_RANKS.map((r) => (
+          {steps.map((r) => (
             <li key={r.key} className={(r.key === cur ? "on " : "") + (pts >= r.req ? "got" : "")}>
               <span className="cm-ladder-ins">{r.insignia.kind !== "none" ? <Insignia ins={r.insignia} size={24} /> : "☆"}</span>
               <span className="cm-ladder-name">{r.name}</span>
