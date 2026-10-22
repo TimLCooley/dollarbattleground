@@ -38,6 +38,12 @@ const GOLD = "#f2c14e";
 const FONT = HEAD_FONT;
 const BODY = BODY_FONT;
 const s = (sec: number) => Math.round(sec * FPS);
+// Platform safe zone (TikTok/Reels/Shorts): their caption and buttons cover the
+// bottom ~25% and a strip down the right, so the board is 820px at x 50–870 and
+// everything else sits above y ≈ 1440.
+const BOARD = 820;
+const BOARD_TOP = 470;
+const BELOW = BOARD_TOP + BOARD + 30;
 const phase = (frame: number, i: number, period: number): "a" | "b" =>
   Math.floor((frame / FPS + ((i * 37) % 23) / 10) / (period / 2)) % 2 === 0 ? "a" : "b";
 const chevron: Record<string, string> = {
@@ -274,8 +280,8 @@ export const CommanderClip = (p: CommanderClipProps) => {
     return (
       <AbsoluteFill style={{ background: bg, color: "#f6efdb" }}>
         {bed}
-        <div style={{ position: "absolute", top: 460, left: 40, opacity: 0.55 }}>
-          <Board L={L} moves={run} at={at} frame={frame} />
+        <div style={{ position: "absolute", top: BOARD_TOP, left: 50, opacity: 0.55 }}>
+          <Board L={L} moves={run} at={at} frame={frame} size={BOARD} />
         </div>
         {frame < endAt && (
           <AbsoluteFill style={{ display: "grid", placeItems: "center", padding: "0 70px" }}>
@@ -312,11 +318,11 @@ export const CommanderClip = (p: CommanderClipProps) => {
             <div style={{ fontFamily: FONT, fontSize: 84, lineHeight: 1.08 }}>Last video&apos;s answer…</div>
             <div style={{ fontFamily: BODY, fontWeight: 700, fontSize: 40, color: GOLD, marginTop: 18 }}>CommanderBG #{A.day}</div>
           </div>
-          <div style={{ position: "absolute", top: 520, left: 40 }}>
-            <Board L={A.layout} moves={[...aq.before, aq.next]} at={[...aq.before.map(() => -1), A_REVEAL]} frame={frame} options={aq.options.map((o) => ({ ...o, revealAt: A_REVEAL }))} />
+          <div style={{ position: "absolute", top: BOARD_TOP, left: 50 }}>
+            <Board L={A.layout} moves={[...aq.before, aq.next]} at={[...aq.before.map(() => -1), A_REVEAL]} frame={frame} size={BOARD} options={aq.options.map((o) => ({ ...o, revealAt: A_REVEAL }))} />
           </div>
           {frame >= A_REVEAL + 6 && (
-            <div style={{ position: "absolute", top: 1550, left: 60, right: 60, textAlign: "center", fontFamily: BODY, fontWeight: 700, fontSize: 50, lineHeight: 1.2 }}>
+            <div style={{ position: "absolute", top: BELOW, left: 50, right: 150, textAlign: "center", fontFamily: BODY, fontWeight: 700, fontSize: 50, lineHeight: 1.2 }}>
               <span style={{ fontFamily: FONT, color: GOLD, fontSize: 90 }}>{ans}!</span> It takes {aq.gainNext} more squares.
             </div>
           )}
@@ -330,14 +336,14 @@ export const CommanderClip = (p: CommanderClipProps) => {
           <div style={{ fontFamily: FONT, fontSize: 84, lineHeight: 1.08 }}>{aq ? "Next question:" : "Quick question:"} where does the next {Kind} go?</div>
           <div style={{ fontFamily: BODY, fontWeight: 700, fontSize: 40, color: GOLD, marginTop: 18 }}>CommanderBG #{p.day} · {p.dayLabel}</div>
         </div>
-        <div style={{ position: "absolute", top: 560, left: 40 }}>
-          <Board L={L} moves={q.before} at={q.before.map(() => -1)} frame={f2} options={f2 >= s(1) ? q.options.map((o) => ({ ...o, revealAt: Infinity })) : undefined} />
+        <div style={{ position: "absolute", top: BOARD_TOP, left: 50 }}>
+          <Board L={L} moves={q.before} at={q.before.map(() => -1)} frame={f2} size={BOARD} options={f2 >= s(1) ? q.options.map((o) => ({ ...o, revealAt: Infinity })) : undefined} />
         </div>
         {count !== null && count > 0 && (
-          <div style={{ position: "absolute", top: 1600, width: "100%", textAlign: "center", fontFamily: FONT, fontSize: 130, color: GOLD }}>{count}</div>
+          <div style={{ position: "absolute", top: BELOW - 20, left: 50, right: 150, textAlign: "center", fontFamily: FONT, fontSize: 130, color: GOLD }}>{count}</div>
         )}
         {f2 >= s(1) && f2 < s(3.2) && (
-          <div style={{ position: "absolute", top: 1610, width: "100%", textAlign: "center", fontFamily: BODY, fontWeight: 700, fontSize: 50 }}>A, B or C? Comment it 👇</div>
+          <div style={{ position: "absolute", top: BELOW, left: 50, right: 150, textAlign: "center", fontFamily: BODY, fontWeight: 700, fontSize: 50 }}>A, B or C? Comment it 👇</div>
         )}
         {f2 >= s(6.5) && frame < Q_END && (
           <AbsoluteFill style={{ display: "grid", placeItems: "center", background: "rgba(10,46,26,0.82)" }}>
@@ -364,19 +370,19 @@ export const CommanderClip = (p: CommanderClipProps) => {
       <AbsoluteFill style={{ background: bg, color: "#f6efdb" }}>
         {bed}
         {title(`Where would you place the next ${Kind}?`, `Yesterday's CommanderBG #${p.day} · ${p.dayLabel}`)}
-        <div style={{ position: "absolute", top: 520, left: 40 }}>
-          <Board L={L} moves={moves} at={at} frame={frame} options={frame >= s(1.8) ? q.options.map((o) => ({ ...o, revealAt: T_REVEAL })) : undefined} />
+        <div style={{ position: "absolute", top: BOARD_TOP, left: 50 }}>
+          <Board L={L} moves={moves} at={at} frame={frame} size={BOARD} options={frame >= s(1.8) ? q.options.map((o) => ({ ...o, revealAt: T_REVEAL })) : undefined} />
         </div>
         {count !== null && count > 0 && (
-          <div style={{ position: "absolute", top: 1560, width: "100%", textAlign: "center", fontFamily: FONT, fontSize: 130, color: GOLD }}>{count}</div>
+          <div style={{ position: "absolute", top: BELOW - 20, left: 50, right: 150, textAlign: "center", fontFamily: FONT, fontSize: 130, color: GOLD }}>{count}</div>
         )}
         {frame >= T_REVEAL + 6 && frame < s(11.6) && (
-          <div style={{ position: "absolute", top: 1550, left: 60, right: 60, textAlign: "center", fontFamily: BODY, fontWeight: 700, fontSize: 50, lineHeight: 1.2 }}>
+          <div style={{ position: "absolute", top: BELOW, left: 50, right: 150, textAlign: "center", fontFamily: BODY, fontWeight: 700, fontSize: 50, lineHeight: 1.2 }}>
             <span style={{ fontFamily: FONT, color: GOLD, fontSize: 70 }}>{answer}!</span> It takes {q.gainNext} more squares — and sets up the perfect {p.optimal}.
           </div>
         )}
         {frame < T_REVEAL && frame >= s(1.8) && (
-          <div style={{ position: "absolute", top: 1570, width: "100%", textAlign: "center", fontFamily: BODY, fontWeight: 700, fontSize: 46, opacity: count ? 0 : 1 }}>
+          <div style={{ position: "absolute", top: BELOW, left: 50, right: 150, textAlign: "center", fontFamily: BODY, fontWeight: 700, fontSize: 46, opacity: count ? 0 : 1 }}>
             A, B or C? Answer in the comments.
           </div>
         )}
@@ -396,8 +402,8 @@ export const CommanderClip = (p: CommanderClipProps) => {
     <AbsoluteFill style={{ background: bg, color: "#f6efdb" }}>
       {bed}
       {title("I can't believe how hard this is", `CommanderBG #${p.day} · ${p.dayLabel}`)}
-      <div style={{ position: "absolute", top: 480, left: 40 }}>
-        <Board L={L} moves={run} at={at} frame={frame} />
+      <div style={{ position: "absolute", top: BOARD_TOP, left: 50 }}>
+        <Board L={L} moves={run} at={at} frame={frame} size={BOARD} />
       </div>
       {frame >= doneAt && (
         <AbsoluteFill style={{ display: "grid", placeItems: "center", background: `rgba(10,46,26,${0.7 * Math.min(1, card)})` }}>
