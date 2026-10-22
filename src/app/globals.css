@@ -4083,3 +4083,7 @@ html { font-synthesis-weight: none; }
 .st-switch:disabled { cursor: default; }
 .st-shuffle { flex: none; width: 38px; height: 36px; background: rgba(0, 0, 0, 0.18); border: 2px solid rgba(255, 255, 255, 0.15); font-size: 17px; cursor: pointer; filter: grayscale(1); opacity: 0.7; }
 .st-shuffle.on { border-color: var(--gold); background: rgba(242, 193, 78, 0.2); filter: none; opacity: 1; }
+/* plain ON / OFF button for owned skins (replaces the slider) */
+.st-onoff { width: 100%; padding: 7px 10px; font-family: var(--font-pixel), sans-serif; font-size: 14px; letter-spacing: 1px; cursor: pointer; background: rgba(0, 0, 0, 0.25); color: rgba(246, 239, 219, 0.75); border: 2px solid rgba(255, 255, 255, 0.2); }
+.st-onoff.on { background: var(--gold); color: #14331d; border-color: var(--gold); box-shadow: 0 3px 0 rgba(0, 0, 0, 0.3); }
+.st-onoff:disabled { cursor: default; }
