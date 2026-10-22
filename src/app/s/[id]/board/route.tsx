@@ -33,7 +33,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
           <div style={{ display: "flex", fontSize: 34, fontWeight: 900, color: "#f2c14e" }}>CommanderBG</div>
           <div style={{ display: "flex", fontSize: 30, fontWeight: 800 }}>{`#${p.day} ${p.medal ? STARS[p.medal] : ""}`}</div>
         </div>
-        <BoardArt layout={p.layout} placements={p.placements} side={p.side} tile={tile} />
+        <BoardArt layout={p.layout} placements={p.placements} side={p.side} tile={tile} colors={p.colors} />
         <div style={{ display: "flex", height: foot, alignItems: "flex-end", fontSize: 26, fontWeight: 800 }}>Play at commanderbg.com</div>
       </div>
     ),

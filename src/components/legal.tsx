@@ -56,6 +56,14 @@ export function Legal() {
             transferable, and cannot be exchanged for money or anything of
             real-world value.
           </p>
+          <p>
+            <b>Skins.</b> Store skins are cosmetic digital items licensed to your
+            account for as long as {GAME} runs. &quot;All Skins, Forever&quot;
+            includes skins released later. Seasonal skins may only be sold for a
+            limited time. Any purchase commissions your account as an officer in
+            the {GAME} rank system; ranks have no cash value. All skin sales are
+            final, as above.
+          </p>
         </section>
 
         {/* -------- Terms of Service -------- */}

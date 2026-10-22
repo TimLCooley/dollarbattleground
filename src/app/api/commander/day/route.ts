@@ -5,6 +5,7 @@ import { requireAdmin } from "@/lib/admin-auth";
 import { dayNumber, thresholds } from "@/lib/commander/engine";
 import { getDay, histogram } from "@/lib/commander/server";
 import { commanderRank, type CmdRank } from "@/lib/commander/rank";
+import { skinColors } from "@/lib/commander/skins";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 120;
@@ -25,6 +26,7 @@ export async function GET(req: Request) {
   let side: string | null = null;
   let mine = null;
   let rank: CmdRank | null = null;
+  let skin: { id: string; me: string; them: string } | null = null;
   if (user) {
     const [, { data: fc }, { data: sc }, { data: all }, { data: prof }] = await Promise.all([
       // last seen, for the admin list
@@ -32,12 +34,16 @@ export async function GET(req: Request) {
       db.from("free_claims").select("side").eq("user_id", user.id).maybeSingle(),
       db.from("commander_scores").select("score,medal,reward,placements").eq("day", day).eq("user_id", user.id).maybeSingle(),
       db.from("commander_scores").select("day,medal,created_at").eq("user_id", user.id),
-      db.from("commander_profile").select("rank_floor,officer_since").eq("user_id", user.id).maybeSingle(),
+      db.from("commander_profile").select("rank_floor,officer_since,skin,custom_colors").eq("user_id", user.id).maybeSingle(),
     ]);
     // ranks count the days you played that day's own puzzle (past days don't)
     const plays = ((all ?? []) as { day: number; medal: string | null; created_at: string }[])
       .filter((p) => dayNumber(new Date(p.created_at)) === p.day)
       .map((p) => ({ day: p.day, perfect: p.medal === "perfect" }));
+    if (prof?.skin && prof.skin !== "classic") {
+      const c = skinColors(prof.skin, prof.custom_colors, fc?.side === "red" ? "red" : "blue");
+      skin = { id: prof.skin, ...c };
+    }
     rank = commanderRank(plays, today, {
       floorKey: prof?.rank_floor ?? null,
       officerSinceDay: prof?.officer_since ? dayNumber(new Date(prof.officer_since)) : null,
@@ -52,6 +58,7 @@ export async function GET(req: Request) {
     side,
     signedIn: !!user,
     rank,
+    skin,
     isAdmin,
     result: mine
       ? { ...mine, optimal: d.optimal, solution: d.solution, thresholds: thresholds(d.optimal), histogram: await histogram(db, day) }

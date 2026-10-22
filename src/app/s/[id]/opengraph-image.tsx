@@ -27,7 +27,7 @@ export default async function Image({ params }: { params: Promise<{ id: string }
           fontFamily: "sans-serif",
         }}
       >
-        {p ? <BoardArt layout={p.layout} placements={p.placements} side={p.side} tile={46} /> : <div style={{ display: "flex" }} />}
+        {p ? <BoardArt layout={p.layout} placements={p.placements} side={p.side} tile={46} colors={p.colors} /> : <div style={{ display: "flex" }} />}
         <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", textAlign: "right", maxWidth: 520 }}>
           <div style={{ fontSize: 74, fontWeight: 900, color: "#f2c14e" }}>CommanderBG</div>
           <div style={{ fontSize: 48, fontWeight: 800, marginTop: 6 }}>{`#${p?.day ?? ""} ${p?.medal ? STARS[p.medal] : ""}`}</div>
