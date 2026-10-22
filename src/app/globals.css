@@ -3732,7 +3732,7 @@ a.cc-pill-x:hover { color: #f2c14e; text-decoration: underline; }
 .cm-board { display: grid; gap: var(--gap); background: var(--mortar); border: 4px solid #0c3c21; padding: var(--gap); box-shadow: 0 0 0 3px var(--ground); width: 100%; }
 .cm-tile { position: relative; aspect-ratio: 1; border: 0; padding: 0; background: var(--wheat); box-shadow: var(--shadow-pix); cursor: default; display: grid; place-items: center; }
 .cm-tile.you { background: var(--me); }
-.cm-tile.enemy { background: color-mix(in srgb, var(--them) var(--them-alpha, 50%), transparent); }
+.cm-tile.enemy { background: color-mix(in srgb, var(--them) var(--them-alpha, 100%), transparent); }
 .cm-tile.you-take { background: var(--me-l); }
 .cm-tile.you-enc { background: repeating-linear-gradient(45deg, var(--me-l) 0 5px, var(--me) 5px 9px); }
 .cm-tile.wall { background: #4a4f57; box-shadow: inset -3px -3px 0 #33373d, inset 3px 3px 0 #6b7079; }
