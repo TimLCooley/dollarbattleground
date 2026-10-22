@@ -13,9 +13,12 @@ export const boardPx = (tile: number, gap = 4) => SIZE * (tile + gap) + gap + 12
 
 // seasonal skins swap the pieces (share pictures use emoji)
 const THANKSGIVING: Record<string, string> = { commander: "🦃", archer: "🎃", soldier: "🌽", scout: "🐿️", tree: "🍁" };
+const HOLIDAY: Record<string, string> = { commander: "🎅", archer: "🧝", soldier: "⛄", scout: "🦌", tree: "🎄" };
 
 export function BoardArt({ layout, placements, side, tile, gap = 4, colors, art }: { layout: Layout; placements: Placement[]; side: "red" | "blue"; tile: number; gap?: number; colors?: { me: string; them: string }; art?: string }) {
   const fall = art === "thanksgiving";
+  const snow = art === "holiday";
+  const pieces = fall ? THANKSGIVING : snow ? HOLIDAY : null;
   const mine = colors?.me ?? (side === "red" ? RED : BLUE);
   const theirs = colors?.them ?? (side === "red" ? BLUE : RED);
   const fin = simulate(layout, placements).final;
@@ -26,7 +29,7 @@ export function BoardArt({ layout, placements, side, tile, gap = 4, colors, art 
       {layout.terrain.map((t, i) => {
         const troop = order.get(i);
         const commander = i === layout.commander;
-        const bg = t === WALL ? (fall ? "#d9b25a" : "#70757d") : t === WATER ? "#2aa198" : fin[i] ? mine : theirs;
+        const bg = t === WALL ? (fall ? "#d9b25a" : "#70757d") : t === WATER ? (snow ? "#a9d8ea" : "#2aa198") : fin[i] ? mine : theirs;
         return (
           <div
             key={i}
@@ -44,8 +47,8 @@ export function BoardArt({ layout, placements, side, tile, gap = 4, colors, art 
               fontSize: Math.round(tile * 0.6),
             }}
           >
-            {fall
-              ? commander ? THANKSGIVING.commander : troop ? THANKSGIVING[troop.kind] : t === TREE ? THANKSGIVING.tree : ""
+            {pieces
+              ? commander ? pieces.commander : troop ? pieces[troop.kind] : t === TREE ? pieces.tree : ""
               : commander ? "🚩" : troop ? TROOP_EMOJI[troop.kind] : t === TREE ? "🌲" : ""}
             {troop && (
               <div

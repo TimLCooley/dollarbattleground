@@ -3,9 +3,10 @@
 // Scout in the four corners).
 import type { Kind } from "@/lib/commander/engine";
 import { AUTUMN, ThanksgivingTroop } from "./art-thanksgiving";
+import { HolidayTroop, SNOWY } from "./art-holiday";
 
 /** Seasonal art set from the store ("thanksgiving"), or undefined for the classic look. */
-export type Art = "thanksgiving" | undefined;
+export type Art = "thanksgiving" | "holiday" | undefined;
 
 const SKIN = "#e8b98a";
 const DARK = "#3a2a1c";
@@ -50,7 +51,7 @@ export function TroopIcon({ kind, art }: { kind: Kind; art?: Art }) {
       role="img"
       aria-label={kind === "archer" ? "Archer" : kind === "soldier" ? "Soldier" : kind === "scout" ? "Scout" : "Commander"}
     >
-      {art === "thanksgiving" ? <ThanksgivingTroop kind={kind} /> : <ClassicTroop kind={kind} />}
+      {art === "thanksgiving" ? <ThanksgivingTroop kind={kind} /> : art === "holiday" ? <HolidayTroop kind={kind} /> : <ClassicTroop kind={kind} />}
     </svg>
   );
 }
@@ -132,7 +133,8 @@ export function Tuft({ frame, style }: Frame = {}) {
 /** Tree: the canopy rocks a pixel left and right; the trunk stays put. */
 export function TreeSprite({ frame, style, art }: Frame & { art?: Art } = {}) {
   // fall colors for the Thanksgiving skin
-  const [light, mid, dark] = art === "thanksgiving" ? [AUTUMN.light, AUTUMN.mid, AUTUMN.dark] : ["#2b9149", "#1f7a3c", "#16592b"];
+  const [light, mid, dark] =
+    art === "thanksgiving" ? [AUTUMN.light, AUTUMN.mid, AUTUMN.dark] : art === "holiday" ? [SNOWY.light, SNOWY.mid, SNOWY.dark] : ["#2b9149", "#1f7a3c", "#16592b"];
   const canopy = (dx: number) => (
     <>
       <rect x={3 + dx} y="1" width="6" height="1" fill={light} />

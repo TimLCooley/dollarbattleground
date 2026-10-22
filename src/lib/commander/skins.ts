@@ -14,7 +14,7 @@ export type Skin = {
   price: number; // cents; 0 = free
   me: string;
   them: string;
-  art?: "thanksgiving"; // seasonal skins redraw the troops and terrain
+  art?: "thanksgiving" | "holiday"; // seasonal skins redraw the troops and terrain
   sale?: { from: string; to: string }[]; // seasonal: on sale only in these windows (YYYY-MM-DD, Mountain time, inclusive)
 };
 
@@ -43,6 +43,17 @@ export const SKINS: Skin[] = [
     art: "thanksgiving",
     // November; it comes back for 30-day windows later (add them here)
     sale: [{ from: "2026-11-01", to: "2026-11-30" }],
+  },
+  {
+    id: "holiday",
+    name: "Holiday",
+    blurb: "Santa Commander, Elf Archers, Snowman Soldiers, Rudolph Scouts — snowy trees, frozen ponds, falling snow",
+    kind: "season",
+    price: 1000,
+    me: "#c8323c",
+    them: "#e3ebf2",
+    art: "holiday",
+    sale: [{ from: "2026-12-01", to: "2026-12-31" }],
   },
 ];
 

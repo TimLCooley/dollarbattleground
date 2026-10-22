@@ -24,7 +24,7 @@ const TABS: [Tab, string][] = [
   ["specials", "Specials"],
 ];
 // seasonal skins on the way (characters + art) — shown so people know they're coming
-const SEASONAL_SOON = [{ id: "dec2026", name: "Holiday", blurb: "Santa Commander, elf Archers, snowman Soldiers", when: "December" }];
+const SEASONAL_SOON: { id: string; name: string; blurb: string; when: string }[] = [];
 const shortDate = (ymd: string) => new Date(ymd + "T12:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" });
 type State = { signedIn: boolean; owned: string[]; skin: string | null; custom: { me: string; them: string } | null; side: "red" | "blue" | null; shuffle: boolean; pool: string[]; admin?: boolean };
 const subscribeView = (cb: () => void) => {
@@ -156,6 +156,7 @@ export function CommanderStore({ paid }: { paid?: string }) {
       {error && <p className="ct-error">{error}</p>}
 
       {skinById(preview)?.art === "thanksgiving" && <FallingLeaves count={10} />}
+      {skinById(preview)?.art === "holiday" && <FallingLeaves snow count={30} />}
       <MiniBoard me={colors.me} them={colors.them} art={skinById(preview)?.art} />
       <p className="st-hint">Tap a skin to try it on.</p>
 
@@ -375,7 +376,7 @@ function MiniBoard({ me, them, art }: { me: string; them: string; art?: Art }) {
       {Array.from({ length: CELLS }, (_, i) => {
         const t = DEMO_LAYOUT.terrain[i];
         const k = at.get(i);
-        const bg = t === WALL ? (art === "thanksgiving" ? "#d9b25a" : "#70757d") : t === WATER ? "#2aa198" : fin[i] ? me : them;
+        const bg = t === WALL ? (art === "thanksgiving" ? "#d9b25a" : "#70757d") : t === WATER ? (art === "holiday" ? "#a9d8ea" : "#2aa198") : fin[i] ? me : them;
         return (
           <div key={i} className="st-tile" style={{ background: k ? "#f6efdb" : bg, color: me, outline: k ? `2px solid ${me}` : undefined }}>
             {k ? <TroopIcon kind={k} art={art} /> : t === TREE ? <TreeSprite art={art} /> : null}
