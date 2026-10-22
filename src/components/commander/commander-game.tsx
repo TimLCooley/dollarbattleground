@@ -1168,7 +1168,7 @@ function RankModal({ rank, signedIn, side, onClose }: { rank: CmdRank | null; si
 
 // ---- Settings (Tim, 2026-10-22): kept in this browser ----
 const ENEMY_ALPHA_KEY = "bg_cm_enemy_alpha";
-const ENEMY_ALPHA_DEFAULT = 50; // % — how solid the enemy's color is
+const ENEMY_ALPHA_DEFAULT = 100; // % — how solid the enemy's color is (players can lower it)
 function subscribeSettings(cb: () => void) {
   window.addEventListener("bg-cm-settings", cb);
   window.addEventListener("storage", cb);
