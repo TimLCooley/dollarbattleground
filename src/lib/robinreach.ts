@@ -67,7 +67,11 @@ export async function crosspostToTikTok(
   const since = new Date(Date.now() - 24 * 3600_000).toISOString();
   const { count } = await db.from("agent_posts").select("id", { count: "exact", head: true }).gte("x_at", since);
   const xRoom = (count ?? 0) < X_PER_DAY;
-  const profileIds = xRoom ? cfg.team_profile_ids : cfg.team_profile_ids.filter((id) => id !== X_PROFILE_ID);
+  // TikTok stopped recommending the account when it got 7 templated clips a
+  // day (views went from ~100 to ~0 on 2026-10-20): it gets at most 2 a day.
+  const { count: ttCount } = await db.from("agent_posts").select("id", { count: "exact", head: true }).gte("tt_at", since);
+  const ttRoom = (ttCount ?? 0) < TT_PER_DAY;
+  const profileIds = cfg.team_profile_ids.filter((id) => (id !== X_PROFILE_ID || xRoom) && (id !== TT_PROFILE_ID || ttRoom));
   const r = await publishViaRobinReach(db, {
     ...post,
     profileIds,
@@ -75,12 +79,16 @@ export async function crosspostToTikTok(
     ...tiktokCaption(post.faction, post.copy, post.commander),
   });
   if (r.ok && profileIds.includes(X_PROFILE_ID)) await db.from("agent_posts").update({ x_at: new Date().toISOString() }).eq("id", post.id);
+  if (r.ok && profileIds.includes(TT_PROFILE_ID)) await db.from("agent_posts").update({ tt_at: new Date().toISOString() }).eq("id", post.id);
   return r;
 }
 
 // Tim's X account on RobinReach, and its daily posting limit.
 const X_PROFILE_ID = 15815;
 const X_PER_DAY = 5;
+// Tim's TikTok on RobinReach, and how many clips a day it gets.
+const TT_PROFILE_ID = 15814;
+const TT_PER_DAY = 2;
 
 // The founder's own clip: the caption is already written for TikTok.
 export async function publishFounderClip(
@@ -91,12 +99,12 @@ export async function publishFounderClip(
   const title = post.copy.split("\n")[0].split(/[.!?]/)[0].slice(0, 80) || "Founder's log";
   // the Developer talks about Commander now — its tags ride along
   const content = /#\w/.test(post.copy) ? post.copy : `${post.copy}\n\n${COMMANDER_TAGS}`;
-  return publishViaRobinReach(db, { ...post, profileIds: cfg.founder_profile_ids, labels: ["commander", "founder"], title, content });
+  return publishViaRobinReach(db, { ...post, profileIds: cfg.founder_profile_ids, labels: ["commander", "founder"], title, content, aigc: true });
 }
 
 async function publishViaRobinReach(
   db: Db,
-  post: { id: number; media_url: string; profileIds: number[]; labels: string[]; title: string; content: string },
+  post: { id: number; media_url: string; profileIds: number[]; labels: string[]; title: string; content: string; aigc?: boolean },
 ): Promise<{ ok: boolean; postId?: number; error?: string }> {
   if (!KEY) return { ok: false, error: "ROBINREACH_API_KEY not set" };
   const cfg = await getCrosspost(db);
@@ -114,7 +122,9 @@ async function publishViaRobinReach(
         timezone: "UTC",
         labels: post.labels,
         platform_options: {
-          tiktok: { title, content, privacy: "PUBLIC_TO_EVERYONE", is_aigc: true },
+          // game clips are rendered from real puzzle data, not AI — only the
+          // old on-camera avatar clips get TikTok's AI-generated label
+          tiktok: { title, content, privacy: "PUBLIC_TO_EVERYONE", is_aigc: !!post.aigc },
           // The founder's clip can also go to his personal X and Instagram:
           // X takes a ≤280 cut of the caption; Instagram publishes video as a Reel.
           // RobinReach refuses X posts containing links — the site goes in the bio.
