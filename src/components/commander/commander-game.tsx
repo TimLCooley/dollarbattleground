@@ -623,7 +623,7 @@ export function CommanderGame({ day: askedDay, unsubscribed = false, pathId }: {
               </button>
               <div className="cm-replay-steps">
                 {shownAll.map((_, k) => (
-                  <button key={k} className={"cm-replay-n" + ((step?.n ?? shownAll.length) > k ? " on" : "")} onClick={() => setReplay(step?.n === k + 1 && !step.playing ? null : { key: layoutKey, n: k + 1, playing: false })}>
+                  <button key={k} className={"cm-replay-n" + ((step?.n ?? shownAll.length) > k ? " on" : "")} onClick={() => setReplay({ key: layoutKey, n: step?.n === k + 1 && !step.playing ? k : k + 1, playing: false })}>
                     {k + 1}
                   </button>
                 ))}
