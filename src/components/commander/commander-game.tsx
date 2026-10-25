@@ -185,6 +185,7 @@ export function CommanderGame({ day: askedDay, unsubscribed = false, pathId }: {
     showOptimal && result ? result.solution : showFriend && result && friend?.placements ? friend.placements : placements;
   // step-through after attacking (1 › 2 › 3 …): which layout and how many troops
   const layoutKey = showOptimal ? "best" : showFriend ? "friend" : "mine";
+  const [shareMenu, setShareMenu] = useState(false);
   const [replay, setReplay] = useState<{ key: string; n: number; playing: boolean } | null>(null);
   const step = result && replay?.key === layoutKey ? replay : null;
   const shown = step ? shownAll.slice(0, step.n) : shownAll;
@@ -630,7 +631,18 @@ export function CommanderGame({ day: askedDay, unsubscribed = false, pathId }: {
               </button>
             </div>
           )}
-          <button className="ob-btn" onClick={() => setShowResult(true)}>SEE RESULTS</button>
+          <div className="cm-after-row">
+            <button className="ob-btn" onClick={() => setShowResult(true)}>SEE RESULTS</button>
+            <button className="ob-btn cm-dark" aria-expanded={shareMenu} onClick={() => setShareMenu((v) => !v)}>
+              {copied ? "COPIED ✓" : "SHARE"}
+            </button>
+          </div>
+          {shareMenu && (
+            <div className="cm-after-row">
+              <button className="cm-chip" onClick={() => void share("score")}>Share score</button>
+              <button className="cm-chip" disabled={!myPathId} onClick={() => void share("path")}>Share path</button>
+            </div>
+          )}
           {friend?.placements && (
             <button
               className="ob-btn cm-dark"
