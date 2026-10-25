@@ -181,8 +181,20 @@ export function CommanderGame({ day: askedDay, unsubscribed = false, pathId }: {
   const side: Side | null = data?.side ?? guestSide ?? (data?.isAdmin ? "blue" : null);
   const L = data?.layout ?? null;
   const locked = !!result;
-  const shown =
+  const shownAll =
     showOptimal && result ? result.solution : showFriend && result && friend?.placements ? friend.placements : placements;
+  // step-through after attacking (1 › 2 › 3 …): which layout and how many troops
+  const layoutKey = showOptimal ? "best" : showFriend ? "friend" : "mine";
+  const [replay, setReplay] = useState<{ key: string; n: number; playing: boolean } | null>(null);
+  const step = result && replay?.key === layoutKey ? replay : null;
+  const shown = step ? shownAll.slice(0, step.n) : shownAll;
+  useEffect(() => {
+    if (!step?.playing) return;
+    const t = window.setTimeout(() => {
+      setReplay((r) => (r ? (r.n >= shownAll.length ? { ...r, playing: false } : { ...r, n: r.n + 1 }) : r));
+    }, 750);
+    return () => window.clearTimeout(t);
+  }, [step, shownAll.length]);
   const sim = useMemo(() => (L ? simulate(L, shown) : null), [L, shown]);
   // today's two troop types (Archer + Soldier, or the Scout with one of them)
   const TROOPS: Troop[] = L ? armyKinds(L) : ["archer", "soldier"];
@@ -590,6 +602,34 @@ export function CommanderGame({ day: askedDay, unsubscribed = false, pathId }: {
         </>
       ) : (
         <div className="cm-after">
+          {shownAll.length > 0 && (
+            <div className="cm-replay" role="group" aria-label="Step through the layout">
+              <button className="cm-chip" aria-label="Previous troop" disabled={(step?.n ?? shownAll.length) <= 0} onClick={() => setReplay({ key: layoutKey, n: Math.max(0, (step?.n ?? shownAll.length) - 1), playing: false })}>
+                ‹
+              </button>
+              <button
+                className="cm-chip"
+                aria-label={step?.playing ? "Pause" : "Play it out move by move"}
+                onClick={() =>
+                  step?.playing
+                    ? setReplay({ ...step, playing: false })
+                    : setReplay({ key: layoutKey, n: !step || step.n >= shownAll.length ? 0 : step.n, playing: true })
+                }
+              >
+                {step?.playing ? "❚❚" : "▶"}
+              </button>
+              <div className="cm-replay-steps">
+                {shownAll.map((_, k) => (
+                  <button key={k} className={"cm-replay-n" + ((step?.n ?? shownAll.length) > k ? " on" : "")} onClick={() => setReplay({ key: layoutKey, n: k + 1, playing: false })}>
+                    {k + 1}
+                  </button>
+                ))}
+              </div>
+              <button className="cm-chip" aria-label="Next troop" disabled={!step || step.n >= shownAll.length} onClick={() => step && setReplay({ ...step, n: step.n + 1, playing: false })}>
+                ›
+              </button>
+            </div>
+          )}
           <button className="ob-btn" onClick={() => setShowResult(true)}>SEE RESULTS</button>
           {friend?.placements && (
             <button
