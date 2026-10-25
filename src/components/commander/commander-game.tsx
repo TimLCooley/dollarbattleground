@@ -233,6 +233,8 @@ export function CommanderGame({ day: askedDay, unsubscribed = false, pathId }: {
   const total = L ? armyKinds(L).reduce((n, k) => n + countOf(L, k), 0) : 0;
 
   function place(next: Placement[]) {
+    // a browser's first troop ever = someone actually playing (counted once per browser)
+    if (next.length > placements.length) track("commander_play");
     setPlacements(next);
     if (!data || !L) return;
     // practice freely: the best layout of the day is kept, tap it to bring it back

@@ -549,85 +549,81 @@ export async function dailySupplies(db: Db): Promise<number> {
 }
 
 // ── Daily scoreboard ────────────────────────────────────────────────────────
-// Once a day, the funnel in one email: reach → clicks → signups → positions →
-// officers, per side, plus which clip shapes are pulling. The recruiting
-// experiment lives or dies on these numbers, so they arrive without asking.
+// Once a day (Tim, 2026-10-25): "are new people playing?" — yesterday and the
+// last 7 days in Mountain time: new visitors (a browser's first visit), how
+// many of them actually placed a troop, attacked, signed up, who came back,
+// purchases; where visitors came from; clip views; feedback.
 export async function dailyScoreboard(db: Db): Promise<boolean> {
   if (!isEmailConfigured()) return false;
-  const since = new Date(Date.now() - 24 * 3600_000).toISOString();
-  const [{ data: posts }, { data: players }, { data: wl }, { data: act }, { data: tiles }] = await Promise.all([
-    db.from("agent_posts").select("faction,impressions,likes,clicks,social_views,video_spec,posted_at,format").eq("status", "posted"),
-    db.from("player_stats").select("side,spent_cents"),
-    db.from("waitlist").select("side"),
-    db.from("activity").select("kind,faction,created_at").gte("created_at", since),
-    db.from("tiles").select("team"),
+  const mt = (d: string | Date) => new Intl.DateTimeFormat("en-CA", { timeZone: "America/Denver" }).format(new Date(d));
+  const today = mt(new Date());
+  const days = Array.from({ length: 7 }, (_, k) => mt(new Date(Date.now() - (7 - k) * 86_400_000))); // the 7 days before today
+  const yesterday = days[6];
+  const since = new Date(Date.now() - 9 * 86_400_000).toISOString();
+  const [{ data: fe }, { data: scores }, { data: users }, { data: buys }, { data: posts }, { data: fb }] = await Promise.all([
+    db.from("funnel_events").select("step,session_id,meta,created_at").in("step", ["commander_open", "commander_play", "commander_submit", "commander_share"]).gte("created_at", since),
+    db.from("commander_scores").select("user_id,created_at"),
+    db.rpc("admin_real_users"),
+    db.from("store_entitlements").select("amount_cents,created_at").gt("amount_cents", 0).gte("created_at", since),
+    db.from("agent_posts").select("posted_at,social").eq("status", "posted").gte("posted_at", since),
+    db.from("feedback").select("email,message").gte("created_at", new Date(Date.now() - 24 * 3600_000).toISOString()).order("created_at", { ascending: false }).limit(10),
   ]);
-  const P = (posts ?? []) as { faction: string | null; impressions: number | null; likes: number | null; clicks: number | null; social_views: number | null; video_spec: { topic?: string; tim?: boolean } | null; posted_at: string | null; format: string }[];
-  const day = P.filter((p) => p.posted_at && p.posted_at >= since);
-  const sum = (rows: typeof P, k: "impressions" | "likes" | "clicks" | "social_views") => rows.reduce((a, r) => a + Number(r[k] ?? 0), 0);
-  const side = (f: string) => {
-    const pl = ((players ?? []) as { side: string | null; spent_cents: number | null }[]).filter((x) => x.side === f);
-    return { players: pl.length, officers: pl.filter((x) => Number(x.spent_cents ?? 0) >= 500).length, waitlist: ((wl ?? []) as { side: string | null }[]).filter((x) => x.side === f).length };
-  };
-  const red = side("red"), blue = side("blue");
-  const A = (act ?? []) as { kind: string }[];
-  const n = (k: string) => A.filter((a) => a.kind === k).length;
-  let tr = 0, tb = 0;
-  for (const t of (tiles ?? []) as { team: string | null }[]) { if (t.team === "red") tr++; else if (t.team === "blue") tb++; }
-  // which shapes pull: views + clicks per clip by shape, all time
-  const byShape = new Map<string, { n: number; views: number; clicks: number }>();
-  for (const p of P) {
-    if (p.format !== "video") continue;
-    const k = p.video_spec?.tim ? `Tim · ${p.video_spec?.topic ?? "clip"}` : p.faction === "founder" ? `Developer · ${p.video_spec?.topic?.split(" — ")[0] ?? "clip"}` : `${p.faction} desk · ${p.video_spec?.topic ?? "clip"}`;
-    const e = byShape.get(k) ?? { n: 0, views: 0, clicks: 0 };
-    e.n++; e.views += Number(p.impressions ?? 0) + Number(p.social_views ?? 0); e.clicks += Number(p.clicks ?? 0);
-    byShape.set(k, e);
+  const F = (fe ?? []) as { step: string; session_id: string; meta: { ref?: string } | null; created_at: string }[];
+  const stepOn = (step: string, day: string) => new Set(F.filter((e) => e.step === step && mt(e.created_at) === day).map((e) => e.session_id)).size;
+  const S = ((scores ?? []) as { user_id: string; created_at: string }[]).sort((x, y) => x.created_at.localeCompare(y.created_at));
+  const firstScore = new Map<string, string>();
+  for (const r of S) if (!firstScore.has(r.user_id)) firstScore.set(r.user_id, mt(r.created_at));
+  const returning = (day: string) => new Set(S.filter((r) => mt(r.created_at) === day && firstScore.get(r.user_id)! < day).map((r) => r.user_id)).size;
+  const U = (users ?? []) as { created_at: string; email: string | null }[];
+  const signups = (day: string) => U.filter((u) => u.email && mt(u.created_at) === day).length;
+  const B = (buys ?? []) as { amount_cents: number; created_at: string }[];
+  const sales = (day: string) => B.filter((x) => mt(x.created_at) === day);
+  const row = (day: string) => ({
+    day,
+    visitors: stepOn("commander_open", day),
+    played: stepOn("commander_play", day),
+    attacked: stepOn("commander_submit", day),
+    signups: signups(day),
+    returning: returning(day),
+    sales: sales(day).length,
+    revenue: sales(day).reduce((n, x) => n + x.amount_cents, 0),
+  });
+  const rows = days.map(row);
+  const y = rows[6];
+  // where yesterday's new visitors came from
+  const refs = new Map<string, number>();
+  for (const e of F) if (e.step === "commander_open" && mt(e.created_at) === yesterday) {
+    const r = (e.meta?.ref ?? "direct").replace(/^www\./, "") || "direct";
+    refs.set(r, (refs.get(r) ?? 0) + 1);
   }
-  // The funnel: distinct browser sessions reaching each step in the last 24h.
-  const { data: fe } = await db.from("funnel_events").select("step,session_id").gte("created_at", since);
-  const stepN = (k: string) => new Set(((fe ?? []) as { step: string; session_id: string }[]).filter((e) => e.step === k).map((e) => e.session_id)).size;
-  const funnelRows = [
-    ["opened the board", stepN("board_open")],
-    ["tapped a square", stepN("square_tap")],
-    ["picked a color", stepN("side_pick")],
-    ["entered an email", stepN("email_entered")],
-    ["entered the code", stepN("code_verified")],
-    ["placed their square", stepN("first_move")],
-    ["opened feedback", stepN("feedback_open")],
-    ["opened Commander", stepN("commander_open")],
-    ["posted a Commander score", stepN("commander_submit")],
-    ["shared Commander", stepN("commander_share")],
-  ].map(([l, v]) => `<tr><td style="padding:3px 8px 3px 0;color:#efe4c4">${l}</td><td style="padding:3px 8px;color:#fff"><b>${v}</b></td></tr>`).join("");
-  const { data: opens } = await db.from("funnel_events").select("meta").eq("step", "board_open").gte("created_at", since);
-  const refCount = new Map<string, number>();
-  for (const o of (opens ?? []) as { meta: { ref?: string } | null }[]) {
-    const r = (o.meta?.ref ?? "unknown").replace(/^www\./, "");
-    refCount.set(r, (refCount.get(r) ?? 0) + 1);
-  }
-  const refLine = [...refCount.entries()].sort((a, b) => b[1] - a[1]).map(([r, n]) => `${r} ${n}`).join(" · ");
-  const { data: fb } = await db.from("feedback").select("email,message").gte("created_at", since).order("created_at", { ascending: false }).limit(10);
-  const fbHtml = ((fb ?? []) as { email: string | null; message: string }[]).map((f) => `<p style="margin:0 0 8px;font-size:13px;color:#efe4c4">“${f.message.replace(/</g, "&lt;")}”${f.email ? ` — ${f.email}` : ""}</p>`).join("");
-  const shapes = [...byShape.entries()].sort((a, b) => b[1].clicks / b[1].n - a[1].clicks / a[1].n).slice(0, 8)
-    .map(([k, v]) => `<tr><td style="padding:3px 8px 3px 0">${k}</td><td style="padding:3px 8px">${v.n}</td><td style="padding:3px 8px">${(v.views / v.n).toFixed(0)}</td><td style="padding:3px 8px">${(v.clicks / v.n).toFixed(1)}</td></tr>`).join("");
-  const row = (label: string, r: string | number, b: string | number) => `<tr><td style="padding:3px 8px 3px 0;color:#efe4c4">${label}</td><td style="padding:3px 8px;color:#ff8a8a"><b>${r}</b></td><td style="padding:3px 8px;color:#8ab4ff"><b>${b}</b></td></tr>`;
+  const refLine = [...refs.entries()].sort((p, q) => q[1] - p[1]).map(([r, n]) => `${r} ${n}`).join(" · ");
+  // clip views (what each platform shows now) for clips posted yesterday
+  type Social = Record<string, { views?: number }>;
+  const P = ((posts ?? []) as { posted_at: string; social: Social | null }[]).filter((p) => mt(p.posted_at) === yesterday);
+  const views = (pf: string) => P.reduce((n, p) => n + Number(p.social?.[pf]?.views ?? 0), 0);
+  const fbHtml = ((fb ?? []) as { email: string | null; message: string }[]).map((x) => `<p style="margin:0 0 8px;font-size:13px;color:#efe4c4">“${x.message.replace(/</g, "&lt;")}”${x.email ? ` — ${x.email}` : ""}</p>`).join("");
+  const big = (n: number | string, label: string) => `<td style="padding:6px 14px 6px 0;vertical-align:top"><div style="font-size:30px;font-weight:800;color:#fff;line-height:1">${n}</div><div style="font-size:12px;color:#efe4c4;margin-top:4px">${label}</div></td>`;
+  const short = (d: string) => new Date(d + "T12:00:00").toLocaleDateString("en-US", { weekday: "short", month: "numeric", day: "numeric" });
+  const th = (t: string) => `<td style="padding:3px 8px;color:#f2c14e;font-size:12px">${t}</td>`;
+  const td = (v: number | string, hi = false) => `<td style="padding:3px 8px;text-align:right;color:${hi ? "#fff" : "#efe4c4"}">${hi ? `<b>${v}</b>` : v}</td>`;
+  const table = `<table style="font-size:14px;border-collapse:collapse"><tr>${th("")}${th("new visitors")}${th("played")}${th("attacked")}${th("signed up")}${th("came back")}${th("sales")}</tr>${rows
+    .map((r) => `<tr><td style="padding:3px 8px 3px 0;color:#efe4c4">${short(r.day)}</td>${td(r.visitors, true)}${td(r.played, true)}${td(r.attacked)}${td(r.signups)}${td(r.returning)}${td(r.sales ? `${r.sales} · $${(r.revenue / 100).toFixed(0)}` : 0)}</tr>`)
+    .join("")}</table>`;
+  const verdict =
+    y.visitors === 0 ? "No new visitors yesterday." : y.played === 0 ? `${y.visitors} new visitor${y.visitors === 1 ? "" : "s"} came — none placed a troop.` : `${y.played} of ${y.visitors} new visitors placed a troop.`;
   const html = wrap(
-    `<p style="margin:0 0 10px;font-size:17px;font-weight:700;color:#f2c14e">Scoreboard — last 24h</p>
-     <table style="font-size:14px;border-collapse:collapse"><tr><td></td><td style="padding:3px 8px;color:#ff8a8a">RED</td><td style="padding:3px 8px;color:#8ab4ff">BLUE</td></tr>
-     ${row("officers (goal 100)", red.officers, blue.officers)}
-     ${row("players", red.players, blue.players)}
-     ${row("waitlist", red.waitlist, blue.waitlist)}
-     ${row("map", `${tr}`, `${tb}`)}</table>
-     <p style="margin:12px 0 4px;font-size:14px;color:#efe4c4">Last 24h: <b>${day.length}</b> posts · <b>${sum(day, "social_views")}</b> views on TikTok/IG/YouTube · <b>${sum(day, "impressions")}</b> on X · <b>${sum(day, "clicks")}</b> link clicks · <b>${n("player_new") + n("waitlist_new")}</b> signups · <b>${n("purchase")}</b> purchases · <b>${n("takeover")}</b> takeovers</p>
-     <p style="margin:12px 0 4px;font-size:14px;color:#efe4c4">All time: ${P.length} posts · ${sum(P, "social_views")} views on TikTok/IG/YouTube · ${sum(P, "impressions")} on X · ${sum(P, "clicks")} clicks</p>
-     <p style="margin:14px 0 4px;font-size:13px;color:#f2c14e;letter-spacing:1px">THE FUNNEL — LAST 24H (real browsers)</p>
-     <table style="font-size:14px;border-collapse:collapse">${funnelRows}</table>
-     ${refLine ? `<p style="margin:6px 0 0;font-size:13px;color:#efe4c4">Came from: ${refLine}</p>` : ""}
-     ${fbHtml ? `<p style="margin:14px 0 4px;font-size:13px;color:#f2c14e;letter-spacing:1px">FEEDBACK</p>${fbHtml}` : ""}
-     <p style="margin:14px 0 4px;font-size:13px;color:#f2c14e;letter-spacing:1px">WHICH SHAPES PULL (clicks per clip)</p>
-     <table style="font-size:13px;border-collapse:collapse;color:#efe4c4"><tr><td></td><td style="padding:3px 8px">clips</td><td style="padding:3px 8px">views/clip</td><td style="padding:3px 8px">clicks/clip</td></tr>${shapes || "<tr><td>no video posts yet</td></tr>"}</table>`,
-    `Daily, from the autopilot. TikTok / Instagram / YouTube views come from RobinReach; X views from X; both refresh hourly.`,
+    `<p style="margin:0 0 4px;font-size:17px;font-weight:700;color:#f2c14e">Are new people playing?</p>
+     <p style="margin:0 0 10px;font-size:15px;color:#fff">${verdict}</p>
+     <table style="border-collapse:collapse"><tr>${big(y.visitors, "new visitors")}${big(y.played, "played")}${big(y.attacked, "attacked")}${big(y.signups, "signed up")}${big(y.returning, "came back")}</tr></table>
+     ${refLine ? `<p style="margin:6px 0 0;font-size:13px;color:#efe4c4">New visitors came from: ${refLine}</p>` : ""}
+     <p style="margin:16px 0 6px;font-size:13px;color:#f2c14e;letter-spacing:1px">LAST 7 DAYS</p>
+     ${table}
+     <p style="margin:16px 0 4px;font-size:13px;color:#f2c14e;letter-spacing:1px">YESTERDAY'S CLIPS (${P.length})</p>
+     <p style="margin:0;font-size:14px;color:#efe4c4">TikTok <b>${views("tiktok")}</b> · Instagram <b>${views("instagram")}</b> · YouTube <b>${views("youtube")}</b> views so far</p>
+     ${fbHtml ? `<p style="margin:16px 0 4px;font-size:13px;color:#f2c14e;letter-spacing:1px">FEEDBACK</p>${fbHtml}` : ""}`,
+    `"New visitors" = a browser's first visit to CommanderBG. "Played" = their first troop placed (guests count). "Attacked" needs an account. Days are Mountain time. Today so far (${today}): ${row(today).visitors} new visitors, ${row(today).played} played.`,
   );
-  const res = await sendEmail({ to: SUPER_ADMIN_EMAIL, subject: `Scoreboard: ${red.officers + blue.officers}/100 officers · ${red.players + blue.players} players · ${sum(day, "social_views") + sum(day, "impressions")} views today`, html });
+  const res = await sendEmail({ to: SUPER_ADMIN_EMAIL, subject: `CommanderBG yesterday: ${y.visitors} new visitors · ${y.played} played · ${y.signups} signed up`, html });
   return res.ok;
 }
 
