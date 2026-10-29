@@ -80,8 +80,8 @@ export async function sendEmail(opts: {
       } catch {
         /* non-JSON error body */
       }
-      // the sender line, as sent (no secrets) — Resend rejects a malformed one
-      console.error("email send failed:", msg, JSON.stringify({ name: FROM_NAME, email: FROM_EMAIL }));
+      // whether the sender settings look right — never their values (a key once got pasted there)
+      console.error("email send failed:", msg, { senderEmailLooksValid: /^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+$/.test(FROM_EMAIL ?? "") });
       return { ok: false, error: msg };
     }
     return { ok: true };
