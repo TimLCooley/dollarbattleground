@@ -80,6 +80,8 @@ export async function sendEmail(opts: {
       } catch {
         /* non-JSON error body */
       }
+      // the sender line, as sent (no secrets) — Resend rejects a malformed one
+      console.error("email send failed:", msg, JSON.stringify({ name: FROM_NAME, email: FROM_EMAIL }));
       return { ok: false, error: msg };
     }
     return { ok: true };
