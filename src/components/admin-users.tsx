@@ -189,7 +189,8 @@ export function AdminUsers() {
       )}
 
       {msgFor && (
-        <div className="au-msg">
+        <div className="au-msg-overlay" role="dialog" aria-label={`Message ${msgFor.email}`} onClick={() => setMsgFor(null)}>
+        <div className="au-msg" onClick={(e) => e.stopPropagation()}>
           <h3 className="cc-goals-h">MESSAGE {msgFor.email}</h3>
           <input className="cc-goal" placeholder="Subject" value={subject} onChange={(e) => setSubject(e.target.value)} />
           <textarea className="cc-goal" rows={6} placeholder="Your message (blank line = new paragraph)" value={message} onChange={(e) => setMessage(e.target.value)} />
@@ -201,6 +202,7 @@ export function AdminUsers() {
               Cancel
             </button>
           </div>
+        </div>
         </div>
       )}
     </div>
