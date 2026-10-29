@@ -14,8 +14,11 @@ export const maxDuration = 60;
 export async function POST(req: Request) {
   const isAdmin = !!(await requireAdmin());
   const { data: u } = await (await createClient()).auth.getUser();
-  const user = u.user && !u.user.is_anonymous ? u.user : null;
+  // guests play under their anonymous session (no rank, no main-map reward);
+  // enlisting later moves the score to their account (/api/commander/adopt)
+  const user = u.user ?? null;
   if (!user) return NextResponse.json({ error: "sign in to post your score" }, { status: 401 });
+  const guest = !!user.is_anonymous;
   const body = (await req.json().catch(() => ({}))) as { day?: number; placements?: Placement[]; side?: string };
   const today = dayNumber();
   const day = Number(body.day);
@@ -29,7 +32,7 @@ export async function POST(req: Request) {
   if (bad) return NextResponse.json({ error: bad }, { status: 400 });
   const { data: fc } = await db.from("free_claims").select("side").eq("user_id", user.id).maybeSingle();
   // the admin isn't enlisted on the main map — they play as the color picked on the puzzle screen
-  const side = fc?.side ?? (isAdmin ? (body.side === "red" ? "red" : "blue") : null);
+  const side = fc?.side ?? (isAdmin || guest ? (body.side === "red" ? "red" : "blue") : null);
   if (!side) return NextResponse.json({ error: "enlist on the main map first", needsEnlist: true }, { status: 403 });
 
   const score = simulate(d.layout, placements).score;
@@ -55,5 +58,6 @@ export async function POST(req: Request) {
     solution: d.solution,
     thresholds: thresholds(d.optimal),
     histogram: await histogram(db, day),
+    guest,
   });
 }
