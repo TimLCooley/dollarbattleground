@@ -27,6 +27,11 @@ export async function GET(req: Request) {
   let mine = null;
   let rank: CmdRank | null = null;
   let skin: { id: string; me: string; them: string; art?: string } | null = null;
+  // guests (anonymous sessions) can attack too — show them their own result
+  if (!user && u.user) {
+    const { data: sc } = await db.from("commander_scores").select("score,medal,reward,placements").eq("day", day).eq("user_id", u.user.id).maybeSingle();
+    mine = sc;
+  }
   if (user) {
     const [, { data: fc }, { data: sc }, { data: all }, { data: prof }] = await Promise.all([
       // last seen, for the admin list

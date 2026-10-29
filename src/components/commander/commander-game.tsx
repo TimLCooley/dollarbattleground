@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { createClient } from "@/utils/supabase/client";
 import Link from "next/link";
 import {
   CELLS,
@@ -138,6 +139,14 @@ export function CommanderGame({ day: askedDay, unsubscribed = false, pathId }: {
         /* ignore */
       }
       setData(d);
+      if (!d.signedIn) {
+        createClient()
+          .auth.getSession()
+          .then(({ data: g }) => {
+            guestToken.current = g.session?.user?.is_anonymous ? g.session.access_token : null;
+          })
+          .catch(() => {});
+      }
       if (d.result) {
         setResult(d.result);
         setPlacements(d.result.placements);
@@ -178,7 +187,10 @@ export function CommanderGame({ day: askedDay, unsubscribed = false, pathId }: {
   }, []);
 
   // the admin isn't enlisted on the main map: no color prompt, plays Blue unless they picked otherwise
-  const side: Side | null = data?.side ?? guestSide ?? (data?.isAdmin ? "blue" : null);
+  // no color picker (Tim, 2026-10-28): everyone starts Blue; colors live in the store
+  const side: Side = data?.side ?? guestSide ?? "blue";
+  // a guest's anonymous session, remembered so enlisting can bring their score along
+  const guestToken = useRef<string | null>(null);
   const L = data?.layout ?? null;
   const locked = !!result;
   const shownAll =
@@ -267,6 +279,16 @@ export function CommanderGame({ day: askedDay, unsubscribed = false, pathId }: {
     place([...placements, { i, kind }]);
   }
 
+  /** After signing in or enlisting: move today's guest score (if any) to the account, then reload. */
+  async function afterSignIn() {
+    const anonToken = guestToken.current;
+    guestToken.current = null;
+    if (anonToken) {
+      await fetch("/api/commander/adopt", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ anonToken }) }).catch(() => {});
+    }
+    void load();
+  }
+
   function readPending(): { day: number; placements: Placement[] } | null {
     try {
       const raw = localStorage.getItem(PENDING);
@@ -284,11 +306,8 @@ export function CommanderGame({ day: askedDay, unsubscribed = false, pathId }: {
     } catch {
       /* ignore */
     }
-    if (!d.signedIn) {
-      setNeedLogin(true);
-      return;
-    }
-    if (!d.side && !d.isAdmin) {
+    // guests attack too (scored under their anonymous session); enlisting is offered in the results
+    if (d.signedIn && !d.side && !d.isAdmin) {
       const er = await fetch("/api/commander/enlist", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -311,6 +330,10 @@ export function CommanderGame({ day: askedDay, unsubscribed = false, pathId }: {
       });
       const j = await r.json();
       if (!r.ok) {
+        if (r.status === 401) {
+          setNeedLogin(true);
+          return;
+        }
         if (j.needsEnlist) {
           setNeedLogin(true);
           setEnlistOpen(true);
@@ -426,51 +449,6 @@ export function CommanderGame({ day: askedDay, unsubscribed = false, pathId }: {
   if (error && !data) return <div className="cm-wrap"><p className="cm-note">{error}</p></div>;
   if (!data || !L || !sim) return <LoadingBoard />;
 
-  if (!side)
-    return (
-      <div className="cm-wrap">
-        <Header day={data.day} today={data.today} onNext={() => setRemindOpen(true)} side={side} />
-        <div className="ob-overlay" role="dialog" aria-label="Choose your color">
-          <div className="ob-card">
-            {signIn ? (
-              <LoginOtp
-                onBack={() => setSignIn(false)}
-                onSignedIn={() => {
-                  setSignIn(false);
-                  void load(); // your color comes back with your account
-                }}
-              />
-            ) : (
-            <>
-            <div className="ob-kicker">◆ COMMANDER #{data.day} ◆</div>
-            <h2 className="ob-title">TODAY&apos;S BATTLE</h2>
-            <p className="ob-body">Place your troops, take the most ground. A new map every day — same one for everyone. Which color are you?</p>
-            <div className="cm-pick">
-              {(["blue", "red"] as Side[]).map((s) => (
-                <button
-                  key={s}
-                  className={"ob-btn cm-pick-" + s}
-                  onClick={() => {
-                    setGuestSide(s);
-                    try {
-                      localStorage.setItem(GUEST_SIDE, s);
-                    } catch {
-                      /* ignore */
-                    }
-                  }}
-                >
-                  {s === "blue" ? "BLUE" : "RED"}
-                </button>
-              ))}
-            </div>
-            <button className="ob-skip" onClick={() => setSignIn(true)}>Already enlisted? Log in</button>
-            </>
-            )}
-          </div>
-        </div>
-      </div>
-    );
-
   const at = new Map<number, Kind>(shown.map((p) => [p.i, p.kind]));
   // after you've submitted, number the troops so you can learn the order —
   // on your layout and on the best one (never while you're still playing)
@@ -492,7 +470,7 @@ export function CommanderGame({ day: askedDay, unsubscribed = false, pathId }: {
               onBack={() => setSignIn(false)}
               onSignedIn={() => {
                 setSignIn(false);
-                void load();
+                void afterSignIn();
               }}
             />
           </div>
@@ -803,7 +781,7 @@ export function CommanderGame({ day: askedDay, unsubscribed = false, pathId }: {
                 onSignedIn={() => {
                   setLoginOpen(false);
                   setNeedLogin(false);
-                  void load();
+                  void afterSignIn();
                 }}
               />
             ) : enlistOpen ? (
@@ -813,7 +791,7 @@ export function CommanderGame({ day: askedDay, unsubscribed = false, pathId }: {
                 onDone={() => {
                   setEnlistOpen(false);
                   setNeedLogin(false);
-                  void load(); // signed in + enlisted now: the saved score posts and results open
+                  void afterSignIn(); // signed in + enlisted now: the guest score moves over
                 }}
               />
             ) : (
@@ -838,6 +816,17 @@ export function CommanderGame({ day: askedDay, unsubscribed = false, pathId }: {
           day={data.day}
           result={result}
           enlisted={!!data.side}
+          guest={!data.signedIn}
+          onEnlist={() => {
+            setShowResult(false);
+            setNeedLogin(true);
+            setEnlistOpen(true);
+          }}
+          onLogin={() => {
+            setShowResult(false);
+            setNeedLogin(true);
+            setLoginOpen(true);
+          }}
           copied={copied}
           canSharePath={!!myPathId}
           onShare={share}
@@ -1037,6 +1026,9 @@ export function ResultsModal({
   day,
   result,
   enlisted = true,
+  guest = false,
+  onEnlist,
+  onLogin,
   copied,
   canSharePath,
   onShare,
@@ -1046,6 +1038,9 @@ export function ResultsModal({
   day: number;
   result: Result;
   enlisted?: boolean;
+  guest?: boolean;
+  onEnlist?: () => void;
+  onLogin?: () => void;
   copied: ShareMode | null;
   canSharePath: boolean;
   onShare: (mode: ShareMode) => void;
@@ -1074,6 +1069,14 @@ export function ResultsModal({
           <div className="cm-res-medal">{result.medal ? MEDAL[result.medal] : `${t.bronze - result.score} short of a medal`}</div>
         </div>
         <div className="cm-lines">⭐ {t.bronze}+ · ⭐⭐ {t.silver}+ · ⭐⭐⭐ {t.gold}+ · 🏰 {t.perfect}</div>
+        {guest && (
+          <div className="cm-guest-save">
+            <div className="cm-guest-save-t">Save this score</div>
+            <p>Enlist free (just your email) to keep your score, earn rank and streaks, and get a free square on the Battleground.</p>
+            <button className="ob-btn" onClick={onEnlist}>ENLIST FREE →</button>
+            <button className="ob-skip" onClick={onLogin}>Already enlisted? Log in</button>
+          </div>
+        )}
         <div className="cm-standing">
           {total <= 1 ? (
             <span>
