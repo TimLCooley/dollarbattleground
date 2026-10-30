@@ -186,7 +186,7 @@ export function CommanderGame({ day: askedDay, unsubscribed = false, pathId }: {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // the admin isn't enlisted on the main map: no color prompt, plays Blue unless they picked otherwise
+  // the admin plays Blue unless they picked otherwise
   // no color picker (Tim, 2026-10-28): everyone starts Blue; colors live in the store
   const side: Side = data?.side ?? guestSide ?? "blue";
   // a guest's anonymous session, remembered so enlisting can bring their score along
@@ -462,7 +462,7 @@ export function CommanderGame({ day: askedDay, unsubscribed = false, pathId }: {
     <div className={"cm-wrap side-" + side + (art ? " art-" + art : "")} style={{ ...skinStyle(data.skin), ["--them-alpha" as string]: `${enemyAlpha}%` }}>
       {art === "thanksgiving" && <FallingLeaves />}
       {art === "holiday" && <FallingLeaves snow count={36} />}
-      <Header day={data.day} today={data.today} layout={L} onNext={() => setRemindOpen(true)} side={side} signedIn={data.signedIn} onLogin={() => setSignIn(true)} onSettings={() => setSettingsOpen(true)} />
+      <Header day={data.day} today={data.today} layout={L} onNext={() => setRemindOpen(true)} side={side} signedIn={data.signedIn} isAdmin={!!data.isAdmin} onLogin={() => setSignIn(true)} onSettings={() => setSettingsOpen(true)} />
       {signIn && (
         <div className="ob-overlay" role="dialog" aria-label="Log in" onClick={() => setSignIn(false)}>
           <div className="ob-card" onClick={(e) => e.stopPropagation()}>
@@ -690,7 +690,7 @@ export function CommanderGame({ day: askedDay, unsubscribed = false, pathId }: {
           <li>Faint ‹ › ˄ ˅ ↖ ↘ marks on your squares show which way each was taken.</li>
           <li>Practice as much as you like — your best layout is saved (★). Only Attack counts.</li>
           <li>A new map every day, the same for everyone. Monday is the easiest, Friday and Saturday the hardest.</li>
-          <li>One shot. Score 90% of the best possible for a free 1×1 on the main map; hit perfect for a 2×2.</li>
+          <li>One shot — Attack posts your score. Stars at 60%, 75% and 90% of the best possible; a perfect score takes the castle 🏰.</li>
         </ul>
       </details>
 
@@ -799,8 +799,7 @@ export function CommanderGame({ day: askedDay, unsubscribed = false, pathId }: {
                 <div className="ob-kicker">◆ POST YOUR SCORE ◆</div>
                 <h2 className="ob-title">{sim.score} POINTS</h2>
                 <p className="ob-body">
-                  Scores post under your name. New here? Enlist free — it takes an email and a code, you stay right here, and you get a free
-                  square on the Battleground.
+                  Scores post under your name. New here? Enlist free — just an email and a code, and you stay right here.
                 </p>
                 <button className="ob-btn" onClick={() => setEnlistOpen(true)}>ENLIST FREE →</button>
                 <button className="ob-skip" onClick={() => setLoginOpen(true)}>Already enlisted? Log in</button>
@@ -815,7 +814,6 @@ export function CommanderGame({ day: askedDay, unsubscribed = false, pathId }: {
         <ResultsModal
           day={data.day}
           result={result}
-          enlisted={!!data.side}
           guest={!data.signedIn}
           onEnlist={() => {
             setShowResult(false);
@@ -844,28 +842,16 @@ export function CommanderGame({ day: askedDay, unsubscribed = false, pathId }: {
 
 const dayHref = (n: number, today: number) => (n >= today ? "/" : `/?day=${n}`);
 
-function Header({ day, today, layout, onNext, side, signedIn, onLogin, onSettings }: { day: number; today: number; layout?: Layout; onNext: () => void; side?: Side | null; signedIn?: boolean; onLogin?: () => void; onSettings?: () => void }) {
+function Header({ day, today, layout, onNext, side, signedIn, isAdmin, onLogin, onSettings }: { day: number; today: number; layout?: Layout; onNext: () => void; side?: Side | null; signedIn?: boolean; isAdmin?: boolean; onLogin?: () => void; onSettings?: () => void }) {
   return (
     <>
-      <Link className="go-battle" href="/battleground">
-        <span className="go-battle-new">LIVE MAP</span>
-        <span className="go-battle-art" aria-hidden>
-          {"rbbrbrrbrrbbbbrr".split("").map((c, k) => (
-            <i key={k} className={c === "r" ? "r" : "b"} />
-          ))}
-        </span>
-        <span className="go-battle-txt">
-          <span className="go-battle-k">THE BATTLEGROUND</span>
-          <span className="go-battle-t">Red vs Blue on one live map — take squares for your side</span>
-        </span>
-        <span className="go-battle-play">PLAY ▶</span>
-      </Link>
+      {/* the Battleground is hidden (Tim, 2026-10-30): Commander only */}
       <div className="cm-head">
         <span />
         <h1 className="cm-title">
           <CommanderLogo side={side} />
         </h1>
-        {onLogin ? <Menu signedIn={!!signedIn} onLogin={onLogin} onSettings={onSettings} /> : <span />}
+        {onLogin ? <Menu signedIn={!!signedIn} isAdmin={!!isAdmin} onLogin={onLogin} onSettings={onSettings} /> : <span />}
       </div>
       <div className="cm-daynav">
         {day > 1 ? <Link href={dayHref(day - 1, today)}>‹ Prev</Link> : <span />}
@@ -896,7 +882,7 @@ function skinStyle(skin?: { me: string; them: string } | null): React.CSSPropert
 }
 
 /** Top-right hamburger: the store, and Log in / Log out. */
-function Menu({ signedIn, onLogin, onSettings }: { signedIn: boolean; onLogin: () => void; onSettings?: () => void }) {
+function Menu({ signedIn, isAdmin, onLogin, onSettings }: { signedIn: boolean; isAdmin?: boolean; onLogin: () => void; onSettings?: () => void }) {
   const [open, setOpen] = useState(false);
   return (
     <div className="cm-menu">
@@ -912,6 +898,11 @@ function Menu({ signedIn, onLogin, onSettings }: { signedIn: boolean; onLogin: (
             <Link href="/store" role="menuitem" className="cm-menu-link">
               Store · skins
             </Link>
+            {isAdmin && (
+              <Link href="/admin" role="menuitem" className="cm-menu-link">
+                Admin
+              </Link>
+            )}
             {onSettings && (
               <button
                 role="menuitem"
@@ -1025,7 +1016,6 @@ function RemindModal({ signedIn, onClose }: { signedIn: boolean; onClose: () => 
 export function ResultsModal({
   day,
   result,
-  enlisted = true,
   guest = false,
   onEnlist,
   onLogin,
@@ -1037,7 +1027,6 @@ export function ResultsModal({
 }: {
   day: number;
   result: Result;
-  enlisted?: boolean;
   guest?: boolean;
   onEnlist?: () => void;
   onLogin?: () => void;
@@ -1072,7 +1061,7 @@ export function ResultsModal({
         {guest && (
           <div className="cm-guest-save">
             <div className="cm-guest-save-t">Save this score</div>
-            <p>Enlist free (just your email) to keep your score, earn rank and streaks, and get a free square on the Battleground.</p>
+            <p>Enlist free (just your email) to keep your score and earn rank and streaks.</p>
             <button className="ob-btn" onClick={onEnlist}>ENLIST FREE →</button>
             <button className="ob-skip" onClick={onLogin}>Already enlisted? Log in</button>
           </div>
@@ -1110,38 +1099,6 @@ export function ResultsModal({
             );
           })}
         </div>
-        {result.reward ? (
-          <Link className="go-battle cm-reward won" href="/battleground">
-            <span className="go-battle-new">YOU EARNED</span>
-            <span className={"cm-rw-piece " + (result.reward === "2x2" ? "two" : "one")} aria-hidden>
-              {Array.from({ length: result.reward === "2x2" ? 4 : 1 }, (_, k) => (
-                <i key={k} />
-              ))}
-            </span>
-            <span className="go-battle-txt">
-              <span className="go-battle-k">FREE {result.reward === "2x2" ? "2×2" : "1×1"}</span>
-              <span className="go-battle-t">It&apos;s in your supplies — go take ground on the Battleground</span>
-            </span>
-            <span className="go-battle-play">USE IT ▶</span>
-          </Link>
-        ) : (
-          <Link className="go-battle cm-reward" href="/battleground">
-            <span className="go-battle-new">{enlisted ? "BONUS" : "PLAY FREE"}</span>
-            <span className="go-battle-art" aria-hidden>
-              {"rbbrbrrbrrbbbbrr".split("").map((c, k) => (
-                <i key={k} className={c === "r" ? "r" : "b"} />
-              ))}
-            </span>
-            <span className="go-battle-txt">
-              <span className="go-battle-k">THE BATTLEGROUND</span>
-              <span className="cm-rw-chips">
-                <span>{t.gold}+ → free 1×1</span>
-                <span>{t.perfect} → free 2×2</span>
-              </span>
-            </span>
-            <span className="go-battle-play">PLAY ▶</span>
-          </Link>
-        )}
         <div className="cm-res-btns">
           {(["score", "path"] as const)
             .filter((m) => m === "score" || canSharePath)
@@ -1158,7 +1115,6 @@ export function ResultsModal({
           {result.score < result.optimal && <button className="ob-btn cm-dark" onClick={onOptimal}>VIEW BEST</button>}
         </div>
         {copied && <p className="cm-share-note">Copied — paste it anywhere.</p>}
-        <Link className="ob-skip" href="/battleground">‹ back to the main map</Link>
       </div>
     </div>
   );
@@ -1281,7 +1237,6 @@ function SettingsModal({ enemyAlpha, onClose }: { enemyAlpha: number; onClose: (
 function LoadingBoard() {
   return (
     <div className="cm-wrap" aria-busy="true">
-      <div className="cm-skel cm-skel-banner" />
       <div className="cm-head">
         <span />
         <h1 className="cm-title">

@@ -79,7 +79,7 @@ export function EnlistInline({ side, onDone, onBack }: { side: "red" | "blue"; o
     <>
       <div className="ob-kicker">◆ ENLIST FREE ◆</div>
       <h2 className="ob-title">POST YOUR SCORE</h2>
-      <p className="ob-body">Enter your email — we&apos;ll send a 6-digit code. You&apos;ll stay right here, and you get a free square on the Battleground too.</p>
+      <p className="ob-body">Enter your email — we&apos;ll send a 6-digit code. You&apos;ll stay right here.</p>
       <input className="ob-input" type="email" placeholder="you@email.com" value={email} autoFocus onChange={(e) => { setEmail(e.target.value); if (error) setError(null); }} onKeyDown={(e) => e.key === "Enter" && sendCode()} />
       {error && <p className="ct-error">{error}</p>}
       <button className="ob-btn" onClick={sendCode} disabled={busy}>{busy ? "SENDING…" : "SEND MY CODE →"}</button>
