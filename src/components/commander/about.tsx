@@ -7,7 +7,6 @@ const FAQ: [string, string][] = [
   ["How hard is it?", "It follows the week: Monday is the easiest, Friday and Saturday are the hardest, Sunday is in the middle."],
   ["How do you play?", "Your Commander holds the 3×3 around it. Place Archers (they take 3 squares left and right, flying over walls and water but stopped by trees) and Soldiers (they take 2 squares up and down, walking through trees and wading water but stopped by walls). Troops can only stand on ground you already hold, so the order matters. Take as many squares as you can."],
   ["Can I practice before submitting?", "Yes — practice as much as you like and your best layout is saved. Only your Attack counts, and after it you can see the best possible layout."],
-  ["What is the Battleground?", "The Battleground is CommanderBG's other mode: Red vs Blue on one live map where every player helps their side hold more ground. Good Commander scores earn free squares there."],
 ];
 
 export function AboutCommander() {
@@ -52,7 +51,7 @@ export function AboutCommander() {
         ))}
       </dl>
       <p>
-        New here? Try the <a href="/commander/tutorial">2-minute tutorial</a> or the <a href="/battleground">Battleground</a>.
+        New here? Try the <a href="/commander/tutorial">2-minute tutorial</a>.
       </p>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(ld) }} />
     </section>

@@ -22,7 +22,7 @@ const chakra = Chakra_Petch({
 });
 
 const SITE_DESCRIPTION =
-  "Play CommanderBG, a free daily strategy puzzle: place Archers and Soldiers to take the most ground. A new map every day, the same for everyone — plus Battle Ground, Red vs Blue on one live map.";
+  "Play CommanderBG, a free daily strategy puzzle: place Archers and Soldiers to take the most ground. A new map every day, the same for everyone.";
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://commanderbg.com"),

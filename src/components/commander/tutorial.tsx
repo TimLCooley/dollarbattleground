@@ -140,7 +140,7 @@ export function CommanderTutorial() {
           <ul>
             <li>A new map every day — the same one for everyone. Monday is the easiest, Friday and Saturday the hardest.</li>
             <li>Practice as much as you like; your best layout is saved. Only Attack counts.</li>
-            <li>Score 90% of the best possible for a free square on the main map — a perfect score earns a 2×2.</li>
+            <li>Earn stars at 60%, 75% and 90% of the best possible — a perfect score takes the castle 🏰.</li>
           </ul>
           <Link className="ob-btn cm-linkbtn" href="/">PLAY TODAY&apos;S MAP →</Link>
           <button className="ob-skip" onClick={() => go(0)}>replay the tutorial</button>

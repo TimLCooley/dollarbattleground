@@ -36,8 +36,9 @@ export interface DispatchConfig {
   reminders: boolean;
   waitlist: boolean;
   notify_commander: boolean; // digest email to the admin each tick when there's new activity
+  supplies: boolean; // the Battleground's "your daily supplies are on the board" email
 }
-const DEFAULTS: DispatchConfig = { takeovers: true, reminders: true, waitlist: true, notify_commander: true };
+const DEFAULTS: DispatchConfig = { takeovers: true, reminders: true, waitlist: true, notify_commander: true, supplies: true };
 
 export async function getDispatchConfig(db: Db): Promise<DispatchConfig> {
   return { ...DEFAULTS, ...((await cfgGet<Partial<DispatchConfig>>(db, "dispatch")) ?? {}) };
@@ -534,6 +535,7 @@ export async function notifySupplies(
 
 // Each morning (MT), issue everyone's daily supplies and email them.
 export async function dailySupplies(db: Db): Promise<number> {
+  if (!(await getDispatchConfig(db)).supplies) return 0;
   const { data, error } = await db.rpc("issue_daily_supplies");
   if (error) throw new Error(error.message);
   let sent = 0;
