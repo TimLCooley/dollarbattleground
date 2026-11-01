@@ -59,7 +59,7 @@ const chevron: Record<string, string> = {
 const turn: Record<string, number> = { ul: -45, ur: 45, dl: -135, dr: 135 };
 
 /** When each placement lands and how its squares flip (square by square along its reach). */
-function timeline(L: Layout, moves: Placement[], at: number[], step = 5) {
+function timeline(L: Layout, moves: Placement[], at: number[], step = 7) {
   const flipAt = new Array<number>(CELLS).fill(Infinity);
   for (const t of reach(L, L.commander, "commander")) flipAt[t] = -1;
   const marks = new Map<number, { at: number; dir: string }[]>();
@@ -83,6 +83,7 @@ function Board({
   frame,
   size = 1000,
   options,
+  hot,
 }: {
   L: Layout;
   moves: Placement[];
@@ -90,6 +91,7 @@ function Board({
   frame: number;
   size?: number;
   options?: { i: number; label: string; correct: boolean; revealAt: number }[];
+  hot?: number | null; // the troop being explained: ringed in gold
 }) {
   const { fps } = useVideoConfig();
   const { flipAt, marks } = timeline(L, moves, at);
@@ -159,7 +161,8 @@ function Board({
                   border: "5px solid #264f9c",
                   color: ME,
                   transform: `scale(${drop}) translateY(${(1 - drop) * -30 + (phase(frame, i, 1.2) === "b" ? -3 : 0)}px)`,
-                  boxShadow: "0 4px 0 rgba(0,0,0,0.35)",
+                  boxShadow: hot === i ? `0 0 0 ${6 + (phase(frame, 0, 0.8) === "a" ? 4 : 0)}px ${GOLD}, 0 4px 0 rgba(0,0,0,0.35)` : "0 4px 0 rgba(0,0,0,0.35)",
+                  zIndex: hot === i ? 2 : undefined,
                 }}
               >
                 <TroopIcon kind={troop.kind} />
@@ -182,6 +185,50 @@ function Footer({ frame, from }: { frame: number; from: number }) {
       <div style={{ fontFamily: FONT, fontSize: 112, letterSpacing: 2, color: GOLD, textShadow: "0 6px 0 rgba(0,0,0,0.35)" }}>CommanderBG</div>
       <div style={{ fontFamily: BODY, fontWeight: 700, fontSize: 40, marginTop: 10 }}>a daily strategy puzzle · play free</div>
       <div style={{ fontFamily: BODY, fontWeight: 700, fontSize: 44, marginTop: 14, color: "#fff" }}>CommanderBG.com</div>
+    </div>
+  );
+}
+
+// Board runs are slow enough to follow (Tim, 2026-11-01: "too hard to tell what
+// the person's doing"): one troop every PACE, each with a caption saying what
+// it is and what it takes, and a running square count.
+const PACE = s(2.2);
+const RULE: Record<Troop, string> = { archer: "shoots 3 left + 3 right", soldier: "marches 2 up + 2 down", scout: "takes 2 on each diagonal" };
+
+/** Below the board: what the current troop does, and the squares taken so far. */
+function Narration({ L, run, at, frame, from }: { L: Layout; run: Placement[]; at: number[]; frame: number; from: number }) {
+  if (frame < from) return null;
+  let k = -1;
+  for (let j = 0; j < run.length; j++) if (frame >= at[j]) k = j;
+  // the count catches up once the troop's squares have flipped
+  let n = -1;
+  for (let j = 0; j < run.length; j++) if (frame >= at[j] + s(0.9)) n = j;
+  const score = simulate(L, run.slice(0, n + 1)).score;
+  const troop = k >= 0 ? run[k] : null;
+  const pop = spring({ frame: frame - (troop ? at[k] : from), fps: FPS, config: { damping: 13, stiffness: 160 } });
+  return (
+    <div style={{ position: "absolute", top: BELOW - 6, left: 50, right: 150, display: "flex", alignItems: "center", gap: 24 }}>
+      <div style={{ flex: 1, fontFamily: BODY, fontWeight: 700, fontSize: 42, lineHeight: 1.15, transform: `scale(${0.9 + 0.1 * pop})`, transformOrigin: "left center" }}>
+        {troop ? (
+          <>
+            <span style={{ color: GOLD }}>
+              {k + 1}/{run.length} · {TROOP_NAME[troop.kind as Troop]}
+            </span>
+            <br />
+            {RULE[troop.kind as Troop]}
+          </>
+        ) : (
+          <>
+            <span style={{ color: GOLD }}>Your Commander</span>
+            <br />
+            holds the 8 squares around it
+          </>
+        )}
+      </div>
+      <div style={{ textAlign: "center", background: "rgba(0,0,0,0.3)", padding: "10px 22px", border: `4px solid ${ME}` }}>
+        <div style={{ fontFamily: FONT, fontSize: 76, lineHeight: 1 }}>{score}</div>
+        <div style={{ fontFamily: BODY, fontWeight: 700, fontSize: 24, letterSpacing: 2 }}>SQUARES</div>
+      </div>
     </div>
   );
 }
@@ -270,23 +317,41 @@ export const CommanderClip = (p: CommanderClipProps) => {
   };
 
   if (p.variant === "hype") {
+    // the hook lines over a dimmed board, then the run itself, slowly and
+    // explained, then the last line ("PLAY") with the perfect score
     const lines = p.lines?.length ? p.lines : ["NEW GAME", "JUST LAUNCHED", "PLAY"];
-    const per = s(2.1);
-    const endAt = lines.length * per + s(0.6);
+    const intro = lines.slice(0, -1);
+    const per = s(1.8);
+    const introEnd = intro.length * per;
     const run = p.solution;
-    const at = run.map((_, k) => s(0.4) + k * 14);
-    const cur = Math.min(lines.length - 1, Math.floor(frame / per));
+    const at = run.map((_, k) => introEnd + s(0.8) + k * PACE);
+    const doneAt = (at[at.length - 1] ?? introEnd) + s(1.6);
+    const endAt = doneAt + s(2.6);
+    const cur = Math.min(intro.length - 1, Math.floor(frame / per));
     const k = spring({ frame: frame - cur * per, fps: FPS, config: { damping: 10, stiffness: 170 } });
+    const dim = interpolate(frame, [introEnd - s(0.3), introEnd], [0.45, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
+    const hot = run.findLastIndex((_, j) => frame >= at[j] && frame < doneAt);
+    const card = spring({ frame: frame - doneAt, fps: FPS, config: { damping: 11, stiffness: 160 } });
     return (
       <AbsoluteFill style={{ background: bg, color: "#f6efdb" }}>
         {bed}
-        <div style={{ position: "absolute", top: BOARD_TOP, left: 50, opacity: 0.55 }}>
-          <Board L={L} moves={run} at={at} frame={frame} size={BOARD} />
+        {frame >= introEnd && frame < doneAt && title("Goal: take the most ground", `CommanderBG #${p.day} · ${p.dayLabel}`)}
+        <div style={{ position: "absolute", top: BOARD_TOP, left: 50, opacity: dim }}>
+          <Board L={L} moves={run} at={at} frame={frame} size={BOARD} hot={hot >= 0 ? run[hot].i : null} />
         </div>
-        {frame < endAt && (
+        {frame < doneAt && <Narration L={L} run={run} at={at} frame={frame} from={introEnd} />}
+        {frame < introEnd && intro.length > 0 && (
           <AbsoluteFill style={{ display: "grid", placeItems: "center", padding: "0 70px" }}>
-            <div style={{ transform: `scale(${k})`, textAlign: "center", fontFamily: FONT, fontSize: lines[cur].length > 14 ? 120 : 170, lineHeight: 1.05, color: cur === lines.length - 1 ? GOLD : "#fff", textShadow: "0 10px 0 rgba(0,0,0,0.45), 0 0 40px rgba(0,0,0,0.5)" }}>
-              {lines[cur]}
+            <div style={{ transform: `scale(${k})`, textAlign: "center", fontFamily: FONT, fontSize: intro[cur].length > 14 ? 120 : 170, lineHeight: 1.05, color: "#fff", textShadow: "0 10px 0 rgba(0,0,0,0.45), 0 0 40px rgba(0,0,0,0.5)" }}>
+              {intro[cur]}
+            </div>
+          </AbsoluteFill>
+        )}
+        {frame >= doneAt && frame < endAt && (
+          <AbsoluteFill style={{ display: "grid", placeItems: "center", background: `rgba(10,46,26,${0.75 * Math.min(1, card)})` }}>
+            <div style={{ transform: `scale(${card})`, textAlign: "center", padding: "0 70px" }}>
+              <div style={{ fontFamily: BODY, fontWeight: 700, fontSize: 54 }}>That&apos;s a perfect {p.optimal} squares.</div>
+              <div style={{ fontFamily: FONT, fontSize: lines[lines.length - 1].length > 14 ? 120 : 170, lineHeight: 1.05, marginTop: 26, color: GOLD, textShadow: "0 10px 0 rgba(0,0,0,0.45)" }}>{lines[lines.length - 1]}</div>
             </div>
           </AbsoluteFill>
         )}
@@ -393,9 +458,9 @@ export const CommanderClip = (p: CommanderClipProps) => {
 
   // "hard": a weak run, then the results card
   const run = weakRun(L);
-  const step = 16;
-  const at = run.map((_, k) => s(1.6) + k * step);
-  const doneAt = (at[at.length - 1] ?? s(1.6)) + s(1.2);
+  const at = run.map((_, k) => s(1.6) + k * PACE);
+  const doneAt = (at[at.length - 1] ?? s(1.6)) + s(1.6);
+  const hot = run.findLastIndex((_, j) => frame >= at[j] && frame < doneAt);
   const score = simulate(L, run).score;
   const card = spring({ frame: frame - doneAt, fps: FPS, config: { damping: 12, stiffness: 150 } });
   return (
@@ -403,8 +468,9 @@ export const CommanderClip = (p: CommanderClipProps) => {
       {bed}
       {title("I can't believe how hard this is", `CommanderBG #${p.day} · ${p.dayLabel}`)}
       <div style={{ position: "absolute", top: BOARD_TOP, left: 50 }}>
-        <Board L={L} moves={run} at={at} frame={frame} size={BOARD} />
+        <Board L={L} moves={run} at={at} frame={frame} size={BOARD} hot={hot >= 0 ? run[hot].i : null} />
       </div>
+      {frame < doneAt && <Narration L={L} run={run} at={at} frame={frame} from={0} />}
       {frame >= doneAt && (
         <AbsoluteFill style={{ display: "grid", placeItems: "center", background: `rgba(10,46,26,${0.7 * Math.min(1, card)})` }}>
           <div style={{ transform: `scale(${card})`, width: 800, background: "#124f2b", border: `10px solid ${GOLD}`, padding: "50px 40px", textAlign: "center", fontFamily: BODY, fontWeight: 700 }}>
@@ -424,8 +490,8 @@ export const CommanderClip = (p: CommanderClipProps) => {
 export function commanderClipSeconds(p: Pick<CommanderClipProps, "variant" | "layout">): number {
   if (p.variant === "tutorial" || !p.layout) return 58;
   if (p.variant === "nextmove") return 15;
-  if (p.variant === "hype") return 0; // the producer sets it from the line count
+  if (p.variant === "hype") return 0; // the producer sets it: (lines − 1) × 1.8 + 0.8 + troops × 2.2 + 1.6 + 2.6 + 3
   if (p.variant === "chain") return 0; // the producer sets it (with or without the answer part)
   const n = weakRun(p.layout).length;
-  return Math.ceil(1.6 + (n * 16) / FPS + 1.2 + 3.2 + 3);
+  return Math.ceil(1.6 + (n * PACE) / FPS + 1.6 + 3.2 + 3);
 }
