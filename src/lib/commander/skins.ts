@@ -15,6 +15,7 @@ export type Skin = {
   me: string;
   them: string;
   art?: "thanksgiving" | "holiday"; // seasonal skins redraw the troops and terrain
+  cast?: { commander: string; archer: string; soldier: string; scout: string }; // seasonal: who each troop becomes
   sale?: { from: string; to: string }[]; // seasonal: on sale only in these windows (YYYY-MM-DD, Mountain time, inclusive)
 };
 
@@ -34,25 +35,28 @@ export const SKINS: Skin[] = [
   { id: "custom", name: "Your Colors", blurb: "Pick any two colors", kind: "custom", price: 1000, me: "#356fd0", them: "#d23b3b" },
   {
     id: "thanksgiving",
-    name: "Thanksgiving",
+    // seasonal skins are "Regiments" (Tim, 2026-10-31: not "skin") — the whole army changes
+    name: "Thanksgiving Regiment",
     blurb: "Turkey Commander, pumpkin Archers, corn-cob Soldiers, squirrel Scouts — fall trees, hay bales, falling leaves",
     kind: "season",
     price: 1000,
     me: "#d9822b",
     them: "#7d2a3a",
     art: "thanksgiving",
+    cast: { commander: "Turkey Commander", archer: "Pumpkin Archer", soldier: "Corn-cob Soldier", scout: "Squirrel Scout" },
     // November; it comes back for 30-day windows later (add them here)
     sale: [{ from: "2026-11-01", to: "2026-11-30" }],
   },
   {
     id: "holiday",
-    name: "Holiday",
+    name: "Holiday Regiment",
     blurb: "Santa Commander, Elf Archers, Snowman Soldiers, Rudolph Scouts — snowy trees, frozen ponds, falling snow",
     kind: "season",
     price: 1000,
     me: "#c8323c",
     them: "#e3ebf2",
     art: "holiday",
+    cast: { commander: "Santa Commander", archer: "Elf Archer", soldier: "Snowman Soldier", scout: "Rudolph Scout" },
     sale: [{ from: "2026-12-01", to: "2026-12-31" }],
   },
 ];
@@ -86,6 +90,12 @@ export function priceOf(item: string): number | null {
 }
 
 export const owns = (owned: string[], id: string) => skinById(id)?.price === 0 || owned.includes(id) || owned.includes(ALL_ACCESS.id);
+
+/** This season's Regiment: the seasonal skin on sale now, or null between seasons. */
+export const seasonNow = (now = new Date()) => SKINS.find((s) => s.kind === "season" && onSale(s, now)) ?? null;
+/** The next seasonal skin to go on sale (for admin previews before it opens). */
+export const seasonNext = (now = new Date()) =>
+  SKINS.filter((s) => s.kind === "season" && nextSale(s, now)).sort((a, b) => nextSale(a, now)!.localeCompare(nextSale(b, now)!))[0] ?? null;
 
 /** The two colors to paint with: the skin's, your custom pair, or your team's. */
 export function skinColors(skin: string | null | undefined, custom: { me?: string; them?: string } | null | undefined, side: "red" | "blue") {

@@ -364,7 +364,7 @@ function SkinCard({
 }
 
 /** The tutorial map's best layout, painted in the previewed colors. */
-function MiniBoard({ me, them, art }: { me: string; them: string; art?: Art }) {
+export function MiniBoard({ me, them, art }: { me: string; them: string; art?: Art }) {
   const { fin, at } = useMemo(() => {
     const pl = solve(DEMO_LAYOUT).placements;
     const at = new Map<number, Kind>(pl.map((p) => [p.i, p.kind]));
