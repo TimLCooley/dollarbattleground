@@ -31,6 +31,7 @@ import { track } from "@/lib/track";
 import { pixel } from "@/lib/pixel";
 import { CommanderLogo } from "./logo";
 import { Notches, Ripple, TreeSprite, TroopIcon, Tuft, hasTuft, sway, wallClass, type Art } from "./icons";
+import { SeasonPromo } from "./season-promo";
 import { FallingLeaves } from "./falling-leaves";
 import { Insignia } from "@/lib/ranks";
 import { ENLISTED_RANKS, OFFICER_RANKS, PERFECT_BONUS, STREAK_DAYS, type CmdRank } from "@/lib/commander/rank";
@@ -463,6 +464,7 @@ export function CommanderGame({ day: askedDay, unsubscribed = false, pathId }: {
       {art === "thanksgiving" && <FallingLeaves />}
       {art === "holiday" && <FallingLeaves snow count={36} />}
       <Header day={data.day} today={data.today} layout={L} onNext={() => setRemindOpen(true)} side={side} signedIn={data.signedIn} isAdmin={!!data.isAdmin} onLogin={() => setSignIn(true)} onSettings={() => setSettingsOpen(true)} />
+      <SeasonPromo signedIn={data.signedIn} isAdmin={!!data.isAdmin} onLogin={() => setSignIn(true)} />
       {signIn && (
         <div className="ob-overlay" role="dialog" aria-label="Log in" onClick={() => setSignIn(false)}>
           <div className="ob-card" onClick={(e) => e.stopPropagation()}>
@@ -896,7 +898,7 @@ function Menu({ signedIn, isAdmin, onLogin, onSettings }: { signedIn: boolean; i
           <div className="cm-menu-scrim" onClick={() => setOpen(false)} />
           <div className="cm-menu-list" role="menu">
             <Link href="/store" role="menuitem" className="cm-menu-link">
-              Store · skins
+              Store
             </Link>
             {isAdmin && (
               <Link href="/admin" role="menuitem" className="cm-menu-link">

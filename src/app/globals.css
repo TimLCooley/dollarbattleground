@@ -4143,3 +4143,40 @@ html { font-synthesis-weight: none; }
 .cm-guest-save { margin: 10px 0 4px; padding: 12px; border: 2px solid var(--gold); background: rgba(242, 193, 78, 0.1); text-align: center; }
 .cm-guest-save-t { font-family: var(--font-pixel), sans-serif; font-size: 16px; color: var(--gold); }
 .cm-guest-save p { margin: 6px 0 10px; font-size: 14px; line-height: 1.4; }
+
+/* ---- This season's Regiment (Tim, 2026-10-31): side panels on desktop, a strip on phones, a log-in pop-up ---- */
+.cm-wrap { position: relative; }
+.sp-rail { display: none; position: absolute; top: 96px; width: 232px; box-sizing: border-box; padding: 16px 14px; background: rgba(12, 40, 24, .82); border: 3px solid #0c3c21; box-shadow: 0 0 0 3px rgba(242, 193, 78, .35), 6px 6px 0 rgba(0,0,0,.25); color: var(--parch); text-align: center; }
+.sp-rail.left { right: calc(100% + 28px); }
+.sp-rail.right { left: calc(100% + 28px); }
+@media (min-width: 1120px) { .sp-rail { display: flex; flex-direction: column; gap: 10px; } }
+.sp-kicker { margin: 0; font-family: var(--font-pixel); font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: #f2c14e; }
+.sp-title { margin: 0; font-family: var(--font-pixel); font-size: 20px; line-height: 1.15; color: var(--parch); }
+.sp-cast { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; text-align: left; font-family: var(--font-hand); font-size: 15px; font-weight: 600; }
+.sp-cast li { display: flex; align-items: center; gap: 10px; padding: 4px 6px; background: rgba(246, 239, 219, .08); border-radius: 4px; }
+.sp-cast-ic { flex: none; width: 40px; height: 40px; display: grid; place-items: center; background: #f6efdb; border: 2px solid currentColor; box-shadow: inset -3px -3px 0 rgba(0,0,0,.15); }
+.sp-cast-ic svg { width: 86%; height: 86%; }
+.sp-note { margin: 0; font-family: var(--font-hand); font-size: 13px; line-height: 1.35; opacity: .85; }
+.sp-board { position: relative; overflow: hidden; }
+.sp-board .cm-leaves { position: absolute; z-index: 2; }
+.sp-board .st-board { max-width: 100%; }
+.sp-buy { font-family: var(--font-pixel); font-size: 15px; padding: 12px 10px; background: #f2c14e; color: #14331d; border: 0; box-shadow: inset -4px -4px 0 rgba(0,0,0,.2); cursor: pointer; }
+.sp-buy:hover:not(:disabled) { filter: brightness(1.08); }
+.sp-buy:disabled { opacity: .7; cursor: default; }
+.sp-more { font-family: var(--font-hand); font-size: 13px; color: #f2c14e; }
+.sp-strip { order: 99; display: flex; align-items: center; gap: 12px; padding: 10px 12px; background: rgba(12, 40, 24, .82); border: 3px solid #0c3c21; box-shadow: 0 0 0 2px rgba(242, 193, 78, .35); color: var(--parch); }
+@media (min-width: 1120px) { .sp-strip { display: none; } }
+.sp-strip-ic { flex: none; width: 40px; height: 40px; display: grid; place-items: center; background: #f6efdb; border: 2px solid currentColor; }
+.sp-strip-ic svg { width: 86%; height: 86%; }
+.sp-strip-txt { flex: 1; display: flex; flex-direction: column; font-family: var(--font-hand); line-height: 1.2; }
+.sp-strip-txt b { font-family: var(--font-pixel); font-weight: 400; font-size: 14px; }
+.sp-strip-txt small { font-size: 12px; opacity: .8; }
+.sp-strip-btn { font-family: var(--font-pixel); font-size: 13px; padding: 8px 12px; background: #f2c14e; color: #14331d; border: 0; cursor: pointer; }
+.sp-card { position: relative; max-width: 380px; display: flex; flex-direction: column; gap: 10px; text-align: center; }
+.sp-card .sp-title { color: inherit; }
+.sp-card .sp-cast { display: grid; grid-template-columns: 1fr 1fr; font-size: 14px; }
+.sp-card .sp-cast li { background: rgba(0,0,0,.06); }
+.sp-card .sp-board .st-board { max-width: 260px; }
+.sp-x { position: absolute; top: 6px; right: 8px; background: none; border: 0; font-size: 26px; line-height: 1; cursor: pointer; color: inherit; opacity: .6; }
+.sp-later { background: none; border: 0; font-family: var(--font-hand); font-size: 14px; text-decoration: underline; cursor: pointer; color: inherit; opacity: .7; }
+.sp-err { margin: 0; color: #b5402a; font-family: var(--font-hand); font-size: 14px; }
