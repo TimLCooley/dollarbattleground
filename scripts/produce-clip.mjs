@@ -785,10 +785,10 @@ async function commanderClip({ kind = "nextmove", auto = false, slot = null }) {
   const getDay = async (d) => (await fetch(`${SB}/rest/v1/commander_days?day=eq.${d}&select=day,layout,solution,optimal`, { headers: sbh }).then((r) => r.json()))?.[0] ?? null;
   // chain: answer the last chain clip's question, then ask a different day's
   const lastAsked = kind === "chain" ? specs.find((v) => v.kind === "cmd_chain" && v.asked_day)?.asked_day ?? null : null;
-  // never show today's best: nextmove/chain use a past day, hype an older one
-  // nextmove asks (and answers) yesterday; chain asks an older day (never the
-  // same question as nextmove); hype plays an older day's best run
-  let want = kind === "nextmove" ? today - 1 : kind === "chain" ? today - 2 : kind === "hype" ? today - 4 : today;
+  // never show today's best: nextmove/chain use a past day; nextmove asks (and
+  // answers) yesterday; chain asks an older day (never the same question as
+  // nextmove); hype thinks through today's first two moves (never the answer)
+  let want = kind === "nextmove" ? today - 1 : kind === "chain" ? today - 2 : today;
   if (kind === "chain" && lastAsked === want) want = today - 3;
   if ((kind === "hype" || kind === "chain") && want < 1) want = 1;
   if (want < 1) { kind = "hard"; want = today; }
@@ -798,7 +798,7 @@ async function commanderClip({ kind = "nextmove", auto = false, slot = null }) {
   if (kind !== "tutorial" && !row) { console.log(`COMMANDER: no puzzle for day ${want}`); return false; }
   const wd = row?.layout?.weekday ?? 0;
   const troops = row ? Number(row.layout.troops.archer) + Number(row.layout.troops.soldier) + Number(row.layout.troops.scout ?? 0) : 0;
-  const seconds = kind === "tutorial" ? 58 : kind === "nextmove" ? 15 : kind === "hype" ? Math.ceil((HYPE_LINES[hypeV].length - 1) * 1.8 + 0.8 + troops * 2.2 + 1.6 + 2.6 + 3) : kind === "chain" ? Math.ceil((ans ? 6 : 0) + 8.5 + 3) : Math.ceil(1.6 + troops * 2.2 + 1.6 + 3.2 + 3);
+  const seconds = kind === "tutorial" ? 58 : kind === "nextmove" ? 15 : kind === "hype" ? Math.ceil((HYPE_LINES[hypeV].length - 1) * 1.8 + 1.2 + 2 * (3 * 1.9 + 2.4) + 3.4 + 3) : // mirrors hypeSeconds() in CommanderClip kind === "chain" ? Math.ceil((ans ? 6 : 0) + 8.5 + 3) : Math.ceil(1.6 + troops * 2.2 + 1.6 + 3.2 + 3);
   // matches quiz() in CommanderClip: the last Archer, else the last Scout, else the last move
   const rest = row ? row.solution.slice(1).reverse() : [];
   const qk = rest.find((p) => p.kind === "archer")?.kind ?? rest.find((p) => p.kind === "scout")?.kind ?? row?.solution.at(-1)?.kind ?? "archer";
