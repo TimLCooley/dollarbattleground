@@ -1,5 +1,5 @@
 import { AbsoluteFill, Audio, Img, OffthreadVideo, interpolate, spring, staticFile, useCurrentFrame, useVideoConfig } from "remotion";
-import { CELLS, SIZE, TREE, WALL, WATER, TROOP_NAME, armyKinds, deployable, ownable, reach, simulate, trail, type Layout, type Placement, type Troop } from "../lib/commander/engine";
+import { CELLS, SIZE, TREE, WALL, WATER, TROOP_NAME, armyKinds, deployable, greedy, ownable, reach, simulate, trail, type Layout, type Placement, type Troop } from "../lib/commander/engine";
 import { Ripple, TreeSprite, TroopIcon, Tuft, WALL_BRICK, hasTuft } from "../components/commander/icons";
 import { BODY_FONT, HEAD_FONT } from "./fonts";
 
@@ -10,8 +10,10 @@ import { BODY_FONT, HEAD_FONT } from "./fonts";
 //  - "hard": "I can't believe how hard this is" — a weak run on today's map
 //    and a results card (e.g. 14 / 35). Never shows today's best layout.
 //  - "tutorial": the how-to-play video, framed for phones.
-//  - "hype": no info, just a push — two or three big lines ("NEW GAME" /
-//    "JUST LAUNCHED" / "PLAY") over a past day's best run playing itself.
+//  - "hype": the hook lines ("If you like Wordle…"), then someone thinking
+//    out loud on today's map — a troop tries a few spots, each showing what it
+//    would take, and goes with one — for two moves, then "your move". Never
+//    plays the best layout (Tim, 2026-11-15: slow, show decisions, no answer).
 //  - "chain": a cliffhanger series — answers the last chain clip's question
 //    (if there was one), asks a new one, then "answer in the next video".
 
@@ -84,6 +86,7 @@ function Board({
   size = 1000,
   options,
   hot,
+  ghost,
 }: {
   L: Layout;
   moves: Placement[];
@@ -92,6 +95,7 @@ function Board({
   size?: number;
   options?: { i: number; label: string; correct: boolean; revealAt: number }[];
   hot?: number | null; // the troop being explained: ringed in gold
+  ghost?: { i: number; kind: Troop; tiles: number[]; gain: number; since: number } | null; // a spot being considered
 }) {
   const { fps } = useVideoConfig();
   const { flipAt, marks } = timeline(L, moves, at);
@@ -150,6 +154,24 @@ function Board({
                 }}
               >
                 {opt.label}
+              </div>
+            )}
+            {ghost && ghost.tiles.includes(i) && !troop && (
+              <div
+                style={{
+                  position: "absolute",
+                  inset: 0,
+                  background: "rgba(53,111,208,0.72)",
+                  outline: "4px dashed rgba(255,255,255,0.85)",
+                  outlineOffset: -6,
+                  opacity: interpolate(frame - ghost.since, [0, 8], [0, 1], { extrapolateRight: "clamp" }),
+                }}
+              />
+            )}
+            {ghost && ghost.i === i && !troop && (
+              <div style={{ position: "absolute", inset: "7%", background: "rgba(246,239,219,0.85)", border: `5px dashed ${GOLD}`, color: ME, zIndex: 3, transform: `scale(${spring({ frame: frame - ghost.since, fps, config: { damping: 12, stiffness: 180 } })})` }}>
+                <TroopIcon kind={ghost.kind} />
+                <div style={{ position: "absolute", left: "50%", bottom: "100%", transform: "translate(-50%, -8px)", background: GOLD, color: "#14331d", fontFamily: FONT, fontSize: size / SIZE / 2.1, padding: "2px 12px", whiteSpace: "nowrap", boxShadow: "0 4px 0 rgba(0,0,0,0.35)" }}>+{ghost.gain}</div>
               </div>
             )}
             {troop && (
@@ -232,6 +254,31 @@ function Narration({ L, run, at, frame, from }: { L: Layout; run: Placement[]; a
     </div>
   );
 }
+
+/**
+ * "Thinking out loud" for the hype clip: the obvious (greedy) first moves, each
+ * shown as three spots tried in turn — what each would take — before going with
+ * the biggest. Only the first `moves` troops; never the day's best layout.
+ */
+function decisions(L: Layout, moves = 2) {
+  const plan = greedy(L).placements.slice(0, moves);
+  return plan.map((pick, k) => {
+    const before = plan.slice(0, k);
+    const fin = simulate(L, before).final;
+    const take = (i: number) => reach(L, i, pick.kind).filter((t) => !fin[t]);
+    const spots = [...deployable(L, fin, before, pick.kind)]
+      .map((i) => ({ i, tiles: take(i) }))
+      .filter((c) => c.i !== pick.i && c.tiles.length > 0)
+      .sort((a, b) => b.tiles.length - a.tiles.length || a.i - b.i);
+    // two other honest options: a near miss and a middling one
+    const others = [spots[0], spots[Math.floor(spots.length / 2)]].filter((c, n, a) => c && a.findIndex((d) => d?.i === c.i) === n);
+    const best = { i: pick.i, tiles: take(pick.i) };
+    const tries = others.length === 2 ? [others[1], best, others[0]] : [...others, best];
+    return { before, kind: pick.kind as Troop, tries: tries.map((c) => ({ ...c, gain: c.tiles.length })), pick: best.i };
+  });
+}
+const TRY = s(1.9); // each spot considered
+const CHOOSE = s(2.4); // going with it: the troop lands and its squares flip
 
 /** The next-move quiz: a point in the best layout, the real next move, and two tempting decoys. */
 function quiz(L: Layout, solution: Placement[]) {
@@ -317,41 +364,82 @@ export const CommanderClip = (p: CommanderClipProps) => {
   };
 
   if (p.variant === "hype") {
-    // the hook lines over a dimmed board, then the run itself, slowly and
-    // explained, then the last line ("PLAY") with the perfect score
+    // hook lines over a dimmed board, then two moves thought out loud, then "your move"
     const lines = p.lines?.length ? p.lines : ["NEW GAME", "JUST LAUNCHED", "PLAY"];
     const intro = lines.slice(0, -1);
     const per = s(1.8);
     const introEnd = intro.length * per;
-    const run = p.solution;
-    const at = run.map((_, k) => introEnd + s(0.8) + k * PACE);
-    const doneAt = (at[at.length - 1] ?? introEnd) + s(1.6);
-    const endAt = doneAt + s(2.6);
+    const steps = decisions(L, 2);
+    const start = introEnd + s(1.2);
+    const stepLen = (n: number) => n * TRY + CHOOSE;
+    const stepAt: number[] = [];
+    let t = start;
+    for (const st of steps) {
+      stepAt.push(t);
+      t += stepLen(st.tries.length);
+    }
+    const askAt = t;
+    const endAt = askAt + s(3.4);
+    const run = steps.map((st) => ({ i: st.pick, kind: st.kind }));
+    const at = steps.map((st, k) => stepAt[k] + st.tries.length * TRY);
+    // what's on screen now
+    let k = -1;
+    for (let j = 0; j < steps.length; j++) if (frame >= stepAt[j]) k = j;
+    const st = k >= 0 && frame < askAt ? steps[k] : null;
+    const into = st ? frame - stepAt[k] : 0;
+    const tryN = st ? Math.floor(into / TRY) : -1;
+    const choosing = !!st && tryN >= st.tries.length;
+    const cand = st && !choosing ? st.tries[tryN] : null;
+    const ghost = cand ? { i: cand.i, kind: st!.kind, tiles: cand.tiles, gain: cand.gain, since: stepAt[k] + tryN * TRY } : null;
+    const placed = steps.reduce((n, _, j) => n + (frame >= at[j] ? 1 : 0), 0);
+    const total = (L.troops.archer ?? 0) + (L.troops.soldier ?? 0) + (L.troops.scout ?? 0);
     const cur = Math.min(intro.length - 1, Math.floor(frame / per));
-    const k = spring({ frame: frame - cur * per, fps: FPS, config: { damping: 10, stiffness: 170 } });
+    const pop = spring({ frame: frame - cur * per, fps: FPS, config: { damping: 10, stiffness: 170 } });
     const dim = interpolate(frame, [introEnd - s(0.3), introEnd], [0.45, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
-    const hot = run.findLastIndex((_, j) => frame >= at[j] && frame < doneAt);
-    const card = spring({ frame: frame - doneAt, fps: FPS, config: { damping: 11, stiffness: 160 } });
+    const ask = spring({ frame: frame - askAt, fps: FPS, config: { damping: 11, stiffness: 160 } });
+    const Kind = st ? TROOP_NAME[st.kind] : "";
     return (
       <AbsoluteFill style={{ background: bg, color: "#f6efdb" }}>
         {bed}
-        {frame >= introEnd && frame < doneAt && title("Goal: take the most ground", `CommanderBG #${p.day} · ${p.dayLabel}`)}
+        {frame >= introEnd && frame < askAt && title("Take the most ground", `Today's CommanderBG · #${p.day} · ${p.dayLabel}`)}
         <div style={{ position: "absolute", top: BOARD_TOP, left: 50, opacity: dim }}>
-          <Board L={L} moves={run} at={at} frame={frame} size={BOARD} hot={hot >= 0 ? run[hot].i : null} />
+          <Board L={L} moves={run} at={at} frame={frame} size={BOARD} ghost={ghost} hot={choosing && st ? st.pick : null} />
         </div>
-        {frame < doneAt && <Narration L={L} run={run} at={at} frame={frame} from={introEnd} />}
+        {frame >= introEnd && frame < askAt && (
+          <div style={{ position: "absolute", top: BELOW - 6, left: 50, right: 150, fontFamily: BODY, fontWeight: 700, fontSize: 44, lineHeight: 1.2 }}>
+            {!st ? (
+              <>
+                <span style={{ color: GOLD }}>{total} troops.</span> Where does the first one go?
+              </>
+            ) : (
+              <>
+                <span style={{ color: GOLD }}>
+                  {Kind} #{k + 1}
+                </span>{" "}
+                {choosing ? `— going with +${st.tries.find((c) => c.i === st.pick)!.gain}.` : tryN === 0 ? "— here?" : "— or here?"}
+                <div style={{ display: "flex", gap: 14, marginTop: 12 }}>
+                  {st.tries.slice(0, choosing ? st.tries.length : tryN + 1).map((c, n) => (
+                    <span key={n} style={{ fontFamily: FONT, fontSize: 44, padding: "4px 16px", background: choosing && c.i === st.pick ? GOLD : "rgba(0,0,0,0.3)", color: choosing && c.i === st.pick ? "#14331d" : "#f6efdb" }}>
+                      +{c.gain}
+                    </span>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
+        )}
         {frame < introEnd && intro.length > 0 && (
           <AbsoluteFill style={{ display: "grid", placeItems: "center", padding: "0 70px" }}>
-            <div style={{ transform: `scale(${k})`, textAlign: "center", fontFamily: FONT, fontSize: intro[cur].length > 14 ? 120 : 170, lineHeight: 1.05, color: "#fff", textShadow: "0 10px 0 rgba(0,0,0,0.45), 0 0 40px rgba(0,0,0,0.5)" }}>
+            <div style={{ transform: `scale(${pop})`, textAlign: "center", fontFamily: FONT, fontSize: intro[cur].length > 14 ? 120 : 170, lineHeight: 1.05, color: "#fff", textShadow: "0 10px 0 rgba(0,0,0,0.45), 0 0 40px rgba(0,0,0,0.5)" }}>
               {intro[cur]}
             </div>
           </AbsoluteFill>
         )}
-        {frame >= doneAt && frame < endAt && (
-          <AbsoluteFill style={{ display: "grid", placeItems: "center", background: `rgba(10,46,26,${0.75 * Math.min(1, card)})` }}>
-            <div style={{ transform: `scale(${card})`, textAlign: "center", padding: "0 70px" }}>
-              <div style={{ fontFamily: BODY, fontWeight: 700, fontSize: 54 }}>That&apos;s a perfect {p.optimal} squares.</div>
-              <div style={{ fontFamily: FONT, fontSize: lines[lines.length - 1].length > 14 ? 120 : 170, lineHeight: 1.05, marginTop: 26, color: GOLD, textShadow: "0 10px 0 rgba(0,0,0,0.45)" }}>{lines[lines.length - 1]}</div>
+        {frame >= askAt && frame < endAt && (
+          <AbsoluteFill style={{ display: "grid", placeItems: "center", background: `rgba(10,46,26,${0.72 * Math.min(1, ask)})` }}>
+            <div style={{ transform: `scale(${ask})`, textAlign: "center", padding: "0 70px" }}>
+              <div style={{ fontFamily: BODY, fontWeight: 700, fontSize: 54 }}>{total - placed} troops left. The obvious move isn&apos;t always the best one…</div>
+              <div style={{ fontFamily: FONT, fontSize: lines[lines.length - 1].length > 14 ? 120 : 160, lineHeight: 1.05, marginTop: 26, color: GOLD, textShadow: "0 10px 0 rgba(0,0,0,0.45)" }}>{lines[lines.length - 1]}</div>
             </div>
           </AbsoluteFill>
         )}
@@ -490,8 +578,14 @@ export const CommanderClip = (p: CommanderClipProps) => {
 export function commanderClipSeconds(p: Pick<CommanderClipProps, "variant" | "layout">): number {
   if (p.variant === "tutorial" || !p.layout) return 58;
   if (p.variant === "nextmove") return 15;
-  if (p.variant === "hype") return 0; // the producer sets it: (lines − 1) × 1.8 + 0.8 + troops × 2.2 + 1.6 + 2.6 + 3
+  if (p.variant === "hype") return hypeSeconds(p.layout, 3);
   if (p.variant === "chain") return 0; // the producer sets it (with or without the answer part)
   const n = weakRun(p.layout).length;
   return Math.ceil(1.6 + (n * PACE) / FPS + 1.6 + 3.2 + 3);
+}
+
+/** The hype clip's length for a hook of `lines` lines (the producer mirrors this). */
+export function hypeSeconds(L: Layout, lines: number): number {
+  const frames = (lines - 1) * s(1.8) + s(1.2) + decisions(L, 2).reduce((n, st) => n + st.tries.length * TRY + CHOOSE, 0) + s(3.4) + s(3);
+  return Math.ceil(frames / FPS);
 }

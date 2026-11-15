@@ -130,16 +130,19 @@ export function generate(day: number, attempt = 0): Layout {
     terrain[idx(x, y)] = TREE;
     k++;
   }
-  // a different army every day
-  const archer = 2 + pick(4);
-  const soldier = 2 + pick(4);
-  // Scout days: the Scout replaces one of the two (same seed otherwise)
+  // a different army every day — small (Tim, 2026-11-15: ~5 troops, not ~9):
+  // 4–5 on easier days, 5–6 on Thursday–Saturday, split between two kinds
   const sp = scoutPartner(day);
-  const scout = sp ? 2 + pick(3) : 0;
+  const total = 4 + (level >= 3 ? 1 : 0) + pick(2);
+  const first = 2 + pick(total - 3); // 2 … total − 2
+  // Scout days: the Scout replaces one of the two
+  const archer = sp === "soldier" ? first : sp === "archer" ? 0 : first;
+  const soldier = sp === "archer" ? first : sp === "soldier" ? 0 : total - first;
+  const scout = sp ? total - first : 0;
   // the Commander's spot — on land
   let commander = idx(pick(SIZE), pick(SIZE));
   for (let g = 0; g < 200 && terrain[commander] !== GRASS; g++) commander = idx(pick(SIZE), pick(SIZE));
-  const troops: Army = sp === "archer" ? { archer, soldier: 0, scout } : sp === "soldier" ? { archer: 0, soldier, scout } : { archer, soldier };
+  const troops: Army = sp ? { archer, soldier, scout } : { archer, soldier };
   return { day, weekday, terrain, commander, troops };
 }
 
